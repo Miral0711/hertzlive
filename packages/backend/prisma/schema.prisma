@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Fresh minimal auth model. Not tied to the prototype's fictional seed data.
+// Single-tenant for now: no agency/tenant scoping yet (add later if needed).
+enum Role {
+  partner
+  designer
+  site_manager
+  hr
+  client
+  contractor
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(designer)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}

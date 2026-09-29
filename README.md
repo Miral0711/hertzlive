@@ -1,70 +1,64 @@
-# Getting Started with Create React App
+# Archos workspace
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An Nx workspace (npm workspaces) holding the Archos product's frontend and backend.
 
-## Available Scripts
+```
+packages/
+  frontend/   React (Create React App + Tailwind) desktop app — a port of the archos prototype's apps/desktop
+  backend/    Express + TypeScript API — PostgreSQL via Prisma, JWT auth
+```
 
-In the project directory, you can run:
+## Prerequisites
 
-### `npm start`
+- Node.js 20+, npm 10+
+- Docker (for local Postgres)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Setup
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```sh
+npm install
+npm run db:up                 # starts Postgres in Docker (localhost:5433)
+cp packages/backend/.env.example packages/backend/.env   # already done; edit JWT_SECRET for real use
+npx nx run backend:prisma-migrate
+```
 
-### `npm test`
+## Running
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```sh
+npm run frontend   # http://localhost:3000  (redirects to /desktop/today)
+npm run backend    # http://localhost:4000
+npm run dev        # both, in parallel
+```
 
-### `npm run build`
+## Backend API (v1: auth only)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+| Method | Path | Auth | Body |
+|---|---|---|---|
+| POST | `/auth/register` | — | `{ name, email, password, role? }` |
+| POST | `/auth/login` | — | `{ email, password }` |
+| GET | `/auth/me` | Bearer token | — |
+| GET | `/health` | — | — |
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+`role` is one of `partner \| designer \| site_manager \| hr \| client \| contractor` (defaults to `designer`).
+Register/login both return `{ token, user }`; use `Authorization: Bearer <token>` on `/auth/me`.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The frontend still reads its own mock data/localStorage (`packages/frontend/src/shared`) — it is not
+yet wired up to this API. See `packages/frontend/src/desktop/PORTING.md` for the frontend's own structure.
 
-### `npm run eject`
+## Database
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Postgres runs in Docker on port **5433** (not 5432, to avoid clashing with any other local Postgres).
+Schema lives in `packages/backend/prisma/schema.prisma`; migrations in `packages/backend/prisma/migrations/`.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```sh
+npm run db:up      # start
+npm run db:down    # stop
+npx nx run backend:prisma-migrate   # after changing schema.prisma
+npx nx run backend:prisma-generate  # regenerate the Prisma client only
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Nx
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Both packages are plain npm-workspace packages; Nx (`nx.json`, `workspaceLayout.appsDir: "packages"`)
+sits on top purely for task running/caching (`nx serve frontend`, `nx build backend`, `nx run-many ...`).
+Nothing about either package's own tooling (react-scripts, tsx/tsc) changed to adopt Nx.

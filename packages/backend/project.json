@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "root": "packages/backend",
+  "sourceRoot": "packages/backend/src",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-script",
+      "options": { "script": "dev" }
+    },
+    "build": {
+      "executor": "nx:run-script",
+      "options": { "script": "build" },
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "start": {
+      "executor": "nx:run-script",
+      "options": { "script": "start" }
+    },
+    "prisma-generate": {
+      "executor": "nx:run-script",
+      "options": { "script": "prisma:generate" }
+    },
+    "prisma-migrate": {
+      "executor": "nx:run-script",
+      "options": { "script": "prisma:migrate" }
+    }
+  }
+}

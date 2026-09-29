@@ -1,0 +1,21 @@
+{
+  "name": "frontend",
+  "root": "packages/frontend",
+  "sourceRoot": "packages/frontend/src",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-script",
+      "options": { "script": "start" }
+    },
+    "build": {
+      "executor": "nx:run-script",
+      "options": { "script": "build" },
+      "outputs": ["{projectRoot}/build"]
+    },
+    "test": {
+      "executor": "nx:run-script",
+      "options": { "script": "test" }
+    }
+  }
+}
