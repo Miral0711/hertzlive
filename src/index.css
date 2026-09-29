@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Anek+Latin:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme tokens. Agency accent colours are written over these at runtime by applyAgencyTheme(). */
+:root {
+  --ground: #f7f6f3; --surface: #ffffff; --surface-2: #f3f1ec; --surface-3: #e8e4dc;
+  --ink: #2b2a29; --ink-2: #504c48; --ink-3: #68625b; --line: #e4dfd7; --line-2: #b9b2a7;
+  --accent: #945543; --accent-ink: #ffffff; --accent-soft: #f2e7de; --accent-text: #945543;
+  --client: #945543; --client-soft: #f2e7de;
+  --warn: #8a5a00; --warn-soft: #fff1d6; --crit: #b3261e; --crit-soft: #fbe4e2;
+  --ok: #35604b; --ok-soft: #e7efe8;
+  --mine: #ede7d8; --chat: #f1eee8;
+  --shadow-1: 0 4px 12px rgb(0 0 0 / 0.1); --shadow-2: 0 8px 24px rgb(0 0 0 / 0.16);
+  --r-1: 8px; --r-2: 8px; --r-3: 12px;
+  --sel: #945543; --sel-ink: #ffffff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ground: #222120; --surface: #2b2a29; --surface-2: #34322f; --surface-3: #44413b;
+    --ink: #f5f1e9; --ink-2: #d7d1c7; --ink-3: #bbb4a7; --line: #44413b; --line-2: #655f54;
+    --accent: #d9a38c; --accent-ink: #222120; --accent-soft: #46342c; --accent-text: #edbaa5;
+    --client: #d9a38c; --client-soft: #46342c;
+    --warn: #f5c26b; --warn-soft: #3a2e14; --crit: #ff8a80; --crit-soft: #3e1f1c;
+    --ok: #a8c8b0; --ok-soft: #29382e;
+    --mine: #4b4237; --chat: #222120;
+    --shadow-1: 0 4px 12px rgb(0 0 0 / 0.5); --shadow-2: 0 8px 24px rgb(0 0 0 / 0.6);
+    --sel: #d9a38c; --sel-ink: #222120;
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --ground: #222120; --surface: #2b2a29; --surface-2: #34322f; --surface-3: #44413b;
+  --ink: #f5f1e9; --ink-2: #d7d1c7; --ink-3: #bbb4a7; --line: #44413b; --line-2: #655f54;
+  --accent: #d9a38c; --accent-ink: #222120; --accent-soft: #46342c; --accent-text: #edbaa5;
+  --client: #d9a38c; --client-soft: #46342c;
+  --warn: #f5c26b; --warn-soft: #3a2e14; --crit: #ff8a80; --crit-soft: #3e1f1c;
+  --ok: #a8c8b0; --ok-soft: #29382e;
+  --mine: #4b4237; --chat: #222120;
+  --shadow-1: 0 4px 12px rgb(0 0 0 / 0.5); --shadow-2: 0 8px 24px rgb(0 0 0 / 0.6);
+  --sel: #d9a38c; --sel-ink: #222120;
+  color-scheme: dark;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply m-0 min-w-0 bg-ground font-ui text-sm text-ink antialiased;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+    caret-color: var(--accent);
+  }
+  ::selection { background: var(--sel); color: var(--sel-ink); }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  button { @apply cursor-pointer; }
+  a { color: var(--accent-text); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+}
