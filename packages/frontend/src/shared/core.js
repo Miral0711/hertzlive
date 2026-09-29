@@ -849,6 +849,18 @@ export const svc = {
     }
     return id;
   },
+  votePoll(msgId, idx) {
+    const m = state.db.MESSAGES.find(x => x.id === msgId && !x.deleted);
+    if (!m || !m.poll || !m.poll.options[idx]) return;
+    const uid2 = state.userId;
+    m.poll.options.forEach((o, i) => {
+      const has = o.votes.includes(uid2);
+      if (i === idx) o.votes = has ? o.votes.filter(v => v !== uid2) : [...o.votes, uid2];
+      else if (!m.poll.multi) o.votes = o.votes.filter(v => v !== uid2);
+    });
+    persist();
+    render();
+  },
   fileToMoodboard(msgId, save = true) {
     const m = state.db.MESSAGES.find((x) => x.id === msgId);
     if (!m || !m.link) return false;

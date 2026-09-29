@@ -25,7 +25,15 @@ export function AttachmentPreview({ m }) {
   const a = messageAttachment(m);
   if (!a) return null;
   if (m.file) {
-    return <p className="my-2 rounded-r1 bg-surface-2 p-3 text-ink-2">File preview unavailable in this prototype. The original file is not attached.</p>;
+    if (!m.file.dataUrl) {
+      return <p className="my-2 rounded-r1 bg-surface-2 p-3 text-ink-2">File preview unavailable in this prototype. The original file is not attached.</p>;
+    }
+    return (
+      <div className="my-2 flex flex-col gap-2 rounded-r1 bg-surface-2 p-3">
+        {m.file.mime?.startsWith('image/') && <img src={m.file.dataUrl} alt="" className="max-h-72 rounded-r1 object-contain" />}
+        <a href={m.file.dataUrl} download={m.file.name} className="text-accent-text underline">Download {m.file.name}</a>
+      </div>
+    );
   }
   const media = m.photo || m.album;
   const count = m.album ? Math.max(1, Math.min(Number(m.album.n) || 1, 4)) : 1;

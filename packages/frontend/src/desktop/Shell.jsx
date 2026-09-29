@@ -9,7 +9,9 @@ import { NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
 import DialogHost from './DialogHost';
-import { cycleTheme, resetSampleData, switchPersona, toggleChatPane } from './session';
+import {
+  cycleTheme, logout, resetSampleData, switchPersona, toggleChatPane,
+} from './session';
 import { PERSONAS } from './data';
 
 const themeLabel = { system: 'System', light: 'Light', dark: 'Dark' };
@@ -157,6 +159,13 @@ export default function Shell() {
             </button>
             <button type="button" onClick={resetSampleData} className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 px-3.5 font-semibold hover:bg-surface-2">
               <Icon name="reset" small /> Reset sample data
+            </button>
+            <button
+              type="button"
+              onClick={() => { logout(); navigate('/login', { replace: true }); }}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 px-3.5 font-semibold hover:bg-surface-2"
+            >
+              <Icon name="logout" small /> Log out
             </button>
             <small className="text-ink-3">Interactive preview · sample records</small>
           </div>

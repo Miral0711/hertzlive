@@ -21,13 +21,31 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required.'),
 });
 
-const publicUser = (u: { id: string; email: string; name: string; role: string; createdAt: Date }) => ({
+const publicUser = (u: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  organizationId: string;
+  createdAt: Date;
+}) => ({
   id: u.id,
   email: u.email,
   name: u.name,
   role: u.role,
+  organizationId: u.organizationId,
   createdAt: u.createdAt,
 });
+
+// Prototype has exactly one tenant; new self-registrations land here until a real
+// organization-signup flow exists.
+const DEFAULT_ORG_SLUG = 'hertz-demo';
+
+async function defaultOrganizationId() {
+  const org = await prisma.organization.findUnique({ where: { slug: DEFAULT_ORG_SLUG } });
+  if (!org) throw new Error(`Default organization "${DEFAULT_ORG_SLUG}" is not seeded.`);
+  return org.id;
+}
 
 authRouter.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
@@ -42,9 +60,10 @@ authRouter.post('/register', async (req, res) => {
   }
 
   const passwordHash = await hashPassword(password);
-  const user = await prisma.user.create({ data: { name, email, passwordHash, role } });
+  const organizationId = await defaultOrganizationId();
+  const user = await prisma.user.create({ data: { name, email, passwordHash, role, organizationId } });
 
-  const token = signToken({ sub: user.id, role: user.role, email: user.email });
+  const token = signToken({ sub: user.id, role: user.role, email: user.email, organizationId: user.organizationId });
   res.status(201).json({ token, user: publicUser(user) });
 });
 
@@ -61,7 +80,7 @@ authRouter.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Invalid email or password.' });
   }
 
-  const token = signToken({ sub: user.id, role: user.role, email: user.email });
+  const token = signToken({ sub: user.id, role: user.role, email: user.email, organizationId: user.organizationId });
   res.json({ token, user: publicUser(user) });
 });
 

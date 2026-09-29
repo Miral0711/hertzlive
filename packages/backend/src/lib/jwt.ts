@@ -5,6 +5,7 @@ export interface AuthTokenPayload {
   sub: string; // user id
   role: string;
   email: string;
+  organizationId: string;
 }
 
 export const signToken = (payload: AuthTokenPayload) =>

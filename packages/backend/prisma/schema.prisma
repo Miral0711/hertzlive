@@ -8,7 +8,6 @@ datasource db {
 }
 
 // Fresh minimal auth model. Not tied to the prototype's fictional seed data.
-// Single-tenant for now: no agency/tenant scoping yet (add later if needed).
 enum Role {
   partner
   designer
@@ -18,14 +17,37 @@ enum Role {
   contractor
 }
 
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role     @default(designer)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+// White-label foundation: every user belongs to exactly one organization (tenant).
+// Only one organization exists today (the "hertz-demo" seed below), but every query
+// that touches users/projects/etc. should already be scoped by organizationId so a
+// second tenant can be added later without restructuring auth.
+model Organization {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  name          String
+  logo          String?
+  primaryColor  String?
+  secondaryColor String?
+  settings      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
+  users User[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  email          String       @unique
+  passwordHash   String
+  name           String
+  role           Role         @default(designer)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
   @@map("users")
 }

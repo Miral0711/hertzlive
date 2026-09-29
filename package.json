@@ -18,8 +18,7 @@
     "nx": "^20.3.0"
   },
   "overrides": {
-    "dotenv": "^16.4.7",
-    "dotenv-expand": "^11.0.7"
+    "dotenv": "^16.4.7"
   },
   "allowScripts": {
     "@prisma/client@6.19.3": true,
