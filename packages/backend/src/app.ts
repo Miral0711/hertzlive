@@ -2,6 +2,8 @@ import cors from 'cors';
 import express from 'express';
 import { env } from './lib/env';
 import { authRouter } from './routes/auth';
+import { leaveRouter } from './routes/leave';
+import { holidayRouter } from './routes/holiday';
 
 export const app = express();
 
@@ -10,6 +12,8 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/auth', authRouter);
+app.use(leaveRouter);
+app.use(holidayRouter);
 
 // Keep this last: catches anything unhandled above and any thrown/rejected error from a route.
 app.use((req, res) => res.status(404).json({ error: 'Not found.' }));

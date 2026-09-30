@@ -6,6 +6,7 @@ import { DLink } from '../nav';
 import { closeDialog, openDialog } from '../session';
 import { name } from '../helpers';
 import { SRC } from './common';
+import { createHoliday, updateHoliday } from '../../api/leaveClient';
 
 const KV = ({ k, children }) =>
   children ? (
@@ -148,6 +149,46 @@ export function ReviewDialog({ d }) {
         <ModalActions>
           <Btn onClick={closeDialog}>Cancel</Btn>
           <Btn kind="primary" type="submit">Save review</Btn>
+        </ModalActions>
+      </form>
+    </Modal>
+  );
+}
+
+// Real, per-organization Holiday Management (packages/backend/src/routes/holiday.ts). `d.onSaved`
+// is a plain callback the caller passes in (dialogs here aren't persisted to localStorage, so a
+// function value in `d` is safe) - it's how the Schedule "Holidays" tab refetches its own list
+// after this dialog saves, since that tab keeps its data in local component state, not `state.db`.
+export function HolidayDialog({ d }) {
+  const editing = Boolean(d.holiday);
+  const save = (e) => {
+    e.preventDefault();
+    const p = Object.fromEntries(new FormData(e.currentTarget));
+    const payload = { name: p.name, date: p.date, type: p.type, description: p.description || undefined };
+    (editing ? updateHoliday(d.holiday.id, payload) : createHoliday(payload))
+      .then(() => {
+        closeDialog();
+        toast(editing ? 'Holiday updated.' : 'Holiday added.');
+        d.onSaved?.();
+      })
+      .catch((err) => { d.error = err.message; render(); });
+  };
+  return (
+    <Modal title={editing ? 'Edit holiday' : 'Add holiday'}>
+      <form onSubmit={save}>
+        <Field label="Name"><Input name="name" defaultValue={d.holiday?.name} required /></Field>
+        <Field label="Date"><Input type="date" name="date" defaultValue={d.holiday?.date?.slice(0, 10)} required /></Field>
+        <Field label="Type">
+          <Select name="type" defaultValue={d.holiday?.type || 'mandatory'}>
+            <option value="mandatory">Mandatory</option>
+            <option value="optional">Optional / floating</option>
+          </Select>
+        </Field>
+        <Field label="Description"><Textarea name="description" defaultValue={d.holiday?.description || ''} rows={3} /></Field>
+        {d.error && <p role="alert" className="text-crit">{d.error}</p>}
+        <ModalActions>
+          <Btn onClick={closeDialog}>Cancel</Btn>
+          <Btn kind="primary" type="submit">{editing ? 'Save' : 'Add holiday'}</Btn>
         </ModalActions>
       </form>
     </Modal>

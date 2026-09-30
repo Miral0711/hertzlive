@@ -32,7 +32,11 @@ model Organization {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  users User[]
+  users         User[]
+  leaveTypes    LeaveType[]
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
+  holidays      Holiday[]
 
   @@map("organizations")
 }
@@ -48,6 +52,115 @@ model User {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  leaveRequests         LeaveRequest[] @relation("LeaveRequestsByEmployee")
+  approvedLeaveRequests LeaveRequest[] @relation("LeaveRequestsApprovedBy")
+  leaveBalances         LeaveBalance[]
+
   @@index([organizationId])
   @@map("users")
+}
+
+// ---------- Leave Management ----------
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+// Per-organization leave policy. Only "Hertz Studio" is seeded today, but every field here
+// (and the organizationId scope) exists so another tenant can define its own leave types later
+// without any schema change - see prisma/seed.ts. Half-day is not a leave type of its own; it's
+// `allowHalfDay` on the type the employee picks (applied per-request, see LeaveRequest.halfDay).
+model LeaveType {
+  id               String       @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  name             String
+  paid             Boolean      @default(true)
+  annualAllowance  Float        @default(0)
+  allowHalfDay     Boolean      @default(false)
+  requiresApproval Boolean      @default(true)
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  employeeId     String
+  employee       User         @relation("LeaveRequestsByEmployee", fields: [employeeId], references: [id])
+  leaveTypeId    String
+  leaveType      LeaveType    @relation(fields: [leaveTypeId], references: [id])
+  startDate      DateTime
+  endDate        DateTime
+  halfDay        Boolean      @default(false)
+  // Server-computed on create (inclusive day span, or 0.5 for halfDay) - never trusted from the client.
+  totalDays      Float
+  reason         String?
+  status         LeaveStatus  @default(pending)
+  approvedBy     String?
+  approver       User?        @relation("LeaveRequestsApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("leave_requests")
+}
+
+// One row per employee x leave type x year. `remaining` is always server-recomputed as
+// `allocated - used - pending` on every mutation (apply/cancel/approve/reject) - no route ever
+// accepts it from a request body; it's stored (rather than computed on read) purely so a simple
+// `SELECT` can answer "what's my balance" without re-deriving it from every LeaveRequest row.
+model LeaveBalance {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  employeeId     String
+  employee       User         @relation(fields: [employeeId], references: [id])
+  leaveTypeId    String
+  leaveType      LeaveType    @relation(fields: [leaveTypeId], references: [id])
+  year           Int
+  allocated      Float        @default(0)
+  used           Float        @default(0)
+  pending        Float        @default(0)
+  remaining      Float        @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, employeeId, leaveTypeId, year])
+  @@index([organizationId])
+  @@map("leave_balances")
+}
+
+// ---------- Holiday Management ----------
+
+model Holiday {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  date           DateTime
+  // "mandatory" | "optional" - kept as a plain string (not an enum) since it's the kind of thing
+  // a tenant's HR might eventually want to relabel/extend.
+  type           String       @default("mandatory")
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@map("holidays")
 }
