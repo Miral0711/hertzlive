@@ -12,6 +12,8 @@ import { Btn } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { downscaleImage, loadImage } from './mediaUtils';
 
+// Intentional exception: this is the user's own pen/shape ink palette for annotating a photo, not
+// UI chrome — it stays fixed regardless of the app's light/dark theme, same as any paint tool.
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#111827', '#ffffff'];
 const SIZES = [4, 8, 16];
 const QUICK_LABELS = [
@@ -304,6 +306,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   if (isVideo) {
     return (
       <Modal title="Send video" wide onClose={onCancel}>
+        {/* bg-black is the same intentional video-letterbox exception as elsewhere in chat. */}
         <video src={videoUrl} controls className="max-h-[60vh] w-full rounded-r1 bg-black" />
         <p className="mt-2 text-xs text-ink-3">Video editing isn't supported yet - you can preview and send it as-is.</p>
         <ModalActions>

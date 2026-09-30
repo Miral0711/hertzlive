@@ -149,49 +149,10 @@ function PulseStrip() {
     </div>
   );
 }
-export function CashChart() {
-  const rows = monthsBack(6).map(cashRow);
-  const max = Math.max(1, ...rows.flatMap((r) => [r.planned, r.got]));
-  const h = (v) => Math.round((v / max) * 100);
-  return (
-    <Card title="Cash in vs due, last 6 months">
-      <div className="flex h-40 items-end gap-3" role="img" aria-label="Cash received against invoices due, by month">
-        {rows.map((r) => (
-          <div key={r.mo} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-            <div className="flex h-full w-full items-end justify-center gap-1">
-              <i className="block w-3 rounded-t bg-line-2" style={{ height: `${h(r.planned)}%` }} title={`Due ${inr(r.planned)}`} />
-              <i className="block w-3 rounded-t bg-accent" style={{ height: `${h(r.got)}%` }} title={`Received ${inr(r.got)}`} />
-            </div>
-            <span className="text-xs text-ink-3">{r.label}</span>
-          </div>
-        ))}
-      </div>
-      <p className="mb-0 mt-2 text-[13px] text-ink-3">
-        <i className="inline-block h-2.5 w-2.5 rounded-sm bg-line-2 align-middle" /> Due by invoice date{' '}
-        <i className="ml-2 inline-block h-2.5 w-2.5 rounded-sm bg-accent align-middle" /> Received
-      </p>
-    </Card>
-  );
-}
-export function SitesChart() {
-  const rows = svc.sites().map((s) => ({ s, plan: sitePlan(s) }));
-  if (!rows.length) return null;
-  return (
-    <Card title="Progress against plan" className="mb-3.5">
-      {rows.map(({ s, plan }) => (
-        <div key={s.id} className="mb-2 grid items-center gap-x-3 gap-y-1 md:grid-cols-[180px_1fr_auto]">
-          <span><SiteLink id={s.id}>{s.name}</SiteLink></span>
-          <div className="relative h-2 rounded bg-surface-3">
-            <i className={`block h-full rounded ${siteOnTrack(s) ? 'bg-accent' : 'bg-warn'}`} style={{ width: `${s.progress}%` }} />
-            {plan !== null && <em className="absolute -top-1 h-4 w-0.5 bg-ink" style={{ left: `${plan}%` }} title={`Plan ${plan}% by today`} />}
-          </div>
-          <small className="text-ink-3">{s.progress}% done{plan === null ? '' : `, plan ${plan}%`}</small>
-        </div>
-      ))}
-      <p className="mb-0 text-[13px] text-ink-3">Plan is working days between project start and handover, site holidays from Settings skipped. Tick marks where the site should be today.</p>
-    </Card>
-  );
-}
+// Note: this module used to export its own CashChart()/SitesChart() as well — dead code, never
+// imported anywhere (pages/money.jsx has the one actually rendered on the Money page; sites/
+// SiteBoard.jsx has the one actually rendered on the Sites page). Removed rather than fixed in
+// place, since fixing colors on unreachable code doesn't help anyone.
 
 function approvalsDue() {
   return state.db.STATUTORY.filter((a) => a.followUp && a.followUp <= TODAY && a.status !== 'granted').map((a) => (

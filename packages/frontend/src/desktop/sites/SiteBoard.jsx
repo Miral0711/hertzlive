@@ -11,6 +11,7 @@ import { AssistButton } from '../chat/assist';
 import Ph from '../../ui/Ph';
 import { IssueWorkspace, DeliveryWorkspace } from './Work';
 import { Details, Progress } from './bits';
+import { trackFill } from '../../ui/tones';
 
 function sitePlan(s) {
   const p = P(s.projectId);
@@ -34,7 +35,7 @@ function SitesChart() {
         <div key={s.id} className="mb-2 grid grid-cols-[minmax(90px,1fr)_2fr_minmax(90px,1fr)] items-center gap-3">
           <span><SiteLink id={s.id}>{s.name}</SiteLink></span>
           <div className="relative h-2 rounded bg-surface-3">
-            <i className={`block h-full rounded ${siteOnTrack(s) ? 'bg-accent' : 'bg-warn'}`} style={{ width: `${s.progress}%` }} />
+            <i className={`block h-full rounded ${trackFill(siteOnTrack(s))}`} style={{ width: `${s.progress}%` }} />
             {plan !== null && <em title={`Plan ${plan}% by today`} className="absolute -top-1 h-4 w-0.5 bg-ink" style={{ left: `${plan}%` }} />}
           </div>
           <small className="text-ink-3">{s.progress}% done{plan === null ? '' : `, plan ${plan}%`}</small>
@@ -309,6 +310,7 @@ function Materials({ s }) {
         <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
           {list.map((m) => (
             <article key={m.id} className="overflow-hidden rounded-r3 border border-line bg-surface">
+              {/* bg-black/60 + text-white: a fixed-contrast caption over a photo, intentionally theme-independent. */}
               <div className="relative"><Ph hue={m.hue} seed={m.seed} /><span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 text-xs text-white">Demo preview · original not attached</span></div>
               <div className="flex flex-col items-start gap-1.5 p-3">
                 <h3 className="m-0 text-base font-semibold">{m.name}</h3>

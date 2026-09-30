@@ -98,6 +98,9 @@ function markupSend(projectId) {
 }
 
 // ---------- demonstration sheet ----------
+// Intentional exception: this simulates a printed drawing sheet — white paper, black linework,
+// red markup ink — which stays fixed regardless of the app's theme, the same way a real drawing
+// print would.
 function paintSheet(c) {
   const x = c.getContext('2d');
   x.fillStyle = '#fff';

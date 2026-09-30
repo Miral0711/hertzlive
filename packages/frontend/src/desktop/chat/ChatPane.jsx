@@ -208,6 +208,8 @@ function Message({ m }) {
       {m.media && live && (
         <div className="my-1.5">
           {m.media.kind === 'video'
+            // bg-black is intentional — the letterbox behind a video element stays black in
+            // both themes, same as any video player.
             ? <video src={m.media.url} controls className="max-h-72 w-full rounded-r1 bg-black" />
             : <img src={m.media.dataUrl} alt="" className="max-h-72 w-full rounded-r1 object-cover" />}
         </div>
@@ -524,6 +526,7 @@ function Drawer({ children }) {
       aria-label="Conversations"
       onClose={hide}
       onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}
+      // backdrop:bg-black/30 is the same intentional dialog-scrim exception as Modal.jsx.
       className="fixed left-auto right-0 top-[60px] m-0 h-[calc(100dvh-60px)] max-h-none w-[min(420px,100vw)] max-w-[100vw] overflow-hidden border-0 border-l border-line bg-surface p-0 text-ink shadow-s2 backdrop:bg-black/30 max-[600px]:top-[108px] max-[600px]:h-[calc(100dvh-108px)]"
     >
       <div className="h-full [&>aside]:h-full">{children}</div>

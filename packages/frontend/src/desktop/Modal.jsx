@@ -15,6 +15,8 @@ export default function Modal({ title, wide = false, label, onClose = closeDialo
       ref={ref}
       aria-label={label}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
+      // backdrop:bg-black/40 is an intentional exception — a modal scrim stays black at a fixed
+      // opacity in both themes, the same way a browser's own <dialog> backdrop would.
       className={`m-auto max-h-[90vh] w-[min(560px,calc(100vw-32px))] overflow-auto rounded-r3 border border-line bg-surface p-5 text-ink shadow-s2 backdrop:bg-black/40 ${wide ? '!w-[min(900px,calc(100vw-32px))]' : ''}`}
     >
       {title && <h3 className="mb-3 mt-0 text-lg font-semibold">{title}</h3>}

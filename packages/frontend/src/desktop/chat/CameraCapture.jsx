@@ -63,6 +63,7 @@ export default function CameraCapture({ onCancel, onCapture }) {
           />
         </div>
       ) : (
+        // bg-black is the same intentional video-letterbox exception as elsewhere in chat.
         <video ref={videoRef} autoPlay playsInline muted className="max-h-[55vh] w-full rounded-r1 bg-black" />
       )}
       <ModalActions>

@@ -1,6 +1,7 @@
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
+import { TONE_FILL, TONE_SOFT } from './tones';
 
 // ---------- Buttons ----------
 const btnBase =
@@ -25,14 +26,15 @@ export function Btn({ kind = 'default', sm = false, icon, className = '', childr
 }
 
 // ---------- Status pill / chip ----------
+// `ok` is the positive/settled state (paid, approved, done) — the olive system color, never the
+// brand accent, which is reserved for primary actions and current-selection. Sourced from the
+// shared tone map (src/ui/tones.js) rather than re-declared here.
 const pillKinds = {
-  '': 'border-line-2 text-ink-2',
-  // `ok` is the positive/settled state (paid, approved, done) — the olive system color,
-  // never the brand accent, which is reserved for primary actions and current-selection.
-  ok: 'border-ok-soft bg-ok-soft text-ok',
-  soft: 'border-accent-soft bg-accent-soft text-accent-text',
-  warn: 'border-warn-soft bg-warn-soft text-warn',
-  crit: 'border-crit-soft bg-crit-soft text-crit',
+  '': TONE_SOFT[''],
+  ok: TONE_SOFT.ok,
+  soft: TONE_SOFT.accent,
+  warn: TONE_SOFT.warn,
+  crit: TONE_SOFT.crit,
 };
 export function Pill({ kind = '', children }) {
   return (
@@ -127,7 +129,7 @@ export const Avatar = ({ children, studio = false }) => (
   </span>
 );
 export function Bar({ value, tone = '' }) {
-  const fill = { '': 'bg-accent', warn: 'bg-warn', crit: 'bg-crit' }[tone];
+  const fill = TONE_FILL[tone];
   return (
     <div className="h-2 overflow-hidden rounded bg-surface-3">
       <i className={`block h-full ${fill}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />

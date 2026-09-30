@@ -29,6 +29,17 @@ export function tenantProjectImage(projectId) {
   const image = tenantBrand()?.projects?.[projectId];
   return image && safeAssetUrl(image.src) ? image : null;
 }
+// Reads a design token's CURRENT value straight from the cascade (so this file can never drift
+// out of sync with src/index.css the way its old hardcoded hex approximations did) — falling back
+// to today's real value only if computed styles aren't available (e.g. no DOM yet).
+function cssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
 // Brand accents are tenant data. Derive readable light/dark treatments without
 // changing the tenant's saved choice or reusing brand colour as a status signal.
 export function agencyTheme(accent, dark = false) {
@@ -39,11 +50,12 @@ export function agencyTheme(accent, dark = false) {
   const luminance = a => a.map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((n, v, i) => n + v * [.2126, .7152, .0722][i], 0);
   const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
   const base = rgb(hex), target = dark ? [255, 255, 255] : [0, 0, 0];
-  const surface = rgb(dark ? "#302b28" : "#f4f0e9");
+  // These track --surface / --mine (the outgoing-bubble token) from index.css at call time.
+  const surface = rgb(cssVar("--surface", dark ? "#292521" : "#fffdfa"));
   let color = base;
   for (let step = 0; contrast(color, surface) < 4.5 && step <= 100; step++) color = mix(base, target, step / 100);
   // Text also appears on outgoing bubbles, which are stronger than page surfaces.
-  const textSurface = rgb(dark ? "#514739" : "#E8E0CF");
+  const textSurface = rgb(cssVar("--mine", dark ? "#453b2c" : "#eee6d3"));
   let textColor = color;
   for (let step = 0; contrast(textColor, textSurface) < 4.5 && step <= 100; step++) textColor = mix(color, target, step / 100);
   return {accent: str(color), text: str(textColor), ink: dark ? "#171513" : "#ffffff", soft: str(mix(color, rgb(dark ? "#24211f" : "#ffffff"), dark ? .86 : .91))};
