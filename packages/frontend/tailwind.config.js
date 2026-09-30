@@ -21,6 +21,7 @@ module.exports = {
         crit: { DEFAULT: v('crit'), soft: v('crit-soft') },
         ok: { DEFAULT: v('ok'), soft: v('ok-soft') },
         secondary: { DEFAULT: v('secondary'), soft: v('secondary-soft') },
+        nav: { DEFAULT: v('nav'), ink: v('nav-ink'), active: v('nav-active'), 'active-ink': v('nav-active-ink'), line: v('nav-line'), hover: v('nav-hover') },
         mine: v('mine'),
         chat: v('chat'),
       },

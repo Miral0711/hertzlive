@@ -152,8 +152,8 @@ export const WA_SAMPLE = String.raw`[17/01/26, 11:29:45 PM] Harshal Patel: ‎
 export const AGENCY = {
   name: "Hertz Architects",
   short: "Hertz",
-  accent: "#b1552f",
-  paletteVersion: 1,
+  accent: "#16587b",
+  paletteVersion: 2,
   // Supplied studio assets stay local/private; never package the source portfolio.
   brand: {
     name: "Hertz Architects",

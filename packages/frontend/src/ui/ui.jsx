@@ -7,7 +7,7 @@ import { TONE_FILL, TONE_SOFT } from './tones';
 const btnBase =
   'inline-flex items-center gap-1.5 whitespace-nowrap rounded-r1 border font-semibold no-underline transition active:scale-[.98] disabled:opacity-50';
 const btnKinds = {
-  default: 'border-line-2 bg-surface text-ink hover:bg-surface-2',
+  default: 'border-accent bg-surface text-accent-text hover:bg-accent-soft',
   primary: 'border-accent bg-accent text-accent-ink hover:brightness-105',
   danger: 'border-crit bg-surface text-crit hover:bg-surface-2',
   link: 'min-h-0 border-0 bg-transparent p-0 font-medium text-accent-text underline',
@@ -238,7 +238,7 @@ export function Dropdown({ trigger, children, align = 'right', className = '', p
   }, []);
   return (
     <details ref={ref} className={`relative ${className}`}>
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-ink hover:bg-surface-2 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text [&::-webkit-details-marker]:hidden">
         {trigger}
       </summary>
       <div className={`absolute top-full z-30 mt-1.5 min-w-[220px] rounded-r3 border border-line bg-surface p-2 shadow-s2 ${align === 'right' ? 'right-0' : 'left-0'} ${panelClassName}`}>

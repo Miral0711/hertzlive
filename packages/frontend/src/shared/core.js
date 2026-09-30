@@ -43,22 +43,24 @@ function cssVar(name, fallback) {
 // Brand accents are tenant data. Derive readable light/dark treatments without
 // changing the tenant's saved choice or reusing brand colour as a status signal.
 export function agencyTheme(accent, dark = false) {
-  const hex = /^#[0-9a-f]{6}$/i.test(accent || "") ? accent : "#945543";
+  const hex = /^#[0-9a-f]{6}$/i.test(accent || "") ? accent : "#16587b";
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
   const str = a => "#" + a.map(v => v.toString(16).padStart(2, "0")).join("");
   const luminance = a => a.map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((n, v, i) => n + v * [.2126, .7152, .0722][i], 0);
   const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  // The default brand blue has a hand-tuned dark-theme pair (index.css); derive only for custom accents.
+  if (dark && hex.toLowerCase() === "#16587b") return {accent: "#84b3ce", text: "#a5c9dd", ink: "#0c1e29", soft: "#1d4157"};
   const base = rgb(hex), target = dark ? [255, 255, 255] : [0, 0, 0];
   // These track --surface / --mine (the outgoing-bubble token) from index.css at call time.
-  const surface = rgb(cssVar("--surface", dark ? "#292521" : "#fffdfa"));
+  const surface = rgb(cssVar("--surface", dark ? "#153243" : "#ffffff"));
   let color = base;
   for (let step = 0; contrast(color, surface) < 4.5 && step <= 100; step++) color = mix(base, target, step / 100);
   // Text also appears on outgoing bubbles, which are stronger than page surfaces.
-  const textSurface = rgb(cssVar("--mine", dark ? "#453b2c" : "#eee6d3"));
+  const textSurface = rgb(cssVar("--mine", dark ? "#1f465c" : "#dce8ee"));
   let textColor = color;
   for (let step = 0; contrast(textColor, textSurface) < 4.5 && step <= 100; step++) textColor = mix(color, target, step / 100);
-  return {accent: str(color), text: str(textColor), ink: dark ? "#171513" : "#ffffff", soft: str(mix(color, rgb(dark ? "#24211f" : "#ffffff"), dark ? .86 : .91))};
+  return {accent: str(color), text: str(textColor), ink: dark ? "#0f2431" : "#ffffff", soft: str(mix(color, rgb(dark ? "#153243" : "#ffffff"), dark ? .86 : .91))};
 }
 export function applyAgencyTheme() {
   const dark = state.theme === "dark" || (state.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
@@ -194,6 +196,10 @@ export function loadDb() {
   if (agency && !agency.paletteVersion) {
     if (agency.accent?.toLowerCase() === "#0a6b4f") agency.accent = AGENCY.accent;
     agency.paletteVersion = 1;
+  }
+  if (agency && agency.paletteVersion < 2) {
+    if (["#b1552f", "#945543"].includes(agency.accent?.toLowerCase())) agency.accent = AGENCY.accent;
+    agency.paletteVersion = 2;
   }
 }
 export function persist() {
@@ -1977,7 +1983,9 @@ export function closeSheet() {
 
 // ---------- placeholder imagery: deterministic "architectural photo" painter ----------
 export function paintPh(canvas) {
-  const hue = +canvas.dataset.hue || 30,
+  // Seeded hues vary per image; fold them into the brand's blue range (196-216) so placeholders
+  // match the palette while staying distinguishable from each other.
+  const hue = 196 + (((+canvas.dataset.hue || 30) % 360) / 360) * 20,
     seed = +canvas.dataset.seed || 1;
   const w = (canvas.width = 320),
     h = (canvas.height = Math.round(320 / (+canvas.dataset.ar || 1.333)));
@@ -2511,8 +2519,8 @@ export function assistContext(kind, options = {}) {
     const source=add({type:'message',id:options.messageId}), m=source&&accessibleMessage(source.id);
     if (!m || !(m.photo || m.album)) throw new Error('Select a permitted photo update for finish context.');
     c.title='Finish palette examples';
-    c.concepts=[{name:'Warm mineral',colors:['#D9D0BF','#A79D89','#645C4C'],note:'Example pairing: warm off-white, limestone tone, muted bronze.'},
-      {name:'Quiet contrast',colors:['#E6E2DA','#9A9289','#343B37'],note:'Example pairing: light neutral, warm grey, deep green.'}];
+    c.concepts=[{name:'Soft coastal',colors:['#F5EEDD','#84B3CE','#16587B'],note:'Example pairing: merino cream, rock blue, venice blue.'},
+      {name:'Quiet contrast',colors:['#E9EEF1','#8FA3AF','#243B4A'],note:'Example pairing: light neutral, cool grey, deep slate blue.'}];
     c.missing.push('Original image unavailable. These are generic palette examples, not image analysis, generated renders, material approval or dimensional proof.');
   }
   return c;

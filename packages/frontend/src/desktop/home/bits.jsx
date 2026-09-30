@@ -24,7 +24,7 @@ export const ListCard = ({ title, rows, empty, className = '' }) => (
 );
 
 export const Grid = ({ children, className = '' }) => (
-  <div className={`mb-3.5 grid items-start gap-3.5 md:grid-cols-2 [&>*]:min-w-0 ${className}`}>{children}</div>
+  <div className={`mb-3.5 grid items-stretch gap-3.5 md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0 ${className}`}>{children}</div>
 );
 
 // Deterministic placeholder photo (the prototype painted canvases after each render).
@@ -63,13 +63,13 @@ export function NeedList({ need }) {
         <span className="text-[13px] text-ink-3">{need.length} item{need.length === 1 ? '' : 's'}</span>
       </div>
       <List empty="No items in your current attention queue.">
-        {need.slice(0, 4).map(([t, h], i) => <NeedRow key={i} text={t} to={h || '#/today'} />)}
+        {need.slice(0, 4).map(([t, h], i) => <NeedRow key={i} text={t} to={h || '#/dashboard'} />)}
       </List>
       {need.length > 4 && (
         <details className="mt-2">
           <summary className="cursor-pointer text-[13px] font-medium text-accent-text">Show {need.length - 4} more items</summary>
           <div className="mt-2 flex flex-col gap-1.5">
-            {need.slice(4).map(([t, h], i) => <NeedRow key={i} text={t} to={h || '#/today'} />)}
+            {need.slice(4).map(([t, h], i) => <NeedRow key={i} text={t} to={h || '#/dashboard'} />)}
           </div>
         </details>
       )}

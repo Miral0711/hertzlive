@@ -105,7 +105,7 @@ function paintSheet(c) {
   const x = c.getContext('2d');
   x.fillStyle = '#fff';
   x.fillRect(0, 0, c.width, c.height);
-  x.strokeStyle = '#e5e1d8';
+  x.strokeStyle = '#dde6eb';
   x.lineWidth = 1;
   for (let i = 0; i < c.width; i += 40) {
     x.beginPath(); x.moveTo(i, 0); x.lineTo(i, c.height); x.stroke();

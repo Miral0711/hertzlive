@@ -8,45 +8,51 @@
    client/client-soft/sel/sel-ink) are written over these at runtime by applyAgencyTheme() —
    variable NAMES here are a contract with shared/core.js; only their values change. */
 :root {
-  --ground: #f6f2ea; --surface: #fffdfa; --surface-2: #f1ebdf; --surface-3: #e7dfce;
-  --ink: #211e1b; --ink-2: #55504a; --ink-3: #7c766c; --line: #e3dacb; --line-2: #c7bba4;
-  --accent: #945543; --accent-ink: #ffffff; --accent-soft: #f3e7db; --accent-text: #8b4a37;
-  --client: #8b4a37; --client-soft: #f3e7db;
-  --secondary: #6e6b47; --secondary-soft: #edeadc;
-  --warn: #8a5a00; --warn-soft: #fbf0d6; --crit: #a6392b; --crit-soft: #f7e3de;
-  --ok: #4b6142; --ok-soft: #e7ede1;
-  --mine: #eee6d3; --chat: #f2eee3;
-  --shadow-1: 0 1px 3px rgb(33 30 27 / 0.06); --shadow-2: 0 8px 20px rgb(33 30 27 / 0.08);
-  --r-1: 6px; --r-2: 6px; --r-3: 10px;
-  --sel: #8b4a37; --sel-ink: #ffffff;
+  --ground: #f2f3f5; --surface: #ffffff; --surface-2: #eceef1; --surface-3: #e1e4e8;
+  --ink: #16384d; --ink-2: #4f6e82; --ink-3: #6f8797; --line: #e3e6ea; --line-2: #c8ced6;
+  --accent: #16587b; --accent-ink: #ffffff; --accent-soft: #dce8ee; --accent-text: #16587b;
+  --client: #16587b; --client-soft: #dce8ee;
+  --secondary: #84b3ce; --secondary-soft: #e3eef4;
+  --warn: #8f6a24; --warn-soft: #f6ecd3; --crit: #a84f42; --crit-soft: #f6e2dd;
+  --ok: #46775f; --ok-soft: #e1ede6;
+  --mine: #dce8ee; --chat: #f2f3f5;
+  --shadow-1: 0 1px 2px rgb(22 88 123 / 0.06); --shadow-2: 0 8px 20px rgb(22 88 123 / 0.10);
+  --r-1: 6px; --r-2: 8px; --r-3: 14px;
+  --sel: #16587b; --sel-ink: #ffffff;
+  --nav: var(--accent); --nav-ink: var(--accent-ink); --nav-active: var(--surface); --nav-active-ink: var(--accent-text);
+  --nav-line: rgb(255 255 255 / 0.15); --nav-hover: rgb(255 255 255 / 0.10);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --ground: #201d1a; --surface: #292521; --surface-2: #322d27; --surface-3: #423b32;
-    --ink: #f3ede2; --ink-2: #d6cdbe; --ink-3: #ada393; --line: #423b32; --line-2: #635a4a;
-    --accent: #d9a38c; --accent-ink: #221a15; --accent-soft: #402f26; --accent-text: #e6b8a2;
-    --client: #e6b8a2; --client-soft: #402f26;
-    --secondary: #a9a67e; --secondary-soft: #34321f;
-    --warn: #f0bd6a; --warn-soft: #362a11; --crit: #e18f80; --crit-soft: #3a2019;
-    --ok: #a3c096; --ok-soft: #26301f;
-    --mine: #453b2c; --chat: #201d1a;
+    --ground: #0c1e29; --surface: #132e3d; --surface-2: #19394a; --surface-3: #21475a;
+    --ink: #f5eedd; --ink-2: #cfd8da; --ink-3: #9fb3bf; --line: #21475a; --line-2: #365f75;
+    --accent: #84b3ce; --accent-ink: #0f2431; --accent-soft: #1d4157; --accent-text: #a5c9dd;
+    --client: #a5c9dd; --client-soft: #1d4157;
+    --secondary: #84b3ce; --secondary-soft: #1d4157;
+    --warn: #e3bd73; --warn-soft: #3a2f16; --crit: #e39a8d; --crit-soft: #3d2420;
+    --ok: #9cc8b0; --ok-soft: #1f3a2d;
+    --mine: #1c4257; --chat: #0c1e29;
     --shadow-1: 0 1px 3px rgb(0 0 0 / 0.4); --shadow-2: 0 8px 20px rgb(0 0 0 / 0.5);
-    --sel: #e6b8a2; --sel-ink: #221a15;
-    color-scheme: dark;
+    --sel: #a5c9dd; --sel-ink: #0f2431;
+    --nav: #08161f; --nav-ink: #cfd8da; --nav-active: #1d4157; --nav-active-ink: #ffffff;
+  --nav-line: rgb(255 255 255 / 0.08); --nav-hover: rgb(255 255 255 / 0.06);
+  color-scheme: dark;
   }
 }
 :root[data-theme='dark'] {
-  --ground: #201d1a; --surface: #292521; --surface-2: #322d27; --surface-3: #423b32;
-  --ink: #f3ede2; --ink-2: #d6cdbe; --ink-3: #ada393; --line: #423b32; --line-2: #635a4a;
-  --accent: #d9a38c; --accent-ink: #221a15; --accent-soft: #402f26; --accent-text: #e6b8a2;
-  --client: #e6b8a2; --client-soft: #402f26;
-  --secondary: #a9a67e; --secondary-soft: #34321f;
-  --warn: #f0bd6a; --warn-soft: #362a11; --crit: #e18f80; --crit-soft: #3a2019;
-  --ok: #a3c096; --ok-soft: #26301f;
-  --mine: #453b2c; --chat: #201d1a;
+  --ground: #0c1e29; --surface: #132e3d; --surface-2: #19394a; --surface-3: #21475a;
+  --ink: #f5eedd; --ink-2: #cfd8da; --ink-3: #9fb3bf; --line: #21475a; --line-2: #365f75;
+  --accent: #84b3ce; --accent-ink: #0f2431; --accent-soft: #1d4157; --accent-text: #a5c9dd;
+  --client: #a5c9dd; --client-soft: #1d4157;
+  --secondary: #84b3ce; --secondary-soft: #1d4157;
+  --warn: #e3bd73; --warn-soft: #3a2f16; --crit: #e39a8d; --crit-soft: #3d2420;
+  --ok: #9cc8b0; --ok-soft: #1f3a2d;
+  --mine: #1c4257; --chat: #0c1e29;
   --shadow-1: 0 1px 3px rgb(0 0 0 / 0.4); --shadow-2: 0 8px 20px rgb(0 0 0 / 0.5);
-  --sel: #e6b8a2; --sel-ink: #221a15;
+  --sel: #a5c9dd; --sel-ink: #0f2431;
+  --nav: #08161f; --nav-ink: #cfd8da; --nav-active: #1d4157; --nav-active-ink: #ffffff;
+  --nav-line: rgb(255 255 255 / 0.08); --nav-hover: rgb(255 255 255 / 0.06);
   color-scheme: dark;
 }
 
@@ -57,6 +63,7 @@
     line-height: 1.45;
     font-variant-numeric: tabular-nums;
     caret-color: var(--accent);
+    accent-color: var(--accent);
   }
   /* Editorial serif for headings, everywhere — clean sans stays the body/controls default. */
   h1, h2, h3 { @apply font-serif; letter-spacing: -0.01em; }

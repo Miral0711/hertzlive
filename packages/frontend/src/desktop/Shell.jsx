@@ -5,7 +5,7 @@ import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
 import { Divider, Dropdown, DropdownItem, Empty } from '../ui/ui';
 import { DLink, DESKTOP_BASE, href } from './nav';
-import { NAV_GROUPS, navFor } from './helpers';
+import { NAV, NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
 import DialogHost from './DialogHost';
@@ -16,43 +16,42 @@ import { PERSONAS } from './data';
 
 const themeLabel = { system: 'System', light: 'Light', dark: 'Dark' };
 
-// Numbered like the studio's own project/drawing numbering — a running count across every
-// visible item, continuing across the existing groups rather than restarting each group, so the
-// grouping (and everything it gates by role) stays exactly as before; only the number is new.
+const ICON = Object.fromEntries(NAV.map(([k, , i]) => [k, i]));
+const groupLabel = 'm-0 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.1em] text-nav-ink opacity-60';
+
 function SideNav({ page }) {
   const allowed = navFor();
-  let n = 0;
   return NAV_GROUPS.map(([label, keys]) => {
     const rows = keys.map((k) => allowed.find(([id]) => id === k)).filter(Boolean);
     if (!rows.length) return null;
-    const links = rows.map(([k, l]) => {
-      n += 1;
-      return <SideLink key={k} to={`#/${k}`} current={page === k} n={n}>{l}</SideLink>;
-    });
+    const links = rows.map(([k, l]) => (
+      <SideLink key={k} to={`#/${k}`} icon={ICON[k]} current={page === k}>{l}</SideLink>
+    ));
     return label === 'Resources' ? (
-      <details key={label} className="mt-1" open={keys.includes(page)}>
-        <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-3">
-          {label} &amp; settings
+      <details key={label} className="group" open={keys.includes(page)}>
+        <summary className={`${groupLabel} flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden`}>
+          More
+          <Icon name="chev" small className="transition group-open:rotate-90" />
         </summary>
         <div className="flex flex-col gap-0.5">{links}</div>
       </details>
     ) : (
       <div key={label} className="flex flex-col gap-0.5">
-        <p className="m-0 px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-ink-3">{label}</p>
+        <p className={groupLabel}>{label}</p>
         {links}
       </div>
     );
   });
 }
-function SideLink({ to, current, n, children }) {
+function SideLink({ to, icon, current, children }) {
   return (
     <DLink
       to={to}
       aria-current={current ? 'page' : undefined}
-      className={`flex min-h-10 items-center gap-3 rounded-r1 border-l-2 px-2.5 font-medium no-underline transition hover:bg-surface-2 ${current ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-transparent text-ink-2'}`}
+      className={`flex min-h-9 items-center gap-3 rounded-r1 px-3 text-[13.5px] font-medium no-underline transition ${current ? 'bg-nav-active font-semibold text-nav-active-ink' : 'text-nav-ink opacity-90 hover:bg-nav-hover hover:opacity-100'}`}
     >
-      <span className={`w-5 flex-none text-right text-[11px] tabular-nums ${current ? 'text-accent-text' : 'text-ink-3'}`} aria-hidden="true">{String(n).padStart(2, '0')}</span>
-      <span>{children}</span>
+      {icon && <Icon name={icon} small />}
+      <span className="truncate">{children}</span>
     </DLink>
   );
 }
@@ -65,9 +64,9 @@ export default function Shell() {
   const searchRef = useRef(null);
 
   // Keep the legacy route string in step with the URL for code that calls parseRoute().
-  state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/today') + location.search;
+  state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/dashboard') + location.search;
   const { parts, q } = parseRoute();
-  const page = parts[0] || 'today';
+  const page = parts[0] || 'dashboard';
 
   useEffect(() => {
     window.__navigate = (route) => navigate(href(route));
@@ -96,7 +95,7 @@ export default function Shell() {
   const focusedWork = page === 'review';
   const noChat = workspace || focusedWork || state.desk.chatHidden;
   const u = me();
-  const Page = PAGES[page] || PAGES.today;
+  const Page = PAGES[page] || PAGES.dashboard;
   const brand = tenantBrand();
 
   return (
@@ -108,10 +107,10 @@ export default function Shell() {
       >
         Skip to workspace
       </a>
-      <header className="flex items-center gap-5 border-b border-line bg-surface px-5">
-        <DLink to="#/today" className="flex min-w-[184px] flex-col justify-center gap-0.5 no-underline" style={{ color: 'var(--ink)' }}>
+      <header className="flex items-center gap-4 bg-surface pr-5">
+        <DLink to="#/dashboard" className="flex h-full w-[188px] flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline">
           <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
-          <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] text-ink-3">Studio</span>
+          <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
         </DLink>
         <form
           role="search"
@@ -142,7 +141,7 @@ export default function Shell() {
             onClick={toggleChatPane}
             aria-expanded={!state.desk.chatHidden}
             aria-controls="conversation"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold hover:bg-surface-2"
+            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text"
           >
             <Icon name="chat" small /> Chats
           </button>
@@ -169,21 +168,20 @@ export default function Shell() {
       </header>
 
       <div className={`grid min-h-0 ${noChat ? 'grid-cols-[188px_minmax(0,1fr)]' : 'grid-cols-[188px_minmax(0,1fr)_360px] max-[1250px]:grid-cols-[188px_minmax(0,1fr)]'}`}>
-        <nav aria-label="Modules" className="flex flex-col gap-0.5 overflow-auto border-r border-line bg-surface px-2.5 py-3">
+        <nav aria-label="Modules" className="flex flex-col gap-0.5 overflow-auto bg-nav px-2.5 pb-3 pt-1 text-nav-ink">
           <SideNav page={focusedWork ? 'projects' : page} />
-          <div className="mt-auto flex flex-col gap-2 pt-4">
-            <Divider />
-            <DLink to="#/settings" className="flex min-h-9 items-center gap-2.5 rounded-r1 px-2.5 text-[13px] font-medium text-ink-2 no-underline hover:bg-surface-2">
-              <Icon name="settings" small className="text-ink-3" /> Settings
+          <div className="mt-auto flex flex-col gap-2 border-t border-nav-line pt-3">
+            <DLink to="#/settings" className="flex min-h-9 items-center gap-3 rounded-r1 px-3 text-[13.5px] font-medium text-nav-ink no-underline opacity-90 transition hover:bg-nav-hover hover:opacity-100">
+              <Icon name="settings" small /> Settings
             </DLink>
-            <div className="flex items-center gap-2.5 px-2.5 pb-1">
-              <span className="inline-grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-3 text-[13px] font-semibold">
-                {u.ini || u.name.slice(0, 1)}
-              </span>
-              <div className="min-w-0">
-                <b className="block truncate">{u.name}</b>
-                <small className="text-ink-3">{u.title || u.role}</small>
-              </div>
+            <div className="flex items-center gap-2.5 px-3">
+            <span className="inline-grid h-9 w-9 flex-none place-items-center rounded-full bg-nav-active text-xs font-semibold text-nav-active-ink">
+              {u.ini || u.name.slice(0, 1)}
+            </span>
+            <div className="min-w-0 leading-tight">
+              <b className="block truncate text-[13px]">{u.name}</b>
+              <small className="block truncate text-[11.5px] opacity-70">{u.title || u.role}</small>
+            </div>
             </div>
           </div>
         </nav>

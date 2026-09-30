@@ -197,18 +197,13 @@ export function PartnerHome() {
   ));
   return (
     <>
-      <div className="mb-5 grid items-start gap-3.5 lg:grid-cols-2 [&>*]:min-w-0">
+      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-2 [&>*]:min-w-0 [&>*]:h-full">
         <NeedList need={needsYou()} />
         <SiteReviewQueue />
+        <ListCard title="Money this week" rows={money} empty="Nothing overdue, nothing to raise." />
+        <ListCard title="Sites to check" rows={risk} empty="No site flags in recorded data." />
       </div>
-      <div className="mb-5">
-        <h2 className="mb-2.5 mt-0 text-lg font-semibold">Follow through</h2>
-        <Grid className="!mb-0">
-          <ListCard title="Money this week" rows={money} empty="Nothing overdue, nothing to raise." />
-          <ListCard title="Sites to check" rows={risk} empty="No site flags in recorded data." />
-        </Grid>
-      </div>
-      <details className="mb-3.5 rounded-r3 border border-line bg-surface px-[18px] py-3">
+      <details className="mb-2.5 rounded-r3 border border-line bg-surface px-[18px] py-3">
         <summary className="cursor-pointer font-semibold">Studio snapshot &amp; approval follow-ups</summary>
         <div className="mt-3"><PulseStrip /></div>
         <ListCard title="Approvals to follow up" rows={approvalsDue()} empty="No approvals waiting on a follow-up." />
@@ -225,7 +220,7 @@ export function DesignerHome() {
     ...state.db.RFIS.filter((x) => x.status === 'open' && mine.includes(x.projectId)).map((x) => ({ k: `r${x.id || x.no}`, due: x.due, text: `${x.no} · ${x.title}`, href: `#/projects/${x.projectId}?tab=changes` })),
     ...state.desk.reminders.filter((x) => x.who === state.userId).map((x, i) => ({ k: `m${i}`, due: x.when, text: `Reminder · ${x.text}`, href: x.ref })),
   ].sort((a, b) => (a.due || '').localeCompare(b.due || '')).map((t) => (
-    <Item key={t.k} to={href(t.href || '#/today')}>
+    <Item key={t.k} to={href(t.href || '#/dashboard')}>
       {t.crit && <Dot />}<Grow>{t.text}</Grow><Small>{t.due ? fmtD(t.due) : ''}</Small>
     </Item>
   ));
