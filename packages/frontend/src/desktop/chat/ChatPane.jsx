@@ -16,7 +16,7 @@ import { SiteMessageAction } from './site';
 import AttachMenu from './AttachMenu';
 import CameraCapture from './CameraCapture';
 import MediaEditor from './MediaEditor';
-import { ContactPicker, EventComposer, PollComposer } from './composerAttachments';
+import { ContactPicker, PollComposer } from './composerAttachments';
 import { fileToDataUrl, fmtBytes } from './mediaUtils';
 import {
   chatDraft, conversationPreview, conversationThreads, draftRev, markChatRead, pendingFocus,
@@ -219,14 +219,6 @@ function Message({ m }) {
           {m.contact.phone && <><br /><small className="text-ink-3">{m.contact.phone}</small></>}
         </div>
       )}
-      {m.event && live && (
-        <div className="my-1.5 rounded-r1 border border-line-2 p-2.5">
-          <b>{m.event.title}</b><br />
-          <small className="text-ink-3">
-            {m.event.date}{m.event.time ? ` · ${m.event.time}` : ''}{m.event.location ? ` · ${m.event.location}` : ''}
-          </small>
-        </div>
-      )}
       {m.poll && live && (
         <Opts>
           <b className="mb-1 block">{m.poll.question}</b>
@@ -373,12 +365,6 @@ function Composer({ thread, last }) {
         <PollComposer
           onCancel={() => setPending(null)}
           onSend={(poll) => { sendMessage(thread.id, '', { poll }); setPending(null); }}
-        />
-      )}
-      {pending?.type === 'event' && (
-        <EventComposer
-          onCancel={() => setPending(null)}
-          onSend={(event) => { sendMessage(thread.id, '', { event }); setPending(null); }}
         />
       )}
       <form

@@ -1,5 +1,5 @@
-// Small quick-compose forms for the attachment kinds that don't need a file: Contact, Poll,
-// Event. Each just builds the message field and hands it back to the composer to send.
+// Small quick-compose forms for the attachment kinds that don't need a file: Contact, Poll.
+// Each just builds the message field and hands it back to the composer to send.
 import { useState } from 'react';
 import { state, svc } from '../../shared/core.js';
 import { Btn, Field, Input } from '../../ui/ui';
@@ -78,24 +78,6 @@ export function PollComposer({ onCancel, onSend }) {
         >
           Send
         </Btn>
-      </ModalActions>
-    </Modal>
-  );
-}
-
-export function EventComposer({ onCancel, onSend }) {
-  const [form, setForm] = useState({ title: '', date: '', time: '', location: '' });
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const valid = form.title.trim() && form.date;
-  return (
-    <Modal title="Create an event" onClose={onCancel}>
-      <Field label="Title"><Input value={form.title} onChange={set('title')} placeholder="Site walkthrough" /></Field>
-      <Field label="Date"><Input type="date" value={form.date} onChange={set('date')} /></Field>
-      <Field label="Time"><Input type="time" value={form.time} onChange={set('time')} /></Field>
-      <Field label="Location"><Input value={form.location} onChange={set('location')} /></Field>
-      <ModalActions>
-        <Btn onClick={onCancel}>Cancel</Btn>
-        <Btn kind="primary" disabled={!valid} onClick={() => onSend({ ...form, title: form.title.trim() })}>Send</Btn>
       </ModalActions>
     </Modal>
   );

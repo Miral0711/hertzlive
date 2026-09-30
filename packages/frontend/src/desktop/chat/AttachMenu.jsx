@@ -1,6 +1,6 @@
 // The composer's "+" attachment button (WhatsApp-style): opens a small menu of attachment
 // kinds. File-backed kinds (Document / Photos & Videos / Audio) trigger a hidden
-// <input type="file">; the rest (Camera / Contact / Poll / Event) just tell the composer which
+// <input type="file">; the rest (Camera / Contact / Poll) just tell the composer which
 // quick form/capture UI to open. Nothing here uploads anywhere - it only hands a File/kind back
 // up. Camera is handled as an action (not a file input): the `capture` attribute on a file
 // input only opens a real camera on mobile browsers - on desktop it just falls back to a plain
@@ -19,7 +19,6 @@ const ACTION_ITEMS = [
   { kind: 'camera', label: 'Camera', icon: 'camera' },
   { kind: 'contact', label: 'Contact', icon: 'people' },
   { kind: 'poll', label: 'Poll', icon: 'checkcheck' },
-  { kind: 'event', label: 'Event', icon: 'cal' },
 ];
 
 export default function AttachMenu({ onPickFile, onPickAction }) {
@@ -78,7 +77,6 @@ export default function AttachMenu({ onPickFile, onPickAction }) {
               <Icon name={item.icon} small /> {item.label}
             </button>
           ))}
-          <hr className="my-1 border-line" />
           {ACTION_ITEMS.map((item) => (
             <button
               key={item.kind}

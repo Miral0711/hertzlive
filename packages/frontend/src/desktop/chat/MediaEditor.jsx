@@ -1,8 +1,13 @@
 // Non-destructive image preview + annotation editor shown before an image/video is sent.
-// Hand-rolled <canvas> (no new dependency), matching the raw-canvas approach already used by
-// `Ph`/`paintPh` in media.jsx. The picked file's data URL is never mutated - all edits happen
-// on a working copy (`base`); Cancel just closes without ever building/sending anything.
+// Draw/Text/Shapes/Rotate stay a hand-rolled <canvas> (matching the raw-canvas approach already
+// used by `Ph`/`paintPh` in media.jsx); Crop uses `react-image-crop` for a real draggable/
+// resizable selection with corner + edge handles, rather than a hand-rolled marquee. The
+// picked file's data URL is never mutated - all edits happen on a working copy (`base`);
+// Cancel just closes without ever building/sending anything.
 import { useEffect, useRef, useState } from 'react';
+import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import './MediaEditor.css';
 import { Btn } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { downscaleImage, loadImage } from './mediaUtils';
@@ -12,9 +17,15 @@ const SIZES = [4, 8, 16];
 const QUICK_LABELS = [
   'Crack', 'Electrical point', 'Plumbing', 'Dimension', 'Defect', 'Change required', 'Material', 'Site instruction',
 ];
+// [tool key, accessible label/tooltip, icon name]
 const TOOLS = [
-  ['crop', 'Crop'], ['rotate', 'Rotate'], ['draw', 'Draw'], ['text', 'Text'],
-  ['rect', 'Rectangle'], ['arrow', 'Arrow'], ['circle', 'Circle'],
+  ['crop', 'Crop', 'crop'],
+  ['rotate', 'Rotate', 'rotate'],
+  ['draw', 'Draw', 'edit'],
+  ['text', 'Text', 'typeT'],
+  ['rect', 'Rectangle', 'rectangle'],
+  ['arrow', 'Arrow', 'arrowdiag'],
+  ['circle', 'Circle', 'circleicon'],
 ];
 
 function toNatural(canvas, clientX, clientY) {
@@ -74,6 +85,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const strokeRef = useRef(null);
+  const cropImgRef = useRef(null);
   const [videoUrl] = useState(() => (isVideo ? URL.createObjectURL(file) : null));
   useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
 
@@ -82,9 +94,16 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   const [tool, setTool] = useState(null);
   const [color, setColor] = useState(COLORS[0]);
   const [size, setSize] = useState(SIZES[1]);
-  const [draft, setDraft] = useState(null); // in-progress shape/crop rect
+  const [draft, setDraft] = useState(null); // in-progress shape/stroke
   const [textInput, setTextInput] = useState(null); // {x, y, sx, sy, value}
   const [busy, setBusy] = useState(!isVideo);
+
+  // Crop mode: a snapshot of the current (flattened) image, plus react-image-crop's own
+  // selection state. `cropPixels` is the selection in the *displayed* <img>'s pixels, from
+  // onComplete - converted to source pixels in applyCrop().
+  const [cropSrc, setCropSrc] = useState(null);
+  const [cropSel, setCropSel] = useState();
+  const [cropPixels, setCropPixels] = useState(null);
 
   const cur = history ? history[index] : null;
 
@@ -117,21 +136,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     (cur?.ops || []).forEach((op) => drawOp(ctx, op));
-    if (draft && draft.type !== 'crop') drawOp(ctx, draft);
-    if (draft && draft.type === 'crop') {
-      ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,.45)';
-      const x = Math.min(draft.x1, draft.x2), y = Math.min(draft.y1, draft.y2);
-      const w = Math.abs(draft.x2 - draft.x1), h = Math.abs(draft.y2 - draft.y1);
-      ctx.fillRect(0, 0, canvas.width, y);
-      ctx.fillRect(0, y + h, canvas.width, canvas.height - y - h);
-      ctx.fillRect(0, y, x, h);
-      ctx.fillRect(x + w, y, canvas.width - x - w, h);
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, w, h);
-      ctx.restore();
-    }
+    if (draft) drawOp(ctx, draft);
   };
 
   // (Re)load the working image whenever `cur.base` changes.
@@ -165,8 +170,8 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
 
   // Commits whatever's in the floating text box into an op (skipped if left empty) - called
   // before anything that reads the canvas/ops so an in-progress label is never silently lost.
-  // Draws immediately (not just via state) so a Crop/Rotate/Save/Send right after typing sees
-  // it even before the next render's redraw effect has run.
+  // Draws immediately (not just via state) so a Rotate/Save/Send right after typing sees it
+  // even before the next render's redraw effect has run.
   const commitPendingText = () => {
     if (textInput && textInput.value.trim()) {
       const op = { type: 'text', color, size, x: textInput.x, y: textInput.y, text: textInput.value.trim() };
@@ -176,20 +181,30 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
     setTextInput(null);
   };
 
+  const cancelCrop = () => {
+    setCropSrc(null);
+    setCropSel(undefined);
+    setCropPixels(null);
+    setTool(null);
+  };
+
   const applyCrop = () => {
-    commitPendingText();
-    if (!draft) return;
-    const canvas = canvasRef.current;
-    const x = Math.max(0, Math.min(draft.x1, draft.x2));
-    const y = Math.max(0, Math.min(draft.y1, draft.y2));
-    const w = Math.min(canvas.width - x, Math.abs(draft.x2 - draft.x1));
-    const h = Math.min(canvas.height - y, Math.abs(draft.y2 - draft.y1));
-    setDraft(null);
-    if (w < 8 || h < 8) return;
+    const img = cropImgRef.current;
+    if (!img || !cropPixels || !cropPixels.width || !cropPixels.height) { cancelCrop(); return; }
+    const scaleX = img.naturalWidth / img.clientWidth;
+    const scaleY = img.naturalHeight / img.clientHeight;
+    const sx = Math.max(0, cropPixels.x * scaleX);
+    const sy = Math.max(0, cropPixels.y * scaleY);
+    const sw = Math.min(img.naturalWidth - sx, cropPixels.width * scaleX);
+    const sh = Math.min(img.naturalHeight - sy, cropPixels.height * scaleY);
+    if (sw < 8 || sh < 8) { cancelCrop(); return; }
     const c2 = document.createElement('canvas');
-    c2.width = w; c2.height = h;
-    c2.getContext('2d').drawImage(canvas, x, y, w, h, 0, 0, w, h);
+    c2.width = sw; c2.height = sh;
+    c2.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
     pushHistory({ base: c2.toDataURL('image/jpeg', 0.92), ops: [] });
+    setCropSrc(null);
+    setCropSel(undefined);
+    setCropPixels(null);
     setTool(null);
   };
 
@@ -220,9 +235,9 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
     onSend({ kind: 'video', url: videoUrl, name: file.name });
   };
 
-  // ---------- pointer handling ----------
+  // ---------- pointer handling (draw / shapes / text - crop is handled by ReactCrop) ----------
   const onDown = (e) => {
-    if (!tool || busy) return;
+    if (!tool || tool === 'crop' || busy) return;
     commitPendingText(); // starting any new op commits an already-open text label first
     const canvas = canvasRef.current;
     canvas.setPointerCapture(e.pointerId);
@@ -232,8 +247,6 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
       setDraft(strokeRef.current);
     } else if (['rect', 'circle', 'arrow'].includes(tool)) {
       setDraft({ type: tool, color, size, x1: x, y1: y, x2: x, y2: y });
-    } else if (tool === 'crop') {
-      setDraft({ type: 'crop', x1: x, y1: y, x2: x, y2: y });
     } else if (tool === 'text') {
       const r = canvas.getBoundingClientRect();
       setTextInput({ x, y, sx: e.clientX - r.left, sy: e.clientY - r.top, value: '' });
@@ -252,7 +265,6 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   };
   const onUp = () => {
     if (!draft) return;
-    if (draft.type === 'crop') return; // stays until "Apply crop"
     if (draft.type === 'draw') {
       if (draft.points.length > 1) commitOps([...(cur.ops || []), draft]);
     } else {
@@ -270,7 +282,23 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
     commitPendingText();
     setDraft(null);
     if (t === 'rotate') { rotate(); return; }
-    setTool((cur2) => (cur2 === t ? null : t));
+    const next = tool === t ? null : t;
+    if (next === 'crop') {
+      // Crop starts from what's currently on screen (base + any annotations already applied).
+      setCropSrc(flattenToDataUrl());
+      setCropSel(undefined);
+      setCropPixels(null);
+    } else if (tool === 'crop') {
+      setCropSrc(null);
+      setCropSel(undefined);
+      setCropPixels(null);
+    }
+    setTool(next);
+  };
+
+  const onCropImageLoad = (e) => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    setCropSel(centerCrop(makeAspectCrop({ unit: '%', width: 80 }, w / h, w, h), w, h));
   };
 
   if (isVideo) {
@@ -286,6 +314,8 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
     );
   }
 
+  const cropping = tool === 'crop';
+
   return (
     <Modal title="Edit photo" wide onClose={onCancel}>
       {busy || !cur ? (
@@ -293,30 +323,31 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
       ) : (
         <>
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {TOOLS.map(([t, label]) => (
+            {TOOLS.map(([t, label, iconName]) => (
               <Btn
-                key={t} sm aria-pressed={tool === t}
+                key={t} sm icon={iconName}
+                title={label}
+                aria-label={label}
+                aria-pressed={tool === t}
+                disabled={cropping && t !== 'crop'}
                 className={tool === t ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
                 onClick={() => chooseTool(t)}
-              >
-                {label}
-              </Btn>
+              />
             ))}
-            <Btn sm onClick={undo} disabled={index === 0}>Undo</Btn>
-            <Btn sm onClick={redo} disabled={!history || index >= history.length - 1}>Redo</Btn>
+            <Btn sm icon="undo" title="Undo" aria-label="Undo" onClick={undo} disabled={cropping || index === 0} />
+            <Btn sm icon="redo" title="Redo" aria-label="Redo" onClick={redo} disabled={cropping || !history || index >= history.length - 1} />
           </div>
 
-          {tool === 'crop' && (
-            // Reserved as soon as the Crop tool is picked (not just once a drag starts) so the
-            // canvas doesn't shift position out from under the cursor mid-drag.
-            <div className="mb-2 flex min-h-9 items-center">
-              {draft
-                ? <Btn sm kind="primary" onClick={applyCrop}>Apply crop</Btn>
-                : <small className="text-ink-3">Drag on the photo to select a crop area.</small>}
+          {cropping && (
+            // Reserved as soon as the Crop tool is picked (not once a drag starts) so nothing
+            // shifts position out from under the cursor mid-drag.
+            <div className="mb-2 flex min-h-9 items-center gap-2">
+              <Btn sm onClick={cancelCrop}>Cancel crop</Btn>
+              <Btn sm kind="primary" onClick={applyCrop} disabled={!cropPixels?.width}>Apply crop</Btn>
             </div>
           )}
 
-          {['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool) && (
+          {!cropping && ['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool) && (
             <div className="mb-2 flex flex-wrap items-center gap-2.5">
               <div className="flex gap-1.5">
                 {COLORS.map((c) => (
@@ -357,35 +388,49 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
             </div>
           )}
 
-          <div className="relative inline-block max-w-full">
-            <canvas
-              ref={canvasRef}
-              className="block max-h-[55vh] max-w-full touch-none rounded-r1 bg-surface-2"
-              onPointerDown={onDown}
-              onPointerMove={onMove}
-              onPointerUp={onUp}
-            />
-            {textInput && (
-              <input
-                autoFocus
-                value={textInput.value}
-                onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitPendingText();
-                  if (e.key === 'Escape') setTextInput(null);
-                }}
-                placeholder="Add text…"
-                style={{ left: textInput.sx, top: textInput.sy, color }}
-                className="absolute min-w-[120px] rounded border border-line-2 bg-surface px-1.5 py-0.5 text-sm shadow-s2"
+          {cropping && cropSrc ? (
+            <ReactCrop
+              crop={cropSel}
+              onChange={(_pixelCrop, percentCrop) => setCropSel(percentCrop)}
+              onComplete={(pixelCrop) => setCropPixels(pixelCrop)}
+              minWidth={20}
+              minHeight={20}
+              keepSelection
+              className="max-h-[55vh] max-w-full"
+            >
+              <img ref={cropImgRef} src={cropSrc} alt="" onLoad={onCropImageLoad} className="block max-h-[55vh] max-w-full rounded-r1" />
+            </ReactCrop>
+          ) : (
+            <div className="relative inline-block max-w-full">
+              <canvas
+                ref={canvasRef}
+                className="block max-h-[55vh] max-w-full touch-none rounded-r1 bg-surface-2"
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
               />
-            )}
-          </div>
+              {textInput && (
+                <input
+                  autoFocus
+                  value={textInput.value}
+                  onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitPendingText();
+                    if (e.key === 'Escape') setTextInput(null);
+                  }}
+                  placeholder="Add text…"
+                  style={{ left: textInput.sx, top: textInput.sy, color }}
+                  className="absolute min-w-[120px] rounded border border-line-2 bg-surface px-1.5 py-0.5 text-sm shadow-s2"
+                />
+              )}
+            </div>
+          )}
         </>
       )}
       <ModalActions>
         <Btn onClick={onCancel}>Cancel</Btn>
-        <Btn onClick={save} disabled={busy || !cur}>Save</Btn>
-        <Btn kind="primary" onClick={send} disabled={busy || !cur}>Send</Btn>
+        <Btn onClick={save} disabled={busy || !cur || cropping}>Save</Btn>
+        <Btn kind="primary" onClick={send} disabled={busy || !cur || cropping}>Send</Btn>
       </ModalActions>
     </Modal>
   );
