@@ -6,28 +6,18 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "nx run-many --target=serve --projects=frontend,backend --parallel",
+    "dev": "nx serve frontend",
     "frontend": "nx serve frontend",
-    "backend": "nx serve backend",
-    "build": "nx run-many --target=build --all",
-    "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down",
-    "db:migrate": "nx run backend:prisma-migrate"
+    "build": "nx run-many --target=build --all"
   },
   "devDependencies": {
     "nx": "^20.3.0"
   },
-  "overrides": {
-    "dotenv": "^16.4.7"
-  },
   "allowScripts": {
-    "@prisma/client@6.19.3": true,
-    "@prisma/engines@6.19.3": true,
     "core-js@3.50.0": true,
     "core-js-pure@3.50.0": true,
     "esbuild@0.28.2": true,
     "nx@20.8.4": true,
-    "prisma@6.19.3": true,
     "fsevents@2.3.3": true
   }
 }

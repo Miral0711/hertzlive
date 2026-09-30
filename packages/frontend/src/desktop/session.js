@@ -30,7 +30,8 @@ export function boot(fresh = false) {
   seedDesk();
   seedFilings();
 
-  // Real authentication (RequireAuth/Login, backed by the backend's /auth/*) decides
+  // Authentication (RequireAuth/Login, backed by the local demo-account check in
+  // ../auth/authClient.js) decides
   // state.authed. If a valid session exists, resolve which of the six existing
   // personas it maps to and use that persona's data for the rest of the app.
   const session = isAuthenticated() ? getSession() : null;

@@ -123,10 +123,11 @@ export function LeaveApproveDialog({ d }) {
 // any other module. A duplicate copy used to live here too; it was never wired to any registry
 // entry, so it's been removed rather than kept as unreachable dead code.
 
-// Real, per-organization Holiday Management (packages/backend/src/routes/holiday.ts). `d.onSaved`
-// is a plain callback the caller passes in (dialogs here aren't persisted to localStorage, so a
-// function value in `d` is safe) - it's how the Schedule "Holidays" tab refetches its own list
-// after this dialog saves, since that tab keeps its data in local component state, not `state.db`.
+// Org Holiday Management, backed by the mock ../../api/leaveClient.js (state.db.ORG_HOLIDAYS).
+// `d.onSaved` is a plain callback the caller passes in (dialogs here aren't persisted to
+// localStorage, so a function value in `d` is safe) - it's how the Schedule "Holidays" tab
+// refetches its own list after this dialog saves, since that tab keeps its data in local
+// component state, not directly rendered from `state.db`.
 export function HolidayDialog({ d }) {
   const editing = Boolean(d.holiday);
   const save = (e) => {

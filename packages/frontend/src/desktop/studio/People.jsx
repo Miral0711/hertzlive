@@ -44,11 +44,10 @@ const Load = () => (
   </Card>
 );
 
-// Real, per-organization Leave Management (packages/backend/src/routes/leave.ts) - unlike most
-// of this prototype, this tab's data genuinely lives in Postgres, scoped to the signed-in JWT's
-// organization, not in the mock `state.db`. (The Dashboard's own "pending leave" widget and
-// Schedule's "Who's away"/reassignment features still read the separate mock LEAVES array on
-// purpose - rewiring those is a different feature and out of scope here.)
+// Org Leave Management, backed by the mock ../../api/leaveClient.js (state.db.ORG_LEAVE_TYPES /
+// ORG_LEAVE_REQUESTS). (The Dashboard's own "pending leave" widget and Schedule's "Who's
+// away"/reassignment features still read the separate, older mock LEAVES array on purpose -
+// rewiring those is a different feature and out of scope here.)
 function Leaves() {
   const approver = can('leave', 'a');
   const [types, setTypes] = useState([]);
@@ -150,9 +149,9 @@ function Leaves() {
                 <Btn sm onClick={() => decide(l.id, false)}>Reject</Btn>
               </div>
             ) : l.status === 'pending' && (!approver || l.employeeId === getSession()?.userId) ? (
-              // Non-approvers only ever see their own requests here (the backend scopes the list
-              // to `req.user.sub`); approvers see everyone's, so this compares against the real
-              // backend user id (getSession().userId), not the mock `state.userId` persona id.
+              // Non-approvers only ever see their own requests here (leaveClient.js scopes the
+              // list to the signed-in session's userId); approvers see everyone's, so this
+              // compares against that same session id, not the "viewing as" `state.userId`.
               <Btn sm onClick={() => cancel(l.id)}>Cancel</Btn>
             ) : '',
           ])}

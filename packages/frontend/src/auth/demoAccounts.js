@@ -1,6 +1,6 @@
 // Maps the six existing prototype personas (see PERSONAS in ../desktop/data.js and USERS in
-// ../shared/data.js) to the real accounts seeded in the backend's "hertz-demo" organization
-// (packages/backend/prisma/seed.ts). Keep all three lists in sync if a persona is added/renamed.
+// ../shared/data.js) to the demo login accounts checked locally in ./authClient.js, for the
+// "hertz-demo" organization. Keep all three lists in sync if a persona is added/renamed.
 export const DEMO_ACCOUNTS = [
   { personaId: 'u1', email: 'harshal.patel@hertzstudio.demo', label: 'Harshal Patel · Partner' },
   { personaId: 'u5', email: 'priya.shah@hertzstudio.demo', label: 'Priya Shah · Designer' },

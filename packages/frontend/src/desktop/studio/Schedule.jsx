@@ -403,10 +403,9 @@ function MonthCalendar({ month, holidays, leaveRequests }) {
   );
 }
 
-// Real, per-organization Holiday Management (packages/backend/src/routes/holiday.ts) - unlike
-// most of this prototype, this tab's data genuinely lives in Postgres, scoped to the signed-in
-// JWT's organization. The old mock "push a holiday notice to site groups" demo (tied to the
-// separate mock LEAVES/HOLIDAYS/chat-thread data) is kept below as-is, unrelated to this.
+// Org Holiday Management, backed by the mock ../../api/leaveClient.js (state.db.ORG_HOLIDAYS).
+// The old mock "push a holiday notice to site groups" demo (tied to the separate mock
+// LEAVES/HOLIDAYS/chat-thread data) is kept below as-is, unrelated to this.
 export function Holidays() {
   const manage = can('holiday', 'w');
   const [holidays, setHolidays] = useState([]);

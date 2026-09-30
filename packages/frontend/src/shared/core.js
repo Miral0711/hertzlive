@@ -1,5 +1,5 @@
 /* eslint-disable no-sequences */
-import { TODAY, ROLES, USERS, PROJECTS, SITES, FEED, ISSUES, SNAGS, MATERIALS, THREADS, MESSAGES, MOODBOARD, ROOMS, BOOKINGS, LEAVES, HOLIDAYS, ATTENDANCE_TODAY, SALARY, BADGES, TASKS, AUDIT, NAS_TREE } from './data.js';
+import { TODAY, ROLES, USERS, PROJECTS, SITES, FEED, ISSUES, SNAGS, MATERIALS, THREADS, MESSAGES, MOODBOARD, ROOMS, BOOKINGS, LEAVES, HOLIDAYS, ATTENDANCE_TODAY, SALARY, BADGES, TASKS, AUDIT, NAS_TREE, ORG_LEAVE_TYPES, ORG_LEAVE_REQUESTS, ORG_HOLIDAYS } from './data.js';
 import { TIMESHEETS, TRANSMITTALS, RFIS, CHANGES, INVOICES, MEETINGS, VENDORS, HEADCOUNT, GRNS, DOCS, BRIEFS, SIGNATURES, SPOTS, AGENCY, TRADES, STATUTORY_TEMPLATES, STATUTORY, SERVICE_TYPES, ROUTING_RULES, ENQUIRIES, EXPENSES, SITE_CHECKINS, FOLLOWUPS, DECISIONS_DUE, CONNECTIONS, SHARE_LINKS, REVIEWS, PUNCHES, DRAWING_INDEX, INTAKE, PORTFOLIO, CLIENT_REFS, NOTIFICATIONS } from './data2.js';
 import { render } from './store.js';
 export { render };
@@ -132,6 +132,9 @@ export function loadDb() {
     BOOKINGS,
     LEAVES,
     HOLIDAYS,
+    ORG_LEAVE_TYPES,
+    ORG_LEAVE_REQUESTS,
+    ORG_HOLIDAYS,
     ATTENDANCE_TODAY,
     SALARY,
     TASKS,
@@ -178,7 +181,7 @@ export function loadDb() {
   });
   try {
     const s = JSON.parse(localStorage.getItem("hertz-proto") || "null");
-    if (s && s.v === 9) Object.assign(state, s.state);
+    if (s && s.v === 10) Object.assign(state, s.state);
   } catch (e) {}
   // A page reload interrupts the simulated transfer; make it retryable.
   state.queue.forEach(item => {
@@ -198,7 +201,7 @@ export function persist() {
     localStorage.setItem(
       "hertz-proto",
       JSON.stringify({
-        v: 9,
+        v: 10,
         state: {
           db: state.db,
           queue: state.queue,

@@ -1,8 +1,13 @@
-// Thin abstraction around the backend's real auth API (packages/backend/src/routes/auth.ts).
-// The rest of the app (router, Shell) should only ever call login()/logout()/getSession()/
-// isAuthenticated() here — never read the token or localStorage directly — so a later change
-// to how auth is implemented (refresh tokens, cookies, SSO, ...) doesn't ripple outward.
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+// Frontend-only mock of the former backend auth API (packages/backend/src/routes/auth.ts, now
+// removed). The rest of the app (router, Shell) should only ever call login()/logout()/
+// getSession()/isAuthenticated() here — never read the token or localStorage directly — so this
+// stays the only place that knows login is a local check against the demo accounts below rather
+// than a real network call.
+import { DEMO_ACCOUNTS } from './demoAccounts';
+import { USERS } from '../shared/data.js';
+
+// Matches packages/backend/prisma/seed.ts, which used this password for every demo account.
+const DEMO_PASSWORD = 'password';
 const STORAGE_KEY = 'archos-auth-session';
 
 function readSession() {
@@ -24,29 +29,21 @@ function writeSession(session) {
   }
 }
 
-// Logs in against the real backend and persists the session (JWT + public user
-// fields) to localStorage. Throws with a user-facing message on bad credentials.
+// Validates against the six seeded demo accounts (demoAccounts.js) and synthesizes a session
+// with the same shape the real backend used to return. Throws with a user-facing message on
+// bad credentials, same as before.
 export async function login(email, password) {
-  let res;
-  try {
-    res = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    throw new Error('Could not reach the server. Is the backend running?');
-  }
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || 'Unable to sign in.');
+  const account = DEMO_ACCOUNTS.find((a) => a.email.toLowerCase() === String(email || '').trim().toLowerCase());
+  if (!account || password !== DEMO_PASSWORD) throw new Error('Unable to sign in.');
+  const persona = USERS.find((u) => u.id === account.personaId);
 
   const session = {
-    token: body.token,
-    userId: body.user.id,
-    organizationId: body.user.organizationId,
-    name: body.user.name,
-    role: body.user.role,
-    email: body.user.email,
+    token: `mock-token-${account.personaId}`,
+    userId: account.personaId,
+    organizationId: 'hertz-demo',
+    name: persona?.name || account.label,
+    role: persona?.role || 'designer',
+    email: account.email,
   };
   writeSession(session);
   return session;
