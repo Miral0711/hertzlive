@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { state, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
 import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
-import { Empty } from '../ui/ui';
+import { Divider, Dropdown, DropdownItem, Empty } from '../ui/ui';
 import { DLink, DESKTOP_BASE, href } from './nav';
 import { NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
@@ -16,14 +16,19 @@ import { PERSONAS } from './data';
 
 const themeLabel = { system: 'System', light: 'Light', dark: 'Dark' };
 
+// Numbered like the studio's own project/drawing numbering — a running count across every
+// visible item, continuing across the existing groups rather than restarting each group, so the
+// grouping (and everything it gates by role) stays exactly as before; only the number is new.
 function SideNav({ page }) {
   const allowed = navFor();
+  let n = 0;
   return NAV_GROUPS.map(([label, keys]) => {
     const rows = keys.map((k) => allowed.find(([id]) => id === k)).filter(Boolean);
     if (!rows.length) return null;
-    const links = rows.map(([k, l, i]) => (
-      <SideLink key={k} to={`#/${k}`} current={page === k} icon={i}>{l}</SideLink>
-    ));
+    const links = rows.map(([k, l]) => {
+      n += 1;
+      return <SideLink key={k} to={`#/${k}`} current={page === k} n={n}>{l}</SideLink>;
+    });
     return label === 'Resources' ? (
       <details key={label} className="mt-1" open={keys.includes(page)}>
         <summary className="cursor-pointer px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-3">
@@ -39,15 +44,14 @@ function SideNav({ page }) {
     );
   });
 }
-function SideLink({ to, current, icon, children }) {
+function SideLink({ to, current, n, children }) {
   return (
     <DLink
       to={to}
       aria-current={current ? 'page' : undefined}
-      style={{ color: current ? 'var(--accent-text)' : 'var(--ink-2)' }}
-      className={`flex min-h-10 items-center gap-3 rounded-r1 px-3 font-medium no-underline transition hover:bg-surface-2 ${current ? 'bg-accent-soft font-semibold' : ''}`}
+      className={`flex min-h-10 items-center gap-3 rounded-r1 border-l-2 px-2.5 font-medium no-underline transition hover:bg-surface-2 ${current ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-transparent text-ink-2'}`}
     >
-      <Icon name={icon} className={current ? '' : 'text-ink-3'} />
+      <span className={`w-5 flex-none text-right text-[11px] tabular-nums ${current ? 'text-accent-text' : 'text-ink-3'}`} aria-hidden="true">{String(n).padStart(2, '0')}</span>
       <span>{children}</span>
     </DLink>
   );
@@ -104,10 +108,10 @@ export default function Shell() {
       >
         Skip to workspace
       </a>
-      <header className="flex items-center gap-4 border-b border-line bg-surface px-4">
-        <DLink to="#/today" className="flex min-w-[184px] items-baseline gap-1.5 text-lg no-underline" style={{ color: 'var(--ink)' }}>
-          <b className="font-bold tracking-tight">{brand?.short || state.db.AGENCY.short}</b>
-          <span className="text-sm text-ink-3">Studio</span>
+      <header className="flex items-center gap-5 border-b border-line bg-surface px-5">
+        <DLink to="#/today" className="flex min-w-[184px] flex-col justify-center gap-0.5 no-underline" style={{ color: 'var(--ink)' }}>
+          <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
+          <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] text-ink-3">Studio</span>
         </DLink>
         <form
           role="search"
@@ -118,16 +122,19 @@ export default function Shell() {
             navigate(href(`#/search?q=${encodeURIComponent(v)}`));
           }}
         >
-          <input
-            ref={searchRef}
-            type="search"
-            name="q"
-            key={page === 'search' ? q.q : 'search'}
-            defaultValue={page === 'search' ? q.q || '' : ''}
-            placeholder="Search your workspace"
-            aria-label="Search projects, people, drawings and messages"
-            className="min-h-[38px] max-w-[560px] flex-1 rounded-lg border border-transparent bg-surface-2 px-3.5 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
-          />
+          <div className="relative max-w-[560px] flex-1">
+            <Icon name="search" small className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+            <input
+              ref={searchRef}
+              type="search"
+              name="q"
+              key={page === 'search' ? q.q : 'search'}
+              defaultValue={page === 'search' ? q.q || '' : ''}
+              placeholder="Search your workspace"
+              aria-label="Search projects, people, drawings and messages"
+              className="min-h-[38px] w-full rounded-r2 border border-transparent bg-surface-2 py-1.5 pl-9 pr-3.5 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
+            />
+          </div>
         </form>
         {!(workspace || focusedWork) && (
           <button
@@ -140,48 +147,43 @@ export default function Shell() {
             <Icon name="chat" small /> Chats
           </button>
         )}
-        <details className="relative">
-          <summary className="cursor-pointer rounded-r1 px-2 py-1.5 text-[13px] text-ink-2 hover:bg-surface-2">Preview options</summary>
-          <div className="absolute right-0 top-full z-20 mt-1 flex w-72 flex-col gap-2.5 rounded-r3 border border-line bg-surface p-3.5 shadow-s2">
-            <label className="flex items-center gap-2 text-[13px] text-ink-2">
-              Viewing as
-              <select
-                aria-label="Switch persona"
-                value={state.userId}
-                onChange={(e) => switchPersona(e.target.value)}
-                className="min-h-9 flex-1 rounded-r1 border border-line-2 bg-surface px-2.5 text-ink"
-              >
-                {PERSONAS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}
-              </select>
-            </label>
-            <button type="button" onClick={cycleTheme} className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 px-3.5 font-semibold hover:bg-surface-2">
-              <Icon name="moon" small /> Theme: {themeLabel[state.theme]}
-            </button>
-            <button type="button" onClick={resetSampleData} className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 px-3.5 font-semibold hover:bg-surface-2">
-              <Icon name="reset" small /> Reset sample data
-            </button>
-            <button
-              type="button"
-              onClick={() => { logout(); navigate('/login', { replace: true }); }}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 px-3.5 font-semibold hover:bg-surface-2"
+        <Dropdown trigger={<><Icon name="me" small /> Preview options</>} panelClassName="!flex w-72 flex-col gap-2.5 !p-3.5">
+          <label className="mb-1 flex items-center gap-2 text-[13px] text-ink-2">
+            Viewing as
+            <select
+              aria-label="Switch persona"
+              value={state.userId}
+              onChange={(e) => switchPersona(e.target.value)}
+              className="min-h-9 flex-1 rounded-r1 border border-line-2 bg-surface px-2.5 text-ink"
             >
-              <Icon name="logout" small /> Log out
-            </button>
-            <small className="text-ink-3">Interactive preview · sample records</small>
-          </div>
-        </details>
+              {PERSONAS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}
+            </select>
+          </label>
+          <Divider className="mb-1" />
+          <DropdownItem icon="moon" onClick={cycleTheme}>Theme: {themeLabel[state.theme]}</DropdownItem>
+          <DropdownItem icon="reset" onClick={resetSampleData}>Reset sample data</DropdownItem>
+          <DropdownItem icon="logout" onClick={() => { logout(); navigate('/login', { replace: true }); }}>Log out</DropdownItem>
+          <Divider className="my-1" />
+          <small className="px-2.5 text-ink-3">Interactive preview · sample records</small>
+        </Dropdown>
       </header>
 
       <div className={`grid min-h-0 ${noChat ? 'grid-cols-[188px_minmax(0,1fr)]' : 'grid-cols-[188px_minmax(0,1fr)_360px] max-[1250px]:grid-cols-[188px_minmax(0,1fr)]'}`}>
         <nav aria-label="Modules" className="flex flex-col gap-0.5 overflow-auto border-r border-line bg-surface px-2.5 py-3">
           <SideNav page={focusedWork ? 'projects' : page} />
-          <div className="mt-auto flex items-center gap-2.5 pt-4">
-            <span className="inline-grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-3 text-[13px] font-semibold">
-              {u.ini || u.name.slice(0, 1)}
-            </span>
-            <div className="min-w-0">
-              <b className="block truncate">{u.name}</b>
-              <small className="text-ink-3">{u.title || u.role}</small>
+          <div className="mt-auto flex flex-col gap-2 pt-4">
+            <Divider />
+            <DLink to="#/settings" className="flex min-h-9 items-center gap-2.5 rounded-r1 px-2.5 text-[13px] font-medium text-ink-2 no-underline hover:bg-surface-2">
+              <Icon name="settings" small className="text-ink-3" /> Settings
+            </DLink>
+            <div className="flex items-center gap-2.5 px-2.5 pb-1">
+              <span className="inline-grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-3 text-[13px] font-semibold">
+                {u.ini || u.name.slice(0, 1)}
+              </span>
+              <div className="min-w-0">
+                <b className="block truncate">{u.name}</b>
+                <small className="text-ink-3">{u.title || u.role}</small>
+              </div>
             </div>
           </div>
         </nav>

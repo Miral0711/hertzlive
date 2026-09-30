@@ -1,4 +1,4 @@
-import { Children, isValidElement, useMemo, useState } from 'react';
+import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
 
@@ -27,7 +27,9 @@ export function Btn({ kind = 'default', sm = false, icon, className = '', childr
 // ---------- Status pill / chip ----------
 const pillKinds = {
   '': 'border-line-2 text-ink-2',
-  ok: 'border-accent bg-accent text-accent-ink',
+  // `ok` is the positive/settled state (paid, approved, done) — the olive system color,
+  // never the brand accent, which is reserved for primary actions and current-selection.
+  ok: 'border-ok-soft bg-ok-soft text-ok',
   soft: 'border-accent-soft bg-accent-soft text-accent-text',
   warn: 'border-warn-soft bg-warn-soft text-warn',
   crit: 'border-crit-soft bg-crit-soft text-crit',
@@ -186,6 +188,73 @@ export function Field({ label, hint, error, children }) {
 export const Input = ({ className = '', ...p }) => <input className={`${control} ${className}`} {...p} />;
 export const Select = ({ className = '', ...p }) => <select className={`${control} ${className}`} {...p} />;
 export const Textarea = ({ className = '', ...p }) => <textarea className={`${control} min-h-[72px] resize-y ${className}`} {...p} />;
+
+// ---------- Divider ----------
+export const Divider = ({ className = '' }) => <hr className={`m-0 border-0 border-t border-line ${className}`} />;
+
+// ---------- Tooltip (hover/focus label, CSS-only) ----------
+export function Tooltip({ label, children }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute -top-1.5 left-1/2 z-30 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-r1 bg-ink px-2 py-1 text-xs font-medium text-surface opacity-0 shadow-s2 transition group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
+// ---------- IconButton ----------
+export function IconButton({ icon, label, sm = false, className = '', ...rest }) {
+  const size = sm ? 'h-8 w-8' : 'h-9 w-9';
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={`inline-grid ${size} flex-none place-items-center rounded-r1 border border-line-2 bg-surface text-ink-2 transition hover:bg-surface-2 hover:text-ink disabled:opacity-50 ${className}`}
+      {...rest}
+    >
+      <Icon name={icon} small={sm} />
+    </button>
+  );
+}
+
+// ---------- Dropdown (native <details>-backed menu — same pattern the app already used ad hoc
+// in several places, centralised here: closes on outside click / Escape). ----------
+export function Dropdown({ trigger, children, align = 'right', className = '', panelClassName = '' }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) ref.current.open = false; };
+    const onKey = (e) => { if (e.key === 'Escape' && ref.current) ref.current.open = false; };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); };
+  }, []);
+  return (
+    <details ref={ref} className={`relative ${className}`}>
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-ink hover:bg-surface-2 [&::-webkit-details-marker]:hidden">
+        {trigger}
+      </summary>
+      <div className={`absolute top-full z-30 mt-1.5 min-w-[220px] rounded-r3 border border-line bg-surface p-2 shadow-s2 ${align === 'right' ? 'right-0' : 'left-0'} ${panelClassName}`}>
+        {children}
+      </div>
+    </details>
+  );
+}
+export const DropdownItem = ({ icon, children, className = '', ...rest }) => (
+  <button
+    type="button"
+    className={`flex min-h-9 w-full items-center gap-2.5 rounded-r1 px-2.5 text-left font-medium text-ink hover:bg-surface-2 ${className}`}
+    {...rest}
+  >
+    {icon && <Icon name={icon} small />}
+    {children}
+  </button>
+);
 
 // ---------- Data table (sortable, filterable) ----------
 const textOf = (n) => {

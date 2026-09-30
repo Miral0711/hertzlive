@@ -8,7 +8,7 @@ import { navFor, P, name, first, role, staff } from '../helpers';
 import { SiteLink, ChatLink, FromChat, filedRows } from '../parts';
 import { openDialog } from '../session';
 import { AssistButton } from '../chat/assist';
-import Ph from './Ph';
+import Ph from '../../ui/Ph';
 import { IssueWorkspace, DeliveryWorkspace } from './Work';
 import { Details, Progress } from './bits';
 
@@ -45,30 +45,40 @@ function SitesChart() {
   );
 }
 
+// Same deterministic placeholder convention as the rest of the app (Ph, keyed by real feed data) —
+// the site's own most recent photo update, not invented imagery.
+function SiteImage({ s }) {
+  const photo = svc.feed(s.id).filter((f) => f.type === 'photo').sort((a, b) => b.at.localeCompare(a.at))[0];
+  return <Ph hue={photo?.hue ?? 200} seed={photo?.seed ?? s.id} ar={1.6} className="h-full" />;
+}
+
 export function SitesIndex() {
   const sites = svc.sites();
   return (
     <>
       <PageHeader title="Sites" sub="Progress, people and the work that needs a response." />
       {sites.length ? (
-        <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
           {sites.map((s) => {
             const issues = openIssues(s.id);
             const short = state.db.GRNS.filter((g) => g.siteId === s.id && g.status === 'short').length;
             return (
-              <article key={s.id} className="rounded-r3 border border-line bg-surface p-4">
-                <div className="flex items-center gap-2"><Icon name="sites" /><h2 className="m-0 text-lg font-semibold"><SiteLink id={s.id}>{s.name}</SiteLink></h2></div>
-                <p>{s.stage}</p>
-                <Progress label={`Recorded progress · ${s.progress}%`} value={s.progress} />
-                <div className="my-2 flex flex-col text-[13px] text-ink-2">
-                  <span>Site manager <b>{name(s.managerId)}</b></span>
-                  <span>Last visit <b>{fmtD(s.lastVisit)}</b></span>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {role() !== 'contractor'
-                    ? <DLink to={`#/sites/${s.id}?tab=issues`}>{issues.length} open issues</DLink>
-                    : <SiteLink id={s.id}>Open site feed</SiteLink>}
-                  <DLink to={`#/sites/${s.id}?tab=deliveries`}>{short} short deliveries</DLink>
+              <article key={s.id} className="overflow-hidden rounded-r3 border border-line bg-surface">
+                <div className="h-32 w-full overflow-hidden bg-surface-2"><SiteImage s={s} /></div>
+                <div className="p-4">
+                  <div className="flex items-center gap-2"><Icon name="sites" className="text-ink-3" /><h2 className="m-0 text-lg font-semibold"><SiteLink id={s.id}>{s.name}</SiteLink></h2></div>
+                  <p>{s.stage}</p>
+                  <Progress label={`Recorded progress · ${s.progress}%`} value={s.progress} />
+                  <div className="my-2 flex flex-col text-[13px] text-ink-2">
+                    <span>Site manager <b>{name(s.managerId)}</b></span>
+                    <span>Last visit <b>{fmtD(s.lastVisit)}</b></span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {role() !== 'contractor'
+                      ? <DLink to={`#/sites/${s.id}?tab=issues`}>{issues.length} open issues</DLink>
+                      : <SiteLink id={s.id}>Open site feed</SiteLink>}
+                    <DLink to={`#/sites/${s.id}?tab=deliveries`}>{short} short deliveries</DLink>
+                  </div>
                 </div>
               </article>
             );

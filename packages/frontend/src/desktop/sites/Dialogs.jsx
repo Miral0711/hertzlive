@@ -110,34 +110,10 @@ export function TemplateDialog({ d }) {
 }
 export const openNewProject = (openDialog) => openDialog({ kind: 'template', name: STAGE_TEMPLATE.name, tkind: 'Project' });
 
-export function ImportContactsDialog({ d }) {
-  const rows = svc.phoneContacts();
-  const save = (e) => {
-    e.preventDefault();
-    const picked = new FormData(e.currentTarget).getAll('pick').map((i) => rows[+i]);
-    try {
-      svc.importContacts(picked);
-      state.desk.dialog = null;
-      toast(`${picked.length} contact${picked.length === 1 ? '' : 's'} imported.`);
-    } catch (err) { d.error = err.message; }
-    render();
-  };
-  return (
-    <Modal title="Import from phone">
-      <form onSubmit={save}>
-        <p className="text-ink-3">Pick contacts individually. Numbers stay on the device until you confirm.</p>
-        {rows.length ? rows.map((c, i) => (
-          <label key={c.phone} className="mb-1.5 flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
-            <input type="checkbox" name="pick" value={i} />
-            <span>{c.name} · {c.phone}{c.guess ? ` · looks like ${c.guess}` : ''}</span>
-          </label>
-        )) : <p className="rounded-r2 bg-surface-2 p-4 text-center text-ink-3">All simulated contacts are already imported.</p>}
-        {d.error && <p role="alert" className="text-crit">{d.error}</p>}
-        <ModalActions><Cancel /><Btn kind="primary" type="submit">Import selected</Btn></ModalActions>
-      </form>
-    </Modal>
-  );
-}
+// Note: the "Import from phone" dialog lives in desktop/studio/dialogs.jsx (`ImportContactsDialog`,
+// wired as the 'import-contacts' kind in registry.js). A duplicate copy used to live here too; it
+// was never wired to any registry entry, so it's been removed rather than kept as unreachable dead
+// code.
 
 // Opened from a short delivery: posts a follow-up into the site conversation.
 export function RaiseVendorDialog({ d }) {

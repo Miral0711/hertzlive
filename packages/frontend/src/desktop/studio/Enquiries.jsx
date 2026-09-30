@@ -1,5 +1,5 @@
 import { state, svc, can, fmtDT, go, parseRoute, render, toast } from '../../shared/core.js';
-import { Btn, Card, DataTable, Field, Grid3, Input, PageHeader, Select, StatusPill, Tabs, Textarea } from '../../ui/ui';
+import { Avatar, Btn, Card, Field, Grid3, Input, PageHeader, Select, StatusPill, Tabs, Textarea } from '../../ui/ui';
 import { first } from '../helpers';
 import { DLink } from '../nav';
 import { openDialog } from '../session';
@@ -83,23 +83,39 @@ export default function Enquiries({ q }) {
       )}
       <section>
         <SubText>{rows.length} {tab === 'new' ? 'new ' : ''}enquir{rows.length === 1 ? 'y' : 'ies'} · Open a record to review, assign or decide.</SubText>
-        <DataTable
-          cols={['Enquiry', 'Request', 'Owner', 'Status', 'Received', '']}
-          rows={rows.map((e) => [
-            <div>
-              <Btn kind="link" onClick={() => open(e.id)}><b>{e.name}</b></Btn>
-              <small className="block text-ink-3">{e.city || 'City not given'} · {SRC[e.source] || e.source}</small>
-            </div>,
-            <div>
-              <b>{svc.serviceType(e.typeId)}</b>
-              <small className="block max-w-[340px] truncate text-ink-3">{e.msg || 'No message left.'}</small>
-            </div>,
-            e.assignee ? first(e.assignee) : 'Unassigned',
-            <StatusPill status={e.status === 'new' ? 'pending' : e.status} />,
-            fmtDT(e.at),
-            <Btn sm onClick={() => open(e.id)}>Review</Btn>,
-          ])}
-        />
+        {rows.length ? (
+          <div className="flex flex-col gap-2">
+            {rows.map((e) => (
+              <div
+                key={e.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => open(e.id)}
+                onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(e.id); } }}
+                className="flex w-full cursor-pointer items-center gap-3.5 rounded-r2 border border-line bg-surface px-4 py-3 transition hover:bg-surface-2"
+              >
+                <Avatar>{(e.name || '?').slice(0, 1)}</Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <b>{e.name}</b>
+                    <StatusPill status={e.status === 'new' ? 'pending' : e.status} />
+                  </div>
+                  <small className="block truncate text-ink-3">
+                    {svc.serviceType(e.typeId)} · {e.city || 'City not given'} · {SRC[e.source] || e.source}
+                    {e.msg ? ` · ${e.msg}` : ''}
+                  </small>
+                </div>
+                <div className="hidden flex-none text-right text-[13px] text-ink-3 sm:block">
+                  <div>{e.assignee ? first(e.assignee) : 'Unassigned'}</div>
+                  <div>{fmtDT(e.at)}</div>
+                </div>
+                <Btn sm onClick={(ev) => { ev.stopPropagation(); open(e.id); }}>Review</Btn>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Card><p className="m-0 py-6 text-center text-ink-3">No enquiries in this view.</p></Card>
+        )}
       </section>
     </>
   );

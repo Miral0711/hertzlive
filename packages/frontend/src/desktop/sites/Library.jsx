@@ -6,7 +6,7 @@ import { P, V, first, role } from '../helpers';
 import { FromChat, filedRows } from '../parts';
 import { openDialog } from '../session';
 import { formData } from '../session';
-import Ph from './Ph';
+import Ph from '../../ui/Ph';
 
 function choose(e, s) {
   e.preventDefault();

@@ -5,7 +5,7 @@ import Icon from '../../ui/Icon';
 import Modal, { ModalActions } from '../Modal';
 import { closeDialog, formData } from '../session';
 import { name } from '../helpers';
-import Ph from './Ph';
+import Ph from '../../ui/Ph';
 import { fileKind, winPath } from './util';
 import { fileCopy, shareCopy } from './files';
 
