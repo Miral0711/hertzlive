@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { RESOURCE } from '../data';
 import { Btn, Card, Field, Grid3, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable } from '../../ui/ui';
 import { P, first, name } from '../helpers';
 import { DLink } from '../nav';
+import { openDialog } from '../session';
+import { deleteHoliday, listHolidays, listLeaveRequests } from '../../api/leaveClient';
 import {
   ClashBox, H2, Muted, PURPOSE, SubText, TODAY, TextLink, approvalRecords, dateShift, hours, submitBook, tabBase,
 } from './common';
@@ -325,9 +327,149 @@ function Resource() {
   );
 }
 
+// A month grid, no calendar library - matches the app's plain-table/canvas visual style.
+// Monday-first weeks; a day cell shows any org holiday plus a dot per person on leave that day.
+function datesInRange(startISO, endISO) {
+  const out = [];
+  const cur = new Date(startISO.slice(0, 10) + 'T00:00:00.000Z');
+  const end = new Date(endISO.slice(0, 10) + 'T00:00:00.000Z');
+  while (cur <= end) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return out;
+}
+function MonthCalendar({ month, holidays, leaveRequests }) {
+  const [y, m] = month.split('-').map(Number);
+  const totalDays = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const startWeekday = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7; // Monday = 0
+
+  const holidaysByDate = {};
+  holidays.forEach((h) => {
+    const k = h.date.slice(0, 10);
+    (holidaysByDate[k] = holidaysByDate[k] || []).push(h);
+  });
+  const leaveByDate = {};
+  leaveRequests.filter((l) => ['approved', 'pending'].includes(l.status)).forEach((l) => {
+    datesInRange(l.startDate, l.endDate).forEach((k) => {
+      (leaveByDate[k] = leaveByDate[k] || []).push(l);
+    });
+  });
+
+  const cells = [...Array(startWeekday).fill(null), ...Array.from({ length: totalDays }, (_, i) => i + 1)];
+  return (
+    <div className="grid grid-cols-7 gap-1 text-[12px]">
+      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+        <div key={d} className="text-center font-semibold text-ink-3">{d}</div>
+      ))}
+      {cells.map((d, i) => {
+        if (!d) return <div key={i} />;
+        const key = `${month}-${String(d).padStart(2, '0')}`;
+        const hs = holidaysByDate[key] || [];
+        const lv = leaveByDate[key] || [];
+        return (
+          <div key={i} className="min-h-[58px] rounded-r1 border border-line p-1">
+            <div className="text-ink-3">{d}</div>
+            {hs.map((h) => (
+              <div
+                key={h.id}
+                title={h.name}
+                className={`mt-0.5 truncate rounded px-1 text-[10px] font-medium text-white ${h.type === 'mandatory' ? 'bg-crit' : 'bg-warn'}`}
+              >
+                {h.name}
+              </div>
+            ))}
+            {lv.length > 0 && (
+              <div className="mt-0.5 flex flex-wrap gap-0.5">
+                {lv.map((l) => (
+                  <span
+                    key={l.id}
+                    title={`${l.employee?.name || 'Someone'} · ${l.leaveType?.name || 'Leave'} · ${l.status}`}
+                    className={`h-2 w-2 rounded-full ${l.status === 'approved' ? 'bg-ok' : 'bg-line-2'}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <p className="col-span-7 mt-1 text-ink-3">
+        <span className="mr-1 inline-block h-2 w-2 rounded-full bg-crit align-middle" /> Mandatory holiday
+        <span className="ml-3 mr-1 inline-block h-2 w-2 rounded-full bg-warn align-middle" /> Optional holiday
+        <span className="ml-3 mr-1 inline-block h-2 w-2 rounded-full bg-ok align-middle" /> Approved leave
+        <span className="ml-3 mr-1 inline-block h-2 w-2 rounded-full bg-line-2 align-middle" /> Pending leave
+      </p>
+    </div>
+  );
+}
+
+// Org Holiday Management, backed by the mock ../../api/leaveClient.js (state.db.ORG_HOLIDAYS).
+// The old mock "push a holiday notice to site groups" demo (tied to the separate mock
+// LEAVES/HOLIDAYS/chat-thread data) is kept below as-is, unrelated to this.
 export function Holidays() {
+  const manage = can('holiday', 'w');
+  const [holidays, setHolidays] = useState([]);
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [month, setMonth] = useState(TODAY.slice(0, 7));
+
+  const load = () => {
+    setLoading(true);
+    setError('');
+    Promise.all([listHolidays(), listLeaveRequests({})])
+      .then(([h, l]) => { setHolidays(h); setLeaveRequests(l); })
+      .catch((e) => setError(e.message || 'Could not load holidays.'))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const remove = (h) => {
+    if (!window.confirm(`Delete "${h.name}"?`)) return;
+    deleteHoliday(h.id).then(() => { toast('Holiday deleted.'); load(); }).catch((e) => toast(e.message));
+  };
+  const shiftMonth = (delta) => {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    setMonth(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  };
+
   return (
     <Card title="Holidays">
+      {error && <p className="mb-2.5 text-crit">{error}</p>}
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 text-lg font-semibold">Calendar</h2>
+        <div className="flex items-center gap-2">
+          <Btn sm onClick={() => shiftMonth(-1)}>‹ Prev</Btn>
+          <b>{month}</b>
+          <Btn sm onClick={() => shiftMonth(1)}>Next ›</Btn>
+        </div>
+      </div>
+      {loading ? <Muted>Loading…</Muted> : <MonthCalendar month={month} holidays={holidays} leaveRequests={leaveRequests} />}
+
+      <div className="mb-2.5 mt-5 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 text-lg font-semibold">Holidays</h2>
+        {manage && <Btn kind="primary" onClick={() => openDialog({ kind: 'holiday-edit', onSaved: load })}>Add holiday</Btn>}
+      </div>
+      {!loading && (
+        <DataTable
+          cols={['Date', 'Holiday', 'Type', 'Description', ...(manage ? [''] : [])]}
+          rows={holidays.map((h) => [
+            fmtD(h.date.slice(0, 10)), h.name,
+            <Pill kind={h.type === 'mandatory' ? '' : 'soft'}>{h.type === 'mandatory' ? 'Mandatory' : 'Optional'}</Pill>,
+            h.description || '',
+            ...(manage ? [(
+              <div className="flex gap-2">
+                <Btn sm onClick={() => openDialog({ kind: 'holiday-edit', holiday: h, onSaved: load })}>Edit</Btn>
+                <Btn sm onClick={() => remove(h)}>Delete</Btn>
+              </div>
+            )] : []),
+          ])}
+        />
+      )}
+
+      <H2>Push a holiday notice to site groups</H2>
+      <SubText>Demo feature, unrelated to the org holiday list above - posts a message to every site chat group.</SubText>
       <DataTable
         cols={['Date', 'Holiday', '']}
         rows={state.db.HOLIDAYS.map((h) => [
@@ -345,11 +487,6 @@ export function Holidays() {
               )
             : '',
         ])}
-      />
-      <H2>Leave calendar</H2>
-      <DataTable
-        cols={['Person', 'Type', 'From', 'To', 'Status']}
-        rows={svc.leaves().map((l) => [name(l.userId), l.type, fmtD(l.from), fmtD(l.to), <StatusPill status={l.status} />])}
       />
     </Card>
   );

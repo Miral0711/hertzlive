@@ -1,14 +1,20 @@
+import { useEffect, useState } from 'react';
 import { state, svc, can, inr, fmtD, fmtDT, go, persist, render, toast, uid } from '../../shared/core.js';
-import { BALANCES, TEAM_GOAL, TODAY } from '../../shared/data.js';
+import { TEAM_GOAL, TODAY } from '../../shared/data.js';
 import { HOURLY } from '../../shared/data2.js';
 import { user } from '../../shared/core.js';
 import { Bar, Btn, Card, DataTable, Grid2, Input, List, Item, PageHeader, Pill, Select, StatusPill, Tabs } from '../../ui/ui';
 import { FromChat } from '../parts';
-import { P, V, days, first, name, role } from '../helpers';
+import { P, V, first, name, role } from '../helpers';
 import { openDialog } from '../session';
 import { H2, Muted, SubText, tabBase } from './common';
 import { LoadGrid } from './Schedule';
 import Folders from './Folders';
+import {
+  applyForLeave, approveLeaveRequest, cancelLeaveRequest, getLeaveBalance,
+  listLeaveRequests, listLeaveTypes, rejectLeaveRequest,
+} from '../../api/leaveClient';
+import { getSession } from '../../auth/authClient';
 
 const Directory = () => (
   <Card title="Directory">
@@ -38,43 +44,124 @@ const Load = () => (
   </Card>
 );
 
+// Org Leave Management, backed by the mock ../../api/leaveClient.js (state.db.ORG_LEAVE_TYPES /
+// ORG_LEAVE_REQUESTS). (The Dashboard's own "pending leave" widget and Schedule's "Who's
+// away"/reassignment features still read the separate, older mock LEAVES array on purpose -
+// rewiring those is a different feature and out of scope here.)
 function Leaves() {
-  const request = (e) => {
-    e.preventDefault();
-    const p = Object.fromEntries(new FormData(e.currentTarget));
-    svc.requestLeave({ type: p.type, from: p.from, to: p.to, days: days(p.from, p.to) + 1, reason: p.reason });
-    toast('Leave requested.');
+  const approver = can('leave', 'a');
+  const [types, setTypes] = useState([]);
+  const [balances, setBalances] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [typeId, setTypeId] = useState('');
+  const [status, setStatus] = useState('');
+  const [employeeQuery, setEmployeeQuery] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const load = () => {
+    setLoading(true);
+    setError('');
+    Promise.all([
+      listLeaveTypes(),
+      getLeaveBalance(),
+      listLeaveRequests(approver ? { status: status || undefined, leaveTypeId: typeId || undefined, from: from || undefined, to: to || undefined } : {}),
+    ])
+      .then(([t, b, r]) => { setTypes(t); setBalances(b); setRequests(r); })
+      .catch((e) => setError(e.message || 'Could not load leave data.'))
+      .finally(() => setLoading(false));
   };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, [approver, status, typeId, from, to]);
+
+  const selectedType = types.find((t) => t.id === typeId) || types[0];
+
+  const apply = (e) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const p = Object.fromEntries(new FormData(form));
+    applyForLeave({
+      leaveTypeId: p.leaveTypeId,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      halfDay: p.halfDay === 'on',
+      reason: p.reason || undefined,
+    })
+      .then(() => { toast('Leave requested.'); form.reset(); load(); })
+      .catch((e) => toast(e.message));
+  };
+  const cancel = (id) => cancelLeaveRequest(id).then(() => { toast('Leave request cancelled.'); load(); }).catch((e) => toast(e.message));
+  const decide = (id, ok) => (ok ? approveLeaveRequest(id) : rejectLeaveRequest(id))
+    .then(() => { toast(ok ? 'Leave approved.' : 'Leave rejected.'); load(); })
+    .catch((e) => toast(e.message));
+
+  const shownRequests = employeeQuery.trim()
+    ? requests.filter((r) => `${r.employee?.name || ''} ${r.employee?.email || ''}`.toLowerCase().includes(employeeQuery.trim().toLowerCase()))
+    : requests;
+
   return (
     <Card>
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 text-lg font-semibold">Leave requests</h2>
-        {can('leave', 'w') && (
-          <form onSubmit={request} className="flex flex-wrap items-center gap-2">
-            <Select name="type"><option>Casual</option><option>Sick</option><option>Earned</option></Select>
-            <Input type="date" name="from" defaultValue="2026-09-21" aria-label="From" />
-            <Input type="date" name="to" defaultValue="2026-09-22" aria-label="To" />
+        {can('leave', 'w') && types.length > 0 && (
+          <form onSubmit={apply} className="flex flex-wrap items-center gap-2">
+            <Select name="leaveTypeId" value={typeId || selectedType?.id} onChange={(e) => setTypeId(e.target.value)} aria-label="Leave type">
+              {types.map((t) => <option key={t.id} value={t.id}>{t.name}{t.paid ? '' : ' (unpaid)'}</option>)}
+            </Select>
+            <Input type="date" name="startDate" aria-label="From" required />
+            <Input type="date" name="endDate" aria-label="To" required />
+            {selectedType?.allowHalfDay && (
+              <label className="flex items-center gap-1.5 text-[13px]"><input type="checkbox" name="halfDay" /> Half day</label>
+            )}
             <Input name="reason" placeholder="Reason" />
             <Btn type="submit">Request</Btn>
           </form>
         )}
       </div>
-      <DataTable
-        cols={['Person', 'Type', 'From', 'To', 'Days', 'Reason', 'Status', 'Stand-in', '']}
-        rows={svc.leaves().map((l) => [
-          name(l.userId), l.type, fmtD(l.from), fmtD(l.to), l.days, l.reason,
-          <StatusPill status={l.status} />,
-          l.status === 'pending' ? svc.standIns(l.userId).map((x) => first(x.u.id)).join(', ') : '',
-          l.status === 'pending' && can('leave', 'a') ? (
-            <div className="flex gap-2">
-              <Btn sm kind="primary" onClick={() => openDialog({ kind: 'leave-approve', id: l.id })}>Approve</Btn>
-              <Btn sm onClick={() => { svc.decideLeave(l.id, false); toast('Leave rejected.'); }}>Reject</Btn>
-            </div>
-          ) : '',
-        ])}
-      />
+      {error && <p className="mb-2.5 text-crit">{error}</p>}
+      {approver && (
+        <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
+          <Input placeholder="Filter by employee name or email" value={employeeQuery} onChange={(e) => setEmployeeQuery(e.target.value)} className="w-[220px]" aria-label="Filter by employee" />
+          <Select value={typeId} onChange={(e) => setTypeId(e.target.value)} aria-label="Filter by type">
+            <option value="">All types</option>
+            {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </Select>
+          <Select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
+            <option value="">All statuses</option>
+            {['pending', 'approved', 'rejected', 'cancelled'].map((s) => <option key={s} value={s}>{s}</option>)}
+          </Select>
+          <label className="flex items-center gap-1.5 text-[13px]">From <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Filter from date" /></label>
+          <label className="flex items-center gap-1.5 text-[13px]">To <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Filter to date" /></label>
+        </div>
+      )}
+      {loading ? <Muted>Loading…</Muted> : (
+        <DataTable
+          cols={[...(approver ? ['Person'] : []), 'Type', 'From', 'To', 'Days', 'Reason', 'Status', '']}
+          rows={shownRequests.map((l) => [
+            ...(approver ? [l.employee?.name || '—'] : []),
+            l.leaveType?.name || '—', fmtD(l.startDate.slice(0, 10)), fmtD(l.endDate.slice(0, 10)), l.totalDays, l.reason || '',
+            <StatusPill status={l.status} />,
+            l.status === 'pending' && approver ? (
+              <div className="flex gap-2">
+                <Btn sm kind="primary" onClick={() => decide(l.id, true)}>Approve</Btn>
+                <Btn sm onClick={() => decide(l.id, false)}>Reject</Btn>
+              </div>
+            ) : l.status === 'pending' && (!approver || l.employeeId === getSession()?.userId) ? (
+              // Non-approvers only ever see their own requests here (leaveClient.js scopes the
+              // list to the signed-in session's userId); approvers see everyone's, so this
+              // compares against that same session id, not the "viewing as" `state.userId`.
+              <Btn sm onClick={() => cancel(l.id)}>Cancel</Btn>
+            ) : '',
+          ])}
+        />
+      )}
       <H2>My balance</H2>
-      <DataTable cols={['Type', 'Total', 'Used', 'Left']} rows={Object.entries(BALANCES).map(([k, v]) => [k, v.total, v.used, v.total - v.used])} />
+      <DataTable
+        cols={['Type', 'Allocated', 'Used', 'Pending', 'Remaining']}
+        rows={balances.map((b) => [b.leaveType?.name || '—', b.allocated, b.used, b.pending, b.remaining])}
+      />
     </Card>
   );
 }

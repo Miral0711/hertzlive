@@ -1,9 +1,11 @@
 // Feature module: home (tasks, dashboard, today). Exports page components and dialogs (see registry.js).
-import { useEffect } from 'react';
-import { state, svc, can, fmtD, fmtDT, go, toast, render, me } from '../../shared/core.js';
+import { useEffect, useState } from 'react';
+import { state, svc, can, fmtD, fmtDT, go, toast, render, me, tenantProjectImage } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
 import { ANNOUNCEMENTS } from '../data';
 import { Btn, Card, Grid2, Item, ItemBody, Kpi, Kpis, List, PageHeader, DataTable, Field, Input, Select } from '../../ui/ui';
+import Ph from '../../ui/Ph';
+import Icon from '../../ui/Icon';
 import { DLink, href } from '../nav';
 import { P, name, first, role } from '../helpers';
 import Modal, { ModalActions } from '../Modal';
@@ -148,6 +150,38 @@ const TAGLINE = {
   site_manager: 'Coordinate the site. Close the loop with the studio.',
   hr: 'Keep your team and the studio moving.',
 };
+// Real clock time (not fabricated) — a small, honest touch the reference's editorial hero leans on.
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+};
+function HeroImage({ p }) {
+  const img = p && tenantProjectImage(p.id);
+  const [broken, setBroken] = useState(false);
+  if (!p) return null;
+  if (img && !broken) {
+    return <img src={img.src} alt={img.alt || p.name} className="h-full w-full object-cover" onError={() => setBroken(true)} />;
+  }
+  return <Ph hue={p.hue ?? 30} seed={p.id} ar={1.5} className="h-full" />;
+}
+function TodayHero({ u, r }) {
+  const p = svc.projects().find((x) => (x.status || 'active') === 'active') || svc.projects()[0];
+  return (
+    <div className="mb-7 grid items-stretch gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="flex flex-col justify-center">
+        <p className="m-0 mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-3">{fmtD(TODAY)} · {u.title || u.role}</p>
+        <h1 className="m-0 text-[40px] font-semibold leading-[1.05] tracking-tight">
+          {greeting()}, <span className="text-accent-text">{first(u.id)}.</span>
+        </h1>
+        <p className="mt-3 max-w-[48ch] text-ink-2">{TAGLINE[r] || 'The decisions, projects and people that need your attention.'}</p>
+        <DLink to="#/schedule" className="mt-4 inline-flex w-fit items-center gap-1.5 font-semibold text-accent-text no-underline hover:underline">
+          View schedule <Icon name="chev" small />
+        </DLink>
+      </div>
+      {p && <div className="hidden h-56 overflow-hidden rounded-r3 bg-surface-2 lg:block"><HeroImage p={p} /></div>}
+    </div>
+  );
+}
 function Today() {
   const r = role();
   if (r === 'client') return <><ClientHome /><ProjectUpdates /></>;
@@ -157,12 +191,7 @@ function Today() {
   const u = me();
   return (
     <>
-      <PageHeader
-        title="Your working day"
-        sub={<>{fmtD(TODAY)} · {u.title || u.role}<br />{TAGLINE[r] || 'The decisions, projects and people that need your attention.'}</>}
-      >
-        <DLink to="#/schedule">View schedule</DLink>
-      </PageHeader>
+      <TodayHero u={u} r={r} />
       <Home />
       {r !== 'partner' && <div className="mb-3.5"><SiteReviewQueue /></div>}
       <ProjectUpdates />

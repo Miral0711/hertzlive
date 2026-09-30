@@ -1,11 +1,11 @@
 import { state, svc, can, fmtDT, render, toast } from '../../shared/core.js';
-import { TODAY } from '../../shared/data.js';
 import { Btn, Field, Input, Select, StatusPill, Textarea } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { DLink } from '../nav';
 import { closeDialog, openDialog } from '../session';
 import { name } from '../helpers';
 import { SRC } from './common';
+import { createHoliday, updateHoliday } from '../../api/leaveClient';
 
 const KV = ({ k, children }) =>
   children ? (
@@ -118,36 +118,46 @@ export function LeaveApproveDialog({ d }) {
   );
 }
 
-export function ReviewDialog({ d }) {
-  const editable = can('review', 'a');
-  const people = editable ? svc.people().filter((p) => p.id !== state.userId) : [];
+// Note: the Reviews dialog lives in desktop/resources/dialogs.jsx (`ReviewDialog`, wired as the
+// 'review' kind in registry.js) — People.jsx opens it via openDialog({kind:'review',...}) same as
+// any other module. A duplicate copy used to live here too; it was never wired to any registry
+// entry, so it's been removed rather than kept as unreachable dead code.
+
+// Org Holiday Management, backed by the mock ../../api/leaveClient.js (state.db.ORG_HOLIDAYS).
+// `d.onSaved` is a plain callback the caller passes in (dialogs here aren't persisted to
+// localStorage, so a function value in `d` is safe) - it's how the Schedule "Holidays" tab
+// refetches its own list after this dialog saves, since that tab keeps its data in local
+// component state, not directly rendered from `state.db`.
+export function HolidayDialog({ d }) {
+  const editing = Boolean(d.holiday);
   const save = (e) => {
     e.preventDefault();
     const p = Object.fromEntries(new FormData(e.currentTarget));
-    try {
-      svc.saveReview({ userId: p.userId || d.userId || state.userId, month: p.month, score: +p.score, strengths: [p.s1, p.s2, p.s3], growth: p.growth, reason: p.reason });
-      state.desk.dialog = null;
-      toast('Review saved.');
-    } catch (err) { d.error = err.message; }
-    render();
+    const payload = { name: p.name, date: p.date, type: p.type, description: p.description || undefined };
+    (editing ? updateHoliday(d.holiday.id, payload) : createHoliday(payload))
+      .then(() => {
+        closeDialog();
+        toast(editing ? 'Holiday updated.' : 'Holiday added.');
+        d.onSaved?.();
+      })
+      .catch((err) => { d.error = err.message; render(); });
   };
   return (
-    <Modal title={d.userId ? 'Review · ' + name(d.userId) : 'New review'}>
+    <Modal title={editing ? 'Edit holiday' : 'Add holiday'}>
       <form onSubmit={save}>
-        {editable && !d.userId ? (
-          <Field label="Person"><Select name="userId">{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
-        ) : <input type="hidden" name="userId" value={d.userId || ''} />}
-        <Field label="Month"><Input type="month" name="month" defaultValue={d.month || TODAY.slice(0, 7)} /></Field>
-        <Field label="Score, 1 to 5"><Input type="number" name="score" min="1" max="5" required /></Field>
-        <Field label="Strength 1"><Input name="s1" required /></Field>
-        <Field label="Strength 2"><Input name="s2" required /></Field>
-        <Field label="Strength 3"><Input name="s3" required /></Field>
-        <Field label="One growth point"><Input name="growth" required /></Field>
-        <Field label="Reason for the score"><Textarea name="reason" required /></Field>
+        <Field label="Name"><Input name="name" defaultValue={d.holiday?.name} required /></Field>
+        <Field label="Date"><Input type="date" name="date" defaultValue={d.holiday?.date?.slice(0, 10)} required /></Field>
+        <Field label="Type">
+          <Select name="type" defaultValue={d.holiday?.type || 'mandatory'}>
+            <option value="mandatory">Mandatory</option>
+            <option value="optional">Optional / floating</option>
+          </Select>
+        </Field>
+        <Field label="Description"><Textarea name="description" defaultValue={d.holiday?.description || ''} rows={3} /></Field>
         {d.error && <p role="alert" className="text-crit">{d.error}</p>}
         <ModalActions>
           <Btn onClick={closeDialog}>Cancel</Btn>
-          <Btn kind="primary" type="submit">Save review</Btn>
+          <Btn kind="primary" type="submit">{editing ? 'Save' : 'Add holiday'}</Btn>
         </ModalActions>
       </form>
     </Modal>

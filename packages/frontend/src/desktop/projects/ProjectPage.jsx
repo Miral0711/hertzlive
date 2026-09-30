@@ -1,6 +1,8 @@
-import { state, svc, can, toast, inr, fmtD } from '../../shared/core.js';
+import { useState } from 'react';
+import { state, svc, can, toast, inr, fmtD, tenantProjectImage } from '../../shared/core.js';
 import { TODAY, PHASES } from '../../shared/data.js';
 import { Btn, Pill, DataTable, PageHeader, Empty } from '../../ui/ui';
+import Ph from '../../ui/Ph';
 import { DLink, href } from '../nav';
 import { STAGE_TEMPLATE } from '../data.js';
 import { SiteLink, ChatLink } from '../parts';
@@ -16,53 +18,70 @@ import {
   FinishesTab, SelectionsTab, ChecklistsTab, BudgetTab, FeesTab, TeamTab, DecisionsTab, MoodboardTab, HandoverTab,
 } from './TabsB';
 
+// Real tenant photography wins when the studio has attached one (see AGENCY.brand.projects in
+// shared/data2.js, edited from Settings) — but those source files stay local/private per that
+// file's own comment, so this also has to degrade gracefully to the placeholder if the asset
+// 404s (e.g. this preview build, which never packages the private source portfolio).
+function ProjectImage({ p, className = '' }) {
+  const img = tenantProjectImage(p.id);
+  const [broken, setBroken] = useState(false);
+  if (img && !broken) {
+    return <img src={img.src} alt={img.alt || p.name} className={`h-full w-full object-cover ${className}`} onError={() => setBroken(true)} />;
+  }
+  return <Ph hue={p.hue ?? 30} seed={p.id} ar={1.6} className={`h-full ${className}`} />;
+}
+
 // ---------- list ----------
 function ProjectCards({ projects }) {
   if (!projects.length) {
     return <div className="my-5"><Empty>No projects in this view. Choose All to see the full register.</Empty></div>;
   }
   return (
-    <div className="my-5 grid gap-4 md:grid-cols-2">
+    <div className="my-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {projects.map((p) => {
         const milestone = projectMilestones(p).find((m) => !m.done);
         const issues = openIssues(p.id);
         return (
-          <article key={p.id} className="min-w-0 rounded-r3 border border-line bg-surface p-5">
-            <div className="flex items-start gap-3.5">
-              <span className="grid h-[46px] w-[46px] flex-none place-items-center rounded-r3 bg-surface-3 text-base font-semibold text-ink-2" aria-hidden="true">
-                {(p.code || p.name).slice(-4)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="m-0 mb-1 text-[21px] leading-snug">
-                  <DLink to={`#/projects/${p.id}`} className="text-ink no-underline hover:underline" style={{ color: 'var(--ink)' }}>{p.name}</DLink>
-                </h2>
-                <span className="text-ink-3">{p.kind} · {p.city}</span>
+          <article key={p.id} className="min-w-0 overflow-hidden rounded-r3 border border-line bg-surface">
+            <DLink to={`#/projects/${p.id}`} className="block no-underline" aria-hidden="true" tabIndex={-1}>
+              <div className="h-36 w-full overflow-hidden bg-surface-2">
+                <ProjectImage p={p} />
               </div>
-              <Pill>{p.status === 'finished' ? 'Finished' : PHASES[p.phase]}</Pill>
+            </DLink>
+            <div className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <h2 className="m-0 mb-0.5 text-lg leading-snug">
+                    <DLink to={`#/projects/${p.id}`} className="text-ink no-underline hover:underline" style={{ color: 'var(--ink)' }}>{p.name}</DLink>
+                  </h2>
+                  <span className="text-[13px] text-ink-3">{p.kind} · {p.city}</span>
+                </div>
+                <Pill>{p.status === 'finished' ? 'Finished' : PHASES[p.phase]}</Pill>
+              </div>
+              <div className="my-3.5 flex h-[5px] gap-[5px]" aria-label={`Phase: ${PHASES[p.phase]}`}>
+                {PHASES.map((phase, i) => (
+                  <span key={phase} title={phase} className={`flex-1 rounded-sm ${i <= p.phase ? 'bg-secondary' : 'bg-surface-3'}`} />
+                ))}
+              </div>
+              <div className="grid gap-1 text-[15px]">
+                <span className="text-[13px] text-ink-3">Next milestone</span>
+                <b>{milestone ? milestone.name : 'No upcoming milestone'}</b>
+                {milestone && (
+                  <small className={`text-sm ${milestone.date < TODAY ? 'text-crit' : 'text-ink-3'}`}>
+                    {fmtD(milestone.date)}{milestone.date < TODAY ? ' · Overdue' : ''}
+                  </small>
+                )}
+              </div>
+              <div className="mt-3.5 flex justify-between gap-3.5 border-t border-line pt-3 text-[13px]">
+                <span>
+                  {can('issue', 'r', role())
+                    ? (issues.length ? `${issues.length} open issue${issues.length === 1 ? '' : 's'}` : 'No open issues')
+                    : 'Project resources'}
+                </span>
+                <span className="text-right"><ProjectOwner p={p} /></span>
+              </div>
+              {can('budget', 'r', role()) && <div className="mt-3"><ProjectBudgetStatus p={p} /></div>}
             </div>
-            <div className="my-6 flex h-[5px] gap-[5px]" aria-label={`Phase: ${PHASES[p.phase]}`}>
-              {PHASES.map((phase, i) => (
-                <span key={phase} title={phase} className={`flex-1 rounded-sm ${i <= p.phase ? 'bg-accent' : 'bg-surface-3'}`} />
-              ))}
-            </div>
-            <div className="grid gap-1.5 text-base">
-              <span className="text-[13px] text-ink-3">Next milestone</span>
-              <b>{milestone ? milestone.name : 'No upcoming milestone'}</b>
-              {milestone && (
-                <small className={`text-sm ${milestone.date < TODAY ? 'text-crit' : 'text-ink-3'}`}>
-                  {fmtD(milestone.date)}{milestone.date < TODAY ? ' · Overdue' : ''}
-                </small>
-              )}
-            </div>
-            <div className="mt-5 flex justify-between gap-3.5 border-t border-line pt-3.5 text-[13px]">
-              <span>
-                {can('issue', 'r', role())
-                  ? (issues.length ? `${issues.length} open issue${issues.length === 1 ? '' : 's'}` : 'No open issues')
-                  : 'Project resources'}
-              </span>
-              <span className="text-right"><ProjectOwner p={p} /></span>
-            </div>
-            {can('budget', 'r', role()) && <div className="mt-3"><ProjectBudgetStatus p={p} /></div>}
           </article>
         );
       })}

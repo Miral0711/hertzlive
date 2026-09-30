@@ -48,7 +48,7 @@ function CashChart() {
         {rows.map((r) => (
           <div key={r.mo} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
             <div className="flex h-full w-full items-end justify-center gap-1">
-              <i className="block w-3 rounded-t bg-line-2" style={{ height: `${h(r.planned)}%` }} title={`Due ${inr(r.planned)}`} />
+              <i className="block w-3 rounded-t bg-secondary-soft" style={{ height: `${h(r.planned)}%` }} title={`Due ${inr(r.planned)}`} />
               <i className="block w-3 rounded-t bg-accent" style={{ height: `${h(r.got)}%` }} title={`Received ${inr(r.got)}`} />
             </div>
             <span className="text-xs text-ink-3">{r.label}</span>
@@ -56,7 +56,7 @@ function CashChart() {
         ))}
       </div>
       <p className="mb-0 mt-2 text-[13px] text-ink-3">
-        <i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-line-2" /> Due by invoice date{' '}
+        <i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-secondary-soft" /> Due by invoice date{' '}
         <i className="ml-2 mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-accent" /> Received
       </p>
     </Card>
@@ -133,13 +133,33 @@ function Dashboard({ unpaid, wip }) {
     ['Over 60 days', (i) => age(i) > 60],
   ];
   const late = unpaid.filter((i) => age(i) > 0);
+  const receivable = unpaid.reduce((a, i) => a + i.amount, 0);
+  const overdueAmt = late.reduce((a, i) => a + i.amount, 0);
+  const notDueAmt = receivable - overdueAmt;
+  const overduePct = receivable ? Math.round((overdueAmt / receivable) * 100) : 0;
   return (
     <>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
+        <div>
+          <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-ink-3">Receivable</p>
+          <p className="m-0 text-[42px] font-semibold leading-none tracking-tight">{inr(receivable)}</p>
+        </div>
+        <div className="min-w-[240px] max-w-[420px] flex-1">
+          <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${overduePct}% of the receivable is overdue`}>
+            {overdueAmt > 0 && <span className="h-full bg-crit" style={{ width: `${overduePct}%` }} />}
+            {notDueAmt > 0 && <span className="h-full bg-secondary" style={{ width: `${100 - overduePct}%` }} />}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-3">
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-crit align-middle" />Overdue · {inr(overdueAmt)}</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-secondary align-middle" />Not yet due · {inr(notDueAmt)}</span>
+          </div>
+        </div>
+      </div>
       <Kpis>
         <Kpi label="Fees under contract" value={inr(Object.values(FEES).reduce((a, b) => a + b, 0))} />
-        <Kpi label="Receivable" value={inr(unpaid.reduce((a, i) => a + i.amount, 0))} crit />
         <Kpi label="Work in progress" value={inr(wip.reduce((a, w) => a + w.wip, 0))} />
         <Kpi label="Studio margin" value={Math.round(wip.reduce((a, w) => a + w.margin, 0) / wip.length) + '%'} />
+        <Kpi label="Invoices outstanding" value={unpaid.length} />
       </Kpis>
       <Grid2>
         <Card title="Profitability by project">

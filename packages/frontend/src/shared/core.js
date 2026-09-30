@@ -1,5 +1,5 @@
 /* eslint-disable no-sequences */
-import { TODAY, ROLES, USERS, PROJECTS, SITES, FEED, ISSUES, SNAGS, MATERIALS, THREADS, MESSAGES, MOODBOARD, ROOMS, BOOKINGS, LEAVES, HOLIDAYS, ATTENDANCE_TODAY, SALARY, BADGES, TASKS, AUDIT, NAS_TREE } from './data.js';
+import { TODAY, ROLES, USERS, PROJECTS, SITES, FEED, ISSUES, SNAGS, MATERIALS, THREADS, MESSAGES, MOODBOARD, ROOMS, BOOKINGS, LEAVES, HOLIDAYS, ATTENDANCE_TODAY, SALARY, BADGES, TASKS, AUDIT, NAS_TREE, ORG_LEAVE_TYPES, ORG_LEAVE_REQUESTS, ORG_HOLIDAYS } from './data.js';
 import { TIMESHEETS, TRANSMITTALS, RFIS, CHANGES, INVOICES, MEETINGS, VENDORS, HEADCOUNT, GRNS, DOCS, BRIEFS, SIGNATURES, SPOTS, AGENCY, TRADES, STATUTORY_TEMPLATES, STATUTORY, SERVICE_TYPES, ROUTING_RULES, ENQUIRIES, EXPENSES, SITE_CHECKINS, FOLLOWUPS, DECISIONS_DUE, CONNECTIONS, SHARE_LINKS, REVIEWS, PUNCHES, DRAWING_INDEX, INTAKE, PORTFOLIO, CLIENT_REFS, NOTIFICATIONS } from './data2.js';
 import { render } from './store.js';
 export { render };
@@ -29,6 +29,17 @@ export function tenantProjectImage(projectId) {
   const image = tenantBrand()?.projects?.[projectId];
   return image && safeAssetUrl(image.src) ? image : null;
 }
+// Reads a design token's CURRENT value straight from the cascade (so this file can never drift
+// out of sync with src/index.css the way its old hardcoded hex approximations did) — falling back
+// to today's real value only if computed styles aren't available (e.g. no DOM yet).
+function cssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
 // Brand accents are tenant data. Derive readable light/dark treatments without
 // changing the tenant's saved choice or reusing brand colour as a status signal.
 export function agencyTheme(accent, dark = false) {
@@ -39,11 +50,12 @@ export function agencyTheme(accent, dark = false) {
   const luminance = a => a.map(v => { v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((n, v, i) => n + v * [.2126, .7152, .0722][i], 0);
   const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
   const base = rgb(hex), target = dark ? [255, 255, 255] : [0, 0, 0];
-  const surface = rgb(dark ? "#302b28" : "#f4f0e9");
+  // These track --surface / --mine (the outgoing-bubble token) from index.css at call time.
+  const surface = rgb(cssVar("--surface", dark ? "#292521" : "#fffdfa"));
   let color = base;
   for (let step = 0; contrast(color, surface) < 4.5 && step <= 100; step++) color = mix(base, target, step / 100);
   // Text also appears on outgoing bubbles, which are stronger than page surfaces.
-  const textSurface = rgb(dark ? "#514739" : "#E8E0CF");
+  const textSurface = rgb(cssVar("--mine", dark ? "#453b2c" : "#eee6d3"));
   let textColor = color;
   for (let step = 0; contrast(textColor, textSurface) < 4.5 && step <= 100; step++) textColor = mix(color, target, step / 100);
   return {accent: str(color), text: str(textColor), ink: dark ? "#171513" : "#ffffff", soft: str(mix(color, rgb(dark ? "#24211f" : "#ffffff"), dark ? .86 : .91))};
@@ -120,6 +132,9 @@ export function loadDb() {
     BOOKINGS,
     LEAVES,
     HOLIDAYS,
+    ORG_LEAVE_TYPES,
+    ORG_LEAVE_REQUESTS,
+    ORG_HOLIDAYS,
     ATTENDANCE_TODAY,
     SALARY,
     TASKS,
@@ -166,7 +181,7 @@ export function loadDb() {
   });
   try {
     const s = JSON.parse(localStorage.getItem("hertz-proto") || "null");
-    if (s && s.v === 9) Object.assign(state, s.state);
+    if (s && s.v === 10) Object.assign(state, s.state);
   } catch (e) {}
   // A page reload interrupts the simulated transfer; make it retryable.
   state.queue.forEach(item => {
@@ -186,7 +201,7 @@ export function persist() {
     localStorage.setItem(
       "hertz-proto",
       JSON.stringify({
-        v: 9,
+        v: 10,
         state: {
           db: state.db,
           queue: state.queue,
@@ -848,6 +863,18 @@ export const svc = {
       throw new Error("Message could not be saved on this device");
     }
     return id;
+  },
+  votePoll(msgId, idx) {
+    const m = state.db.MESSAGES.find(x => x.id === msgId && !x.deleted);
+    if (!m || !m.poll || !m.poll.options[idx]) return;
+    const uid2 = state.userId;
+    m.poll.options.forEach((o, i) => {
+      const has = o.votes.includes(uid2);
+      if (i === idx) o.votes = has ? o.votes.filter(v => v !== uid2) : [...o.votes, uid2];
+      else if (!m.poll.multi) o.votes = o.votes.filter(v => v !== uid2);
+    });
+    persist();
+    render();
   },
   fileToMoodboard(msgId, save = true) {
     const m = state.db.MESSAGES.find((x) => x.id === msgId);

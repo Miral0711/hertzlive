@@ -6,7 +6,7 @@ import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { openDialog } from '../session';
 import { Mono } from './common';
-import Ph from '../resources/Ph';
+import Ph from '../../ui/Ph';
 import {
   fileResolve as resolve, fileKind as kindOf, fileFlat as flat, fileHref as link, winPath, copyText,
 } from '../resources/util';

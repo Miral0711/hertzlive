@@ -13,6 +13,11 @@ import { openDialog, openThread, toggleChatPane } from '../session';
 import { Ph } from './media';
 import { MessageAssist } from './assist';
 import { SiteMessageAction } from './site';
+import AttachMenu from './AttachMenu';
+import CameraCapture from './CameraCapture';
+import MediaEditor from './MediaEditor';
+import { ContactPicker, PollComposer } from './composerAttachments';
+import { fileToDataUrl, fmtBytes } from './mediaUtils';
 import {
   chatDraft, conversationPreview, conversationThreads, draftRev, markChatRead, pendingFocus,
   setChatDraft, unreadCount, useDraftTick,
@@ -64,11 +69,11 @@ function approveMsg(m) {
   seedFilings();
   toast('Approved. The studio has been told.');
 }
-async function sendMessage(tid, raw) {
+async function sendMessage(tid, raw, extra) {
   const text = raw.trim();
-  if (!text) return toast('Type a message first.');
+  if (!text && !extra) return toast('Type a message first.');
   let id;
-  try { id = svc.addMessage(tid, { text }); } catch (_) {
+  try { id = svc.addMessage(tid, { ...(text ? { text } : {}), ...extra }); } catch (_) {
     return toast('Message was not sent. Your draft is kept; check access and try again.');
   }
   setChatDraft(tid, '');
@@ -200,6 +205,38 @@ function Message({ m }) {
         </Opts>
       )}
       <Attachment m={m} />
+      {m.media && live && (
+        <div className="my-1.5">
+          {m.media.kind === 'video'
+            // bg-black is intentional — the letterbox behind a video element stays black in
+            // both themes, same as any video player.
+            ? <video src={m.media.url} controls className="max-h-72 w-full rounded-r1 bg-black" />
+            : <img src={m.media.dataUrl} alt="" className="max-h-72 w-full rounded-r1 object-cover" />}
+        </div>
+      )}
+      {m.audio && live && <audio src={m.audio.dataUrl} controls className="my-1.5 w-full" />}
+      {m.contact && live && (
+        <div className="my-1.5 rounded-r1 border border-line-2 p-2.5">
+          <b>{m.contact.name}</b>
+          {m.contact.phone && <><br /><small className="text-ink-3">{m.contact.phone}</small></>}
+        </div>
+      )}
+      {m.poll && live && (
+        <Opts>
+          <b className="mb-1 block">{m.poll.question}</b>
+          {m.poll.options.map((o, i) => {
+            const voted = o.votes.includes(state.userId);
+            return (
+              <Btn
+                key={i} sm className={voted ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
+                onClick={() => svc.votePoll(m.id, i)}
+              >
+                {o.text} · {o.votes.length}
+              </Btn>
+            );
+          })}
+        </Opts>
+      )}
       {m.link && live && (
         <div className="my-1.5 rounded-r1 bg-surface-2 p-2 text-xs">
           <Ph hue={m.link.hue} seed={m.link.seed} ar={1.8} />
@@ -258,22 +295,85 @@ function Messages({ threadId, ms }) {
   );
 }
 
+function PendingFileBar({ pending, onCancel, onSend }) {
+  return (
+    <div className="mb-2 flex items-center gap-2 rounded-r1 border border-line-2 bg-surface-2 px-3 py-2">
+      <span className="min-w-0 flex-1 truncate text-sm">
+        {pending.file.name} <small className="text-ink-3">{fmtBytes(pending.file.size)}</small>
+      </span>
+      <Btn sm onClick={onCancel}>Cancel</Btn>
+      <Btn sm kind="primary" onClick={onSend}>Send</Btn>
+    </div>
+  );
+}
+
 function Composer({ thread, last }) {
   useDraftTick();
   const [text, setText] = useState(() => chatDraft(thread.id));
+  const [pending, setPending] = useState(null);
   const rev = draftRev();
   useEffect(() => { setText(chatDraft(thread.id)); }, [thread.id, rev]);
   const status = state.desk.draftStorageError || state.storageError || '';
+
+  const onPickFile = (kind, file) => {
+    if (kind === 'document') return setPending({ type: 'document', file });
+    if (kind === 'audio') return setPending({ type: 'audio', file });
+    const isVideo = file.type.startsWith('video/');
+    return setPending({ type: 'editor', file, kind: isVideo ? 'video' : 'image' });
+  };
+  const onPickAction = (kind) => setPending({ type: kind });
+
+  const sendSimpleFile = async () => {
+    const { type, file } = pending;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      if (type === 'document') sendMessage(thread.id, '', { file: { name: file.name, dataUrl, mime: file.type, size: file.size } });
+      else sendMessage(thread.id, '', { audio: { dataUrl, name: file.name } });
+    } catch (_) { toast('Could not read that file. Please try again.'); }
+    setPending(null);
+  };
+
   return (
     <div className="border-t border-line p-3">
       <p role="status" className="m-0 min-h-0 text-xs text-crit empty:hidden">{status}</p>
       {staff() && last && last.by !== state.userId && (
         <Btn sm className="mb-2" onClick={() => suggestReply(thread.id)}>AI reply suggestion</Btn>
       )}
+      {(pending?.type === 'document' || pending?.type === 'audio') && (
+        <PendingFileBar pending={pending} onCancel={() => setPending(null)} onSend={sendSimpleFile} />
+      )}
+      {pending?.type === 'editor' && (
+        <MediaEditor
+          file={pending.file}
+          kind={pending.kind}
+          onCancel={() => setPending(null)}
+          onSend={(media) => { sendMessage(thread.id, '', { media }); setPending(null); }}
+        />
+      )}
+      {pending?.type === 'camera' && (
+        <CameraCapture
+          onCancel={() => setPending(null)}
+          onCapture={(file) => setPending({ type: 'editor', file, kind: 'image' })}
+        />
+      )}
+      {pending?.type === 'contact' && (
+        <ContactPicker
+          threadId={thread.id}
+          onCancel={() => setPending(null)}
+          onSend={(contact) => { sendMessage(thread.id, '', { contact }); setPending(null); }}
+        />
+      )}
+      {pending?.type === 'poll' && (
+        <PollComposer
+          onCancel={() => setPending(null)}
+          onSend={(poll) => { sendMessage(thread.id, '', { poll }); setPending(null); }}
+        />
+      )}
       <form
         className="flex w-full gap-2"
         onSubmit={(e) => { e.preventDefault(); sendMessage(thread.id, text); }}
       >
+        <AttachMenu onPickFile={onPickFile} onPickAction={onPickAction} />
         <input
           data-composer
           name="text"
@@ -426,6 +526,7 @@ function Drawer({ children }) {
       aria-label="Conversations"
       onClose={hide}
       onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}
+      // backdrop:bg-black/30 is the same intentional dialog-scrim exception as Modal.jsx.
       className="fixed left-auto right-0 top-[60px] m-0 h-[calc(100dvh-60px)] max-h-none w-[min(420px,100vw)] max-w-[100vw] overflow-hidden border-0 border-l border-line bg-surface p-0 text-ink shadow-s2 backdrop:bg-black/30 max-[600px]:top-[108px] max-[600px]:h-[calc(100dvh-108px)]"
     >
       <div className="h-full [&>aside]:h-full">{children}</div>

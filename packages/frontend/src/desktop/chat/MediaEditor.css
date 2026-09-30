@@ -1,0 +1,27 @@
+/* Crop handle styling for MediaEditor's react-image-crop UI: small circular white handles at
+   all 4 corners + 4 edge midpoints (the library ships plain square handles by default).
+   The dimmed overlay outside the selection is already built into react-image-crop itself (an
+   SVG mask sized to the image, so it's correctly clipped to the photo) - do NOT add a
+   `box-shadow: 0 0 0 9999px` overlay on top of it: that shadow isn't clipped by the image, only
+   by the Modal's own scroll boundary, so it bleeds out and darkens the whole modal (toolbar and
+   Apply/Cancel buttons included) instead of just the area outside the crop. Loaded after
+   react-image-crop's own stylesheet so these rules win. */
+.ReactCrop__drag-handle {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background-color: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.ReactCrop__drag-handle:focus {
+  background-color: #fff;
+  outline: 2px solid var(--rc-focus-color, #08f);
+  outline-offset: 1px;
+}
+@media (pointer: coarse) {
+  .ReactCrop__drag-handle {
+    width: 22px;
+    height: 22px;
+  }
+}

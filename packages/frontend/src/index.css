@@ -1,47 +1,52 @@
-@import url('https://fonts.googleapis.com/css2?family=Anek+Latin:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Theme tokens. Agency accent colours are written over these at runtime by applyAgencyTheme(). */
+/* Theme tokens. Agency accent colours (accent/accent-ink/on-accent/accent-soft/accent-text/
+   client/client-soft/sel/sel-ink) are written over these at runtime by applyAgencyTheme() —
+   variable NAMES here are a contract with shared/core.js; only their values change. */
 :root {
-  --ground: #f7f6f3; --surface: #ffffff; --surface-2: #f3f1ec; --surface-3: #e8e4dc;
-  --ink: #2b2a29; --ink-2: #504c48; --ink-3: #68625b; --line: #e4dfd7; --line-2: #b9b2a7;
-  --accent: #945543; --accent-ink: #ffffff; --accent-soft: #f2e7de; --accent-text: #945543;
-  --client: #945543; --client-soft: #f2e7de;
-  --warn: #8a5a00; --warn-soft: #fff1d6; --crit: #b3261e; --crit-soft: #fbe4e2;
-  --ok: #35604b; --ok-soft: #e7efe8;
-  --mine: #ede7d8; --chat: #f1eee8;
-  --shadow-1: 0 4px 12px rgb(0 0 0 / 0.1); --shadow-2: 0 8px 24px rgb(0 0 0 / 0.16);
-  --r-1: 8px; --r-2: 8px; --r-3: 12px;
-  --sel: #945543; --sel-ink: #ffffff;
+  --ground: #f6f2ea; --surface: #fffdfa; --surface-2: #f1ebdf; --surface-3: #e7dfce;
+  --ink: #211e1b; --ink-2: #55504a; --ink-3: #7c766c; --line: #e3dacb; --line-2: #c7bba4;
+  --accent: #945543; --accent-ink: #ffffff; --accent-soft: #f3e7db; --accent-text: #8b4a37;
+  --client: #8b4a37; --client-soft: #f3e7db;
+  --secondary: #6e6b47; --secondary-soft: #edeadc;
+  --warn: #8a5a00; --warn-soft: #fbf0d6; --crit: #a6392b; --crit-soft: #f7e3de;
+  --ok: #4b6142; --ok-soft: #e7ede1;
+  --mine: #eee6d3; --chat: #f2eee3;
+  --shadow-1: 0 1px 3px rgb(33 30 27 / 0.06); --shadow-2: 0 8px 20px rgb(33 30 27 / 0.08);
+  --r-1: 6px; --r-2: 6px; --r-3: 10px;
+  --sel: #8b4a37; --sel-ink: #ffffff;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --ground: #222120; --surface: #2b2a29; --surface-2: #34322f; --surface-3: #44413b;
-    --ink: #f5f1e9; --ink-2: #d7d1c7; --ink-3: #bbb4a7; --line: #44413b; --line-2: #655f54;
-    --accent: #d9a38c; --accent-ink: #222120; --accent-soft: #46342c; --accent-text: #edbaa5;
-    --client: #d9a38c; --client-soft: #46342c;
-    --warn: #f5c26b; --warn-soft: #3a2e14; --crit: #ff8a80; --crit-soft: #3e1f1c;
-    --ok: #a8c8b0; --ok-soft: #29382e;
-    --mine: #4b4237; --chat: #222120;
-    --shadow-1: 0 4px 12px rgb(0 0 0 / 0.5); --shadow-2: 0 8px 24px rgb(0 0 0 / 0.6);
-    --sel: #d9a38c; --sel-ink: #222120;
+    --ground: #201d1a; --surface: #292521; --surface-2: #322d27; --surface-3: #423b32;
+    --ink: #f3ede2; --ink-2: #d6cdbe; --ink-3: #ada393; --line: #423b32; --line-2: #635a4a;
+    --accent: #d9a38c; --accent-ink: #221a15; --accent-soft: #402f26; --accent-text: #e6b8a2;
+    --client: #e6b8a2; --client-soft: #402f26;
+    --secondary: #a9a67e; --secondary-soft: #34321f;
+    --warn: #f0bd6a; --warn-soft: #362a11; --crit: #e18f80; --crit-soft: #3a2019;
+    --ok: #a3c096; --ok-soft: #26301f;
+    --mine: #453b2c; --chat: #201d1a;
+    --shadow-1: 0 1px 3px rgb(0 0 0 / 0.4); --shadow-2: 0 8px 20px rgb(0 0 0 / 0.5);
+    --sel: #e6b8a2; --sel-ink: #221a15;
     color-scheme: dark;
   }
 }
 :root[data-theme='dark'] {
-  --ground: #222120; --surface: #2b2a29; --surface-2: #34322f; --surface-3: #44413b;
-  --ink: #f5f1e9; --ink-2: #d7d1c7; --ink-3: #bbb4a7; --line: #44413b; --line-2: #655f54;
-  --accent: #d9a38c; --accent-ink: #222120; --accent-soft: #46342c; --accent-text: #edbaa5;
-  --client: #d9a38c; --client-soft: #46342c;
-  --warn: #f5c26b; --warn-soft: #3a2e14; --crit: #ff8a80; --crit-soft: #3e1f1c;
-  --ok: #a8c8b0; --ok-soft: #29382e;
-  --mine: #4b4237; --chat: #222120;
-  --shadow-1: 0 4px 12px rgb(0 0 0 / 0.5); --shadow-2: 0 8px 24px rgb(0 0 0 / 0.6);
-  --sel: #d9a38c; --sel-ink: #222120;
+  --ground: #201d1a; --surface: #292521; --surface-2: #322d27; --surface-3: #423b32;
+  --ink: #f3ede2; --ink-2: #d6cdbe; --ink-3: #ada393; --line: #423b32; --line-2: #635a4a;
+  --accent: #d9a38c; --accent-ink: #221a15; --accent-soft: #402f26; --accent-text: #e6b8a2;
+  --client: #e6b8a2; --client-soft: #402f26;
+  --secondary: #a9a67e; --secondary-soft: #34321f;
+  --warn: #f0bd6a; --warn-soft: #362a11; --crit: #e18f80; --crit-soft: #3a2019;
+  --ok: #a3c096; --ok-soft: #26301f;
+  --mine: #453b2c; --chat: #201d1a;
+  --shadow-1: 0 1px 3px rgb(0 0 0 / 0.4); --shadow-2: 0 8px 20px rgb(0 0 0 / 0.5);
+  --sel: #e6b8a2; --sel-ink: #221a15;
   color-scheme: dark;
 }
 
@@ -53,10 +58,18 @@
     font-variant-numeric: tabular-nums;
     caret-color: var(--accent);
   }
+  /* Editorial serif for headings, everywhere — clean sans stays the body/controls default. */
+  h1, h2, h3 { @apply font-serif; letter-spacing: -0.01em; }
   ::selection { background: var(--sel); color: var(--sel-ink); }
   * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
   button { @apply cursor-pointer; }
   a { color: var(--accent-text); text-underline-offset: 3px; }
+  /* Native <progress> (Sites' daily-progress bars) otherwise renders with the browser's own
+     default green — the one place a color could leak in outside the token system. */
+  progress { appearance: none; border: none; border-radius: var(--r-1); overflow: hidden; background: var(--surface-3); }
+  progress::-webkit-progress-bar { background: var(--surface-3); border-radius: var(--r-1); }
+  progress::-webkit-progress-value { background: var(--secondary); border-radius: var(--r-1); }
+  progress::-moz-progress-bar { background: var(--secondary); border-radius: var(--r-1); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }

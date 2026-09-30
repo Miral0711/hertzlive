@@ -1644,4 +1644,38 @@ export const NAS_TREE = {
     ],
   },
 };
+
+// ---------- Org Leave & Holiday management (mock replacement for the former Postgres-backed
+// packages/backend/src/routes/leave.ts, holiday.ts) ----------
+// Frontend-only now: shapes mirror the old API responses exactly (leaveType/employee/approver
+// nested objects, ISO date strings, `totalDays`, computed balance fields) so the screens that
+// consume them (People.jsx "Leaves" tab, Schedule.jsx/dialogs.jsx "Holidays" tab) needed no
+// changes beyond swapping the fetch client for a local one (see api/leaveClient.js). Separate
+// from the older LEAVES/BALANCES/HOLIDAYS arrays above, which power the unrelated dashboard
+// "pending leave" widget and the "push holiday notice" demo.
+const ORG_ID = "hertz-demo";
+export const ORG_LEAVE_TYPES = [
+  { id: "lt1", organizationId: ORG_ID, name: "Casual Leave", paid: true, annualAllowance: 12, allowHalfDay: true, requiresApproval: true, active: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "lt2", organizationId: ORG_ID, name: "Sick Leave", paid: true, annualAllowance: 8, allowHalfDay: true, requiresApproval: true, active: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "lt3", organizationId: ORG_ID, name: "Earned Leave", paid: true, annualAllowance: 15, allowHalfDay: false, requiresApproval: true, active: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "lt4", organizationId: ORG_ID, name: "Unpaid Leave", paid: false, annualAllowance: 0, allowHalfDay: true, requiresApproval: true, active: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+];
+// Requests already resolved (used/pending) for the seeded employees (u1 partner, u5 designer,
+// u10 site_manager, u12 hr - the four roles the RBAC matrix grants any "leave" access to).
+export const ORG_LEAVE_REQUESTS = [
+  { id: "lr1", organizationId: ORG_ID, employeeId: "u5", leaveTypeId: "lt1", startDate: "2026-08-10T00:00:00.000Z", endDate: "2026-08-11T00:00:00.000Z", halfDay: false, totalDays: 2, reason: "Family function", status: "approved", approverId: "u12", createdAt: "2026-08-01T09:00:00.000Z", updatedAt: "2026-08-02T10:00:00.000Z" },
+  { id: "lr2", organizationId: ORG_ID, employeeId: "u5", leaveTypeId: "lt2", startDate: "2026-09-03T00:00:00.000Z", endDate: "2026-09-03T00:00:00.000Z", halfDay: false, totalDays: 1, reason: "Fever", status: "approved", approverId: "u12", createdAt: "2026-09-02T08:30:00.000Z", updatedAt: "2026-09-02T18:00:00.000Z" },
+  { id: "lr3", organizationId: ORG_ID, employeeId: "u10", leaveTypeId: "lt1", startDate: "2026-09-20T00:00:00.000Z", endDate: "2026-09-20T00:00:00.000Z", halfDay: true, totalDays: 0.5, reason: "Personal work", status: "pending", approverId: null, createdAt: "2026-09-15T11:00:00.000Z", updatedAt: "2026-09-15T11:00:00.000Z" },
+  { id: "lr4", organizationId: ORG_ID, employeeId: "u12", leaveTypeId: "lt3", startDate: "2026-10-05T00:00:00.000Z", endDate: "2026-10-07T00:00:00.000Z", halfDay: false, totalDays: 3, reason: "Diwali travel", status: "pending", approverId: null, createdAt: "2026-09-25T09:15:00.000Z", updatedAt: "2026-09-25T09:15:00.000Z" },
+  { id: "lr5", organizationId: ORG_ID, employeeId: "u1", leaveTypeId: "lt2", startDate: "2026-07-14T00:00:00.000Z", endDate: "2026-07-14T00:00:00.000Z", halfDay: false, totalDays: 1, reason: "", status: "rejected", approverId: "u12", createdAt: "2026-07-13T07:00:00.000Z", updatedAt: "2026-07-13T19:00:00.000Z" },
+  { id: "lr6", organizationId: ORG_ID, employeeId: "u5", leaveTypeId: "lt1", startDate: "2026-06-02T00:00:00.000Z", endDate: "2026-06-02T00:00:00.000Z", halfDay: false, totalDays: 1, reason: "Errand", status: "cancelled", approverId: null, createdAt: "2026-06-01T09:00:00.000Z", updatedAt: "2026-06-01T12:00:00.000Z" },
+];
+export const ORG_HOLIDAYS = [
+  { id: "oh1", organizationId: ORG_ID, name: "Ganesh Visarjan (optional)", date: "2026-09-14T00:00:00.000Z", type: "optional", description: "", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "oh2", organizationId: ORG_ID, name: "Gandhi Jayanti", date: "2026-10-02T00:00:00.000Z", type: "mandatory", description: "", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "oh3", organizationId: ORG_ID, name: "Dussehra", date: "2026-10-20T00:00:00.000Z", type: "mandatory", description: "Office and site closed.", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "oh4", organizationId: ORG_ID, name: "Diwali", date: "2026-11-08T00:00:00.000Z", type: "mandatory", description: "Studio holiday, ", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "oh5", organizationId: ORG_ID, name: "Christmas", date: "2026-12-25T00:00:00.000Z", type: "mandatory", description: "", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "oh6", organizationId: ORG_ID, name: "Holi", date: "2027-03-22T00:00:00.000Z", type: "optional", description: "", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+];
 // Photo palettes for generated placeholder imagery, keyed by hue

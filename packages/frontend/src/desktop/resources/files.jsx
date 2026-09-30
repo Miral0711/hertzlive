@@ -6,7 +6,7 @@ import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { first, name, role } from '../helpers';
 import { openDialog } from '../session';
-import Ph from './Ph';
+import Ph from '../../ui/Ph';
 import {
   fileShares, fileResolve, fileKind, fileHref, winPath, fileFlat, copyText, TODAY,
 } from './util';
