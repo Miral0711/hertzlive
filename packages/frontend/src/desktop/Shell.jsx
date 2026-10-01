@@ -5,6 +5,7 @@ import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
 import { Divider, Dropdown, DropdownItem, Empty } from '../ui/ui';
 import { DLink, DESKTOP_BASE, href } from './nav';
+import NavSearch from './NavSearch';
 import { NAV, NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
@@ -61,7 +62,6 @@ export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const mainRef = useRef(null);
-  const searchRef = useRef(null);
   const [navOpen, setNavOpen] = useState(false);
 
   // Keep the legacy route string in step with the URL for code that calls parseRoute().
@@ -84,13 +84,6 @@ export default function Shell() {
     else root.dataset.theme = state.theme;
     applyAgencyTheme();
   });
-  useEffect(() => {
-    const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchRef.current?.focus(); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
 
   const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio'].includes(page);
   const workspace = page === 'chats' && allowed;
@@ -117,29 +110,7 @@ export default function Shell() {
           <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
           <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
         </DLink>
-        <form
-          role="search"
-          className="flex flex-1 items-center"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const v = new FormData(e.currentTarget).get('q');
-            navigate(href(`#/search?q=${encodeURIComponent(v)}`));
-          }}
-        >
-          <div className="relative min-w-0 max-w-[560px] flex-1">
-            <Icon name="search" small className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-            <input
-              ref={searchRef}
-              type="search"
-              name="q"
-              key={page === 'search' ? q.q : 'search'}
-              defaultValue={page === 'search' ? q.q || '' : ''}
-              placeholder="Search your workspace"
-              aria-label="Search projects, people, drawings and messages"
-              className="min-h-[38px] w-full rounded-r2 border border-transparent bg-surface-2 py-1.5 pl-9 pr-3.5 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
-            />
-          </div>
-        </form>
+        <NavSearch />
         {!(workspace || focusedWork) && (
           <button
             type="button"
