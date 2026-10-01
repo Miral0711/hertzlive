@@ -1381,6 +1381,13 @@ export const TEAM_GOAL = {
   target: 0.9,
   ends: "2026-09-30",
 };
+// `status` stays the simple open/done flag every other page already reads ('open' means active,
+// anything else is not). `stage` is the richer To do/In progress/Waiting/Review/Done the All
+// Tasks board and task detail use; it's additive and never changes what svc.tasks()/svc.load()
+// (and projects/TabsA.jsx, projects/Overview.jsx) already filter on. `priority` likewise sits
+// alongside the existing `critical` boolean rather than replacing it. `checklist`/`blockedBy`/
+// `blocks`/`description` are only on the tasks where the studio's own data (FEED/ISSUES) already
+// tells this story — not invented for tasks that don't have one.
 export const TASKS = [
   {
     id: "k01",
@@ -1391,6 +1398,15 @@ export const TASKS = [
     status: "open",
     critical: true,
     issueId: "i1",
+    priority: "critical",
+    stage: "in_progress",
+    description: "Kitchen north window opening came in 150 mm narrower on site than drawing HA-2401-A-101. Confirm with structural whether the lintel can still cast tomorrow, or revise the drawing first.",
+    checklist: [
+      { id: "k01c1", text: "Review site photo against drawing HA-2401-A-101", done: true },
+      { id: "k01c2", text: "Confirm with structural (Zain)", done: false },
+      { id: "k01c3", text: "Issue revised drawing if the opening stays at 1,050", done: false },
+    ],
+    blockedBy: ["k08"],
   },
   {
     id: "k02",
@@ -1399,6 +1415,9 @@ export const TASKS = [
     owner: "u9",
     due: "2026-09-12",
     status: "open",
+    priority: "normal",
+    stage: "todo",
+    description: "Revise wardrobe drawing I-205 to R1 for the client's walnut veneer selection, then issue to site.",
   },
   {
     id: "k03",
@@ -1408,6 +1427,9 @@ export const TASKS = [
     due: "2026-09-11",
     status: "open",
     issueId: "i3",
+    priority: "high",
+    stage: "waiting",
+    description: "Electrical points for the TV wall are missing from drawing HA-2401-E-101. Waiting on the updated drawing before the electrical contractor can mark out conduit.",
   },
   {
     id: "k04",
@@ -1418,6 +1440,15 @@ export const TASKS = [
     status: "open",
     critical: true,
     issueId: "i2",
+    priority: "critical",
+    stage: "review",
+    description: "HVAC duct at grid E5 sits 120 mm below the ceiling plan and conflicts with the acoustic baffle line. Decide: drop the baffles in bay E5–E6, or reroute the duct, before the grid crew idles.",
+    checklist: [
+      { id: "k04c1", text: "Get the HVAC consultant's measured clearance", done: true },
+      { id: "k04c2", text: "Decide: drop baffle vs. reroute duct", done: false },
+      { id: "k04c3", text: "Brief the site team on the decision", done: false },
+    ],
+    blocks: ["k05"],
   },
   {
     id: "k05",
@@ -1426,6 +1457,10 @@ export const TASKS = [
     owner: "u8",
     due: "2026-09-15",
     status: "open",
+    priority: "normal",
+    stage: "todo",
+    description: "Lighting layout for level 2, held until the ceiling/baffle clash at grid E5 is decided.",
+    blockedBy: ["k04"],
   },
   {
     id: "k06",
@@ -1435,6 +1470,14 @@ export const TASKS = [
     due: "2026-09-20",
     status: "open",
     critical: true,
+    priority: "critical",
+    stage: "in_progress",
+    description: "Three concept boards for the Gonpale Villa client presentation — material palette, massing study, landscape direction.",
+    checklist: [
+      { id: "k06c1", text: "Material palette board", done: true },
+      { id: "k06c2", text: "Massing study board", done: false },
+      { id: "k06c3", text: "Landscape direction board", done: false },
+    ],
   },
   {
     id: "k07",
@@ -1443,6 +1486,9 @@ export const TASKS = [
     owner: "u3",
     due: "2026-09-17",
     status: "open",
+    priority: "low",
+    stage: "todo",
+    description: "Site visit to the rammed-earth vendor's yard near Billimora to assess sample panels before specifying for Gonpale Villa.",
   },
   {
     id: "k08",
@@ -1451,6 +1497,10 @@ export const TASKS = [
     owner: "u10",
     due: "2026-09-09",
     status: "open",
+    priority: "high",
+    stage: "review",
+    description: "Column C4 rebar ready for check (see today's site log) before tomorrow's lintel and slab 2 pour.",
+    blocks: ["k01"],
   },
 ];
 export const AUDIT = [

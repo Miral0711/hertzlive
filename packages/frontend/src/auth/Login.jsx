@@ -35,7 +35,7 @@ export default function Login() {
   }
 
   return (
-    <div className="grid min-h-dvh place-items-center bg-surface-2 px-4">
+    <div className="grid min-h-dvh place-items-center overflow-y-auto bg-surface-2 px-4">
       <form
         onSubmit={onSubmit}
         className="w-full max-w-sm rounded-r3 border border-line bg-surface p-6 shadow-s2"

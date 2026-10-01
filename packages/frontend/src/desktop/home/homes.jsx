@@ -6,13 +6,12 @@ import { DLink, href } from '../nav';
 import { P, name, first, days } from '../helpers';
 import { SiteLink } from '../parts';
 import { openDialog } from '../session';
-import { SiteReviewQueue, openDesktopAssist } from '../chat/assist';
+import { openDesktopAssist } from '../chat/assist';
 import { Mono, Grow, Small, Dot, LinkRow, ListCard, Grid, PhCanvas, NeedList, SectionTitle } from './bits';
 import MeetingsCard from './MeetingsCard';
 import { fileKind, winPath } from './files';
 
 const SRC = { web: 'Web form', whatsapp: 'WhatsApp', phone: 'Phone', instagram: 'Instagram', facebook: 'Facebook', vapi: 'AI call' };
-const ym = (d) => (d || '').slice(0, 7);
 const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 
 // ---------- ACT handlers used by the homes ----------
@@ -99,60 +98,14 @@ function sitesAtRisk() {
     return { s, why };
   }).filter((x) => x.why.length);
 }
-function monthsBack(n) {
-  const [y, m] = TODAY.split('-').map(Number);
-  return Array.from({ length: n }, (_, k) => {
-    const d = new Date(y, m - 1 - (n - 1 - k), 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
-}
-const cashRow = (mo) => ({
-  mo,
-  label: new Date(`${mo}-01`).toLocaleString('en-IN', { month: 'short' }),
-  planned: state.db.INVOICES.filter((i) => ym(i.due) === mo).reduce((a, i) => a + i.amount, 0),
-  got: state.db.INVOICES.filter((i) => i.paid && ym(i.paid) === mo).reduce((a, i) => a + i.amount, 0),
-});
-function sitePlan(s) {
-  const p = P(s.projectId);
-  if (!p?.start || !p?.handover) return null;
-  const plan = Math.round((svc.workDays(p.start, TODAY) / svc.workDays(p.start, p.handover)) * 100);
-  return Math.max(0, Math.min(100, plan));
-}
-const siteOnTrack = (s) => {
-  const plan = sitePlan(s);
-  return plan === null || s.progress >= plan - 10;
-};
-
-const pulseTone = { warn: 'border-warn bg-surface', crit: 'border-crit bg-surface' };
-const Pulse = ({ to, v, l, d, cls = '' }) => (
-  <DLink to={to} className={`flex flex-col gap-0.5 rounded-r3 border px-4 py-3 no-underline ${pulseTone[cls] || 'border-line bg-surface'}`} style={{ color: 'inherit' }}>
-    <b className="text-2xl leading-tight text-accent-text">{v}</b>
-    <span className="text-[13px] font-medium">{l}</span>
-    <small className="text-ink-3">{d}</small>
-  </DLink>
-);
-function PulseStrip() {
-  const now = cashRow(ym(TODAY));
-  const open = svc.issues().filter((i) => i.status !== 'closed');
-  const late = open.filter((i) => i.due && i.due < `${TODAY}T23:59`);
-  const sites = svc.sites();
-  const ok = sites.filter(siteOnTrack).length;
-  const enq = (mo) => state.db.ENQUIRIES.filter((e) => ym(e.at) === mo).length;
-  const [prev, cur] = monthsBack(2);
-  const lateSite = late[0] ? `#/sites/${late[0].siteId}?tab=issues` : '#/sites';
-  return (
-    <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Pulse to="#/money" v={inr(now.got)} l="Cash in this month" d={`of ${inr(now.planned)} due`} cls={now.got < now.planned ? 'warn' : ''} />
-      <Pulse to={lateSite} v={late.length} l="Issues past SLA" d={`${open.length} open`} cls={late.length ? 'crit' : ''} />
-      <Pulse to="#/sites" v={`${ok} of ${sites.length}`} l="Sites on track" d={`${sites.length - ok} behind plan`} cls={sites.length - ok ? 'warn' : ''} />
-      <Pulse to="#/enquiries" v={enq(cur)} l="Enquiries this month" d={`${enq(prev)} last month`} />
-    </div>
-  );
-}
 // Note: this module used to export its own CashChart()/SitesChart() as well — dead code, never
 // imported anywhere (pages/money.jsx has the one actually rendered on the Money page; sites/
 // SiteBoard.jsx has the one actually rendered on the Sites page). Removed rather than fixed in
 // place, since fixing colors on unreachable code doesn't help anyone.
+// PulseStrip (cash in this month / issues past SLA / sites on track / enquiries this month) was
+// removed from here too: it duplicated Dashboard's studio-wide KPI strip. Today now opens with
+// TodayBriefing + TodayPriorities (pages/home.jsx) instead — the same ground, framed as "what
+// needs you today" rather than "how is the studio doing".
 
 function approvalsDue() {
   return state.db.STATUTORY.filter((a) => a.followUp && a.followUp <= TODAY && a.status !== 'granted').map((a) => (
@@ -195,26 +148,25 @@ export function PartnerHome() {
   const risk = sitesAtRisk().map(({ s, why }) => (
     <Item key={s.id}><Dot /><Grow><b>{s.name}</b> · {why.join(', ')}</Grow><SiteLink id={s.id}>Open</SiteLink></Item>
   ));
+  const approvals = approvalsDue();
+  // From site (SiteReviewQueue) now lives in Today's aside next to the schedule, not stacked
+  // here — this card stays alone so it reads at full width instead of half-width-with-a-gap.
+  // Money/Sites stay to the 3 most relevant rows each — this is a glance card, not the full
+  // record (Money/Sites pages already have the complete lists). An empty Approvals card
+  // communicated "nothing waiting" with a whole row of its own; now it just isn't there.
   return (
     <>
-      <PulseStrip />
-      <SectionTitle>Needs attention</SectionTitle>
-      <div className="grid items-start gap-gap lg:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
-        <NeedList need={needsYou()} />
-        <SiteReviewQueue />
-      </div>
+      <NeedList need={needsYou()} />
       <SectionTitle>Follow through</SectionTitle>
       <div className="grid gap-gap md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
-        <ListCard title="Money this week" rows={money} empty="Nothing overdue, nothing to raise." />
-        <ListCard title="Sites to check" rows={risk} empty="No site flags in recorded data." />
+        <ListCard title="Money this week" rows={money.slice(0, 3)} empty="Nothing overdue, nothing to raise." />
+        <ListCard title="Sites to check" rows={risk.slice(0, 3)} empty="No site flags in recorded data." />
       </div>
-      <div className="mt-3.5">
-        {approvalsDue().length ? (
-          <ListCard title="Approvals to follow up" rows={approvalsDue()} />
-        ) : (
-          <div className="rounded-r3 border border-line bg-surface px-[18px] py-3 text-ink-3"><b className="mr-2 text-ink">Approvals to follow up</b>No approvals waiting on a follow-up.</div>
-        )}
-      </div>
+      {approvals.length > 0 && (
+        <div className="mt-gap">
+          <ListCard title="Approvals to follow up" rows={approvals.slice(0, 3)} />
+        </div>
+      )}
     </>
   );
 }

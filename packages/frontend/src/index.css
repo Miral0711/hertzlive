@@ -80,7 +80,13 @@
 }
 
 @layer base {
-  html, body, #root { height: 100%; }
+  /* App-shell contract: the document itself never scrolls — Shell.jsx's grid (header + sidebar +
+     <main id="workspace">) fills exactly 100% and only <main> (plus any element that opts in)
+     scrolls internally. Without this, a grid/flex child that forgets min-height:0 (its own bug,
+     not this rule's) can grow the shell taller than the viewport and the *document* starts
+     scrolling instead, dragging the sidebar along with it. This is the backstop, not the fix for
+     that — see Shell.jsx's `min-h-0` on `nav`/`main` for the actual cause when it happens. */
+  html, body, #root { height: 100%; overflow: hidden; }
   body {
     @apply m-0 min-w-0 bg-ground font-ui text-sm text-ink antialiased;
     line-height: 1.45;
