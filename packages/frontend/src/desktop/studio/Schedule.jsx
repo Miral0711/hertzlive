@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { RESOURCE } from '../data';
-import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable } from '../../ui/ui';
+import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable, Table, Th, Td, Tr } from '../../ui/ui';
 import { P, first, name } from '../helpers';
 import { DLink } from '../nav';
 import { openDialog, closeDialog } from '../session';
@@ -154,32 +154,30 @@ function Rooms({ q }) {
         </div>
       </SecHead>
       <FreeSlots date={date} />
-      <div className="overflow-x-auto rounded-r3 border border-line bg-surface">
-        <table className="w-full min-w-[720px] border-collapse text-[13px]">
-          <thead>
-            <tr>
-              <th className="sticky left-0 border-b border-line bg-surface-2 p-2" />
-              {hrs.map((h) => <th key={h} className={`border-b border-line p-2 text-xs font-semibold ${nowH === h ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-ink-2'}`}>{hh(h)}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <Fragment key={r.id}>
-                {(i === 0 || rows[i - 1].group !== r.group) && (
-                  <tr key={`g-${r.group}`}><td colSpan={hrs.length + 1} className="bg-surface-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{r.group}</td></tr>
-                )}
-                <tr key={r.id}>
-                  <td className="sticky left-0 whitespace-nowrap border-b border-line bg-surface p-2.5">{r.label}</td>
-                  {hrs.map((h) => {
-                    const b = r.hit(h);
-                    return <td key={h} className={`border-b border-line p-1.5 text-center ${b ? 'bg-accent-soft' : nowH === h ? 'bg-surface-2' : ''}`}>{cell(b, h)}</td>;
-                  })}
-                </tr>
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table minWidth={720}>
+        <thead>
+          <tr>
+            <Th className="sticky left-0 z-[1]" />
+            {hrs.map((h) => <Th key={h} align="center" className={nowH === h ? '!bg-accent !text-accent-ink' : ''}>{hh(h)}</Th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <Fragment key={r.id}>
+              {(i === 0 || rows[i - 1].group !== r.group) && (
+                <tr key={`g-${r.group}`}><td colSpan={hrs.length + 1} className="border-b border-line bg-surface-2 px-tbl-x py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{r.group}</td></tr>
+              )}
+              <Tr key={r.id}>
+                <Td className="sticky left-0 z-[1] bg-surface">{r.label}</Td>
+                {hrs.map((h) => {
+                  const b = r.hit(h);
+                  return <Td key={h} align="center" className={`!px-1.5 ${b ? '!bg-accent-soft' : nowH === h ? '!bg-surface-2' : ''}`}>{cell(b, h)}</Td>;
+                })}
+              </Tr>
+            </Fragment>
+          ))}
+        </tbody>
+      </Table>
       <p className="mb-0 mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
         <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-accent" />Office</span>
         <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-ok" />Client</span>
@@ -360,23 +358,22 @@ export function LoadGrid({ reassign = false }) {
     render();
   };
   return (
-    <div className="overflow-x-auto rounded-r3 border border-line">
-      <table className="w-full border-collapse text-[13px]">
+    <Table>
         <thead>
           <tr>
-            <th className="border-b border-line bg-surface-2 p-2 text-left text-xs">Person</th>
-            {WEEKS.map((w) => <th key={w} className="border-b border-line bg-surface-2 p-2 text-left text-xs">Week of {w}</th>)}
+            <Th>Person</Th>
+            {WEEKS.map((w) => <Th key={w}>Week of {w}</Th>)}
           </tr>
         </thead>
         <tbody>
           {RESOURCE.map((r, ri) => (
-            <tr key={r.userId}>
-              <td className="border-b border-line p-2"><b>{name(r.userId)}</b></td>
+            <Tr key={r.userId}>
+              <Td className="font-medium">{name(r.userId)}</Td>
               {r.weeks.map((w, wi) => {
                 const tot = Object.values(w).reduce((a, b) => a + b, 0);
                 const entries = Object.entries(w);
                 return (
-                  <td key={wi} className={`border-b border-line p-2 align-top ${tone(tot)}`}>
+                  <Td key={wi} className={`!align-top !whitespace-normal ${tone(tot)}`}>
                     {entries.length
                       ? entries.map(([p, h]) => <div key={p}>{P(p).name.split(' ')[0]} {h}</div>)
                       : <span className="text-ink-3">Free</span>}
@@ -394,14 +391,13 @@ export function LoadGrid({ reassign = false }) {
                         </Select>
                       </div>
                     )}
-                  </td>
+                  </Td>
                 );
               })}
-            </tr>
+            </Tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
   );
 }
 

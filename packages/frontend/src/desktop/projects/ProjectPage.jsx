@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { state, svc, can, toast, inr, fmtD, tenantProjectImage } from '../../shared/core.js';
 import { TODAY, PHASES } from '../../shared/data.js';
 import { Btn, Pill, DataTable, PageHeader, Empty } from '../../ui/ui';
 import Ph from '../../ui/Ph';
-import { DLink, href } from '../nav';
+import { DLink } from '../nav';
 import { STAGE_TEMPLATE } from '../data.js';
 import { SiteLink, ChatLink } from '../parts';
 import { role, name } from '../helpers';
@@ -37,34 +37,34 @@ function ProjectCards({ projects }) {
     return <div className="my-5"><Empty>No projects in this view. Choose All to see the full register.</Empty></div>;
   }
   return (
-    <div className="my-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="mb-6 mt-2 grid gap-gap-lg sm:grid-cols-2 xl:grid-cols-3">
       {projects.map((p) => {
         const milestone = projectMilestones(p).find((m) => !m.done);
         const issues = openIssues(p.id);
         return (
-          <article key={p.id} className="min-w-0 overflow-hidden rounded-r3 border border-line bg-surface">
+          <article key={p.id} className="flex min-w-0 flex-col overflow-hidden rounded-r3 border border-line bg-surface transition hover:border-accent hover:shadow-s1">
             <DLink to={`#/projects/${p.id}`} className="block no-underline" aria-hidden="true" tabIndex={-1}>
               <div className="h-36 w-full overflow-hidden bg-surface-2">
                 <ProjectImage p={p} />
               </div>
             </DLink>
-            <div className="p-4">
+            <div className="flex flex-1 flex-col p-card">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
-                  <h2 className="m-0 mb-0.5 text-lg leading-snug">
+                  <h2 className="m-0 mb-0.5 text-lg font-semibold leading-snug">
                     <DLink to={`#/projects/${p.id}`} className="text-ink no-underline hover:underline" style={{ color: 'var(--ink)' }}>{p.name}</DLink>
                   </h2>
-                  <span className="text-[13px] text-ink-3">{p.kind} · {p.city}</span>
+                  <span className="block min-h-[2.6em] text-[13px] leading-snug text-ink-3">{p.kind} · {p.city}</span>
                 </div>
                 <Pill>{p.status === 'finished' ? 'Finished' : PHASES[p.phase]}</Pill>
               </div>
-              <div className="my-3.5 flex h-[5px] gap-[5px]" aria-label={`Phase: ${PHASES[p.phase]}`}>
+              <div className="my-3 flex h-[5px] gap-[5px]" aria-label={`Phase: ${PHASES[p.phase]}`}>
                 {PHASES.map((phase, i) => (
-                  <span key={phase} title={phase} className={`flex-1 rounded-sm ${i <= p.phase ? 'bg-secondary' : 'bg-surface-3'}`} />
+                  <span key={phase} title={phase} className={`flex-1 rounded-sm ${i <= p.phase ? 'bg-accent' : 'bg-surface-3'}`} />
                 ))}
               </div>
-              <div className="grid gap-1 text-[15px]">
-                <span className="text-[13px] text-ink-3">Next milestone</span>
+              <div className="grid gap-0.5 rounded-r2 bg-surface-2 px-3 py-2.5 text-[15px]">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">Next milestone</span>
                 <b>{milestone ? milestone.name : 'No upcoming milestone'}</b>
                 {milestone && (
                   <small className={`text-sm ${milestone.date < TODAY ? 'text-crit' : 'text-ink-3'}`}>
@@ -72,7 +72,7 @@ function ProjectCards({ projects }) {
                   </small>
                 )}
               </div>
-              <div className="mt-3.5 flex justify-between gap-gap border-t border-line pt-3 text-[13px]">
+              <div className="mt-auto flex flex-wrap items-start justify-between gap-gap border-t border-line pt-3 text-[13px] [&]:mt-3.5">
                 <span>
                   {can('issue', 'r', role())
                     ? (issues.length ? `${issues.length} open issue${issues.length === 1 ? '' : 's'}` : 'No open issues')
@@ -92,19 +92,22 @@ function ProjectCards({ projects }) {
 function ProjectList({ status }) {
   const all = svc.projects();
   const ps = status === 'all' ? all : all.filter((p) => (p.status || 'active') === status);
-  const chip = (k, l) => <Btn key={k} sm kind={status === k ? 'primary' : 'default'} to={href(`#/projects?status=${k}`)}>{l}</Btn>;
+  const chip = (k, l) => (
+    <DLink key={k} to={`#/projects?status=${k}`} aria-current={status === k ? 'true' : undefined} className={`inline-flex min-h-9 items-center px-4 text-[13px] font-semibold no-underline ${status === k ? 'bg-accent' : 'bg-surface hover:bg-surface-2'}`} style={{ color: status === k ? 'var(--accent-ink)' : 'var(--ink-2)' }}>{l}</DLink>
+  );
   const budget = can('budget', 'r', role());
   return (
     <>
       <PageHeader title="Projects" sub="Every job in the studio, with its next milestone and budget status.">
-        {chip('active', 'Active')}{chip('finished', 'Finished')}{chip('all', 'All')}
+        <div className="inline-flex divide-x divide-line-2 overflow-hidden rounded-r1 border border-line-2" role="group" aria-label="Project status">{chip('active', 'Active')}{chip('finished', 'Finished')}{chip('all', 'All')}</div>
         {can('project', 'w', role()) && (
           <Btn kind="primary" onClick={() => openDesktopTemplate()}>New from template</Btn>
         )}
       </PageHeader>
       <ProjectCards projects={ps} />
-      <details className="my-5">
-        <summary className="min-h-11 cursor-pointer py-2.5 font-medium text-ink-2">Project list · owners and deadlines</summary>
+      <details className="group mb-3.5 rounded-r3 border border-line bg-surface px-card">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 font-semibold text-ink-2 hover:text-accent-text [&::-webkit-details-marker]:hidden"><svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>Project list · owners and deadlines</summary>
+        <div className="pb-card">
         <DataTable
           cols={['Project', 'Owner', 'Next milestone', 'Needs attention']}
           rows={ps.map((p) => {
@@ -134,11 +137,14 @@ function ProjectList({ status }) {
             ];
           })}
         />
+        </div>
       </details>
-      <details className="my-5">
-        <summary className="min-h-11 cursor-pointer py-2.5 font-medium text-ink-2">
+      <details className="group mb-3.5 rounded-r3 border border-line bg-surface px-card">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 font-semibold text-ink-2 hover:text-accent-text [&::-webkit-details-marker]:hidden">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
           Compare project details{budget ? ' · team and budget' : ' · team and phase'}
         </summary>
+        <div className="pb-card">
         <DataTable
           cols={['Project', 'Phase', 'Team', ...(budget ? ['₹Budget', '₹Spent', 'Budget status'] : []), 'Status']}
           rows={ps.map((p) => [
@@ -149,6 +155,7 @@ function ProjectList({ status }) {
             p.status === 'finished' ? 'Finished ' + fmtD(p.finishedAt) : 'Active',
           ])}
         />
+        </div>
       </details>
     </>
   );
@@ -182,11 +189,23 @@ const PTAB = {
   team: TeamTab, decisions: DecisionsTab, moodboard: MoodboardTab, handover: HandoverTab,
 };
 
-const navLink = 'flex min-h-11 items-center border-b-2 px-3.5 py-2.5 font-medium no-underline hover:bg-surface-2';
+const navLink = '-mb-px flex min-h-11 items-center whitespace-nowrap border-b-2 px-3.5 py-2.5 font-medium no-underline hover:text-accent-text';
 function ProjectTabs({ projectId, list, current }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
   const frequent = ['overview', 'tasks', 'drawings', 'files', 'decisions'];
   const direct = [...frequent, ...(!frequent.includes(current) ? [current] : [])]
     .map((key) => list.find(([id]) => id === key)).filter(Boolean);
+  // Close the menu after choosing a tool, on Escape, and on a click anywhere else.
+  useEffect(() => { setOpen(false); }, [current, projectId]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', away);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
   const destination = ([key, label]) => (
     <DLink
       key={key}
@@ -199,25 +218,63 @@ function ProjectTabs({ projectId, list, current }) {
     </DLink>
   );
   const more = PROJECT_GROUPS.map(([label, keys]) => {
-    const entries = list.filter(([key]) => keys.includes(key) && !direct.some(([id]) => id === key));
-    return entries.length ? (
-      <div key={label}>
-        <h3 className="mb-1.5 mt-0 text-xs font-semibold text-ink-3">{label}</h3>
-        {entries.map(([key, l]) => (
-          <DLink key={key} to={`#/projects/${projectId}?tab=${key}`} className="block rounded p-2 text-ink no-underline hover:bg-accent-soft" style={{ color: 'var(--ink)' }}>{l}</DLink>
-        ))}
-      </div>
-    ) : null;
+    const entries = list.filter(([key]) => keys.includes(key) && !frequent.includes(key));
+    return entries.length ? { label, entries } : null;
   }).filter(Boolean);
+  // Spread the groups over three columns by size so the menu has no empty gaps.
+  const balanced = [[], [], []];
+  const sizes = [0, 0, 0];
+  more.forEach((g) => {
+    const i = sizes.indexOf(Math.min(...sizes));
+    balanced[i].push(g);
+    sizes[i] += g.entries.length + 1;
+  });
+  const used = balanced.filter((c) => c.length);
   return (
-    <nav className="relative mb-4 border-b border-line" aria-label="Project sections">
+    <nav className="mb-5 border-b border-line" aria-label="Project sections">
       <div className="flex flex-wrap items-stretch gap-1">
         {direct.map(destination)}
         {more.length > 0 && (
-          <details className="group static">
-            <summary className="flex min-h-11 cursor-pointer items-center px-3.5 py-2.5 font-medium text-ink-2 hover:bg-surface-2">More project tools</summary>
-            <div className="absolute left-0 top-full z-10 grid w-[min(680px,100%)] gap-4 rounded-r2 border border-line-2 bg-surface p-5 shadow-s2 sm:grid-cols-2 lg:grid-cols-3">{more}</div>
-          </details>
+          <div ref={box} className="relative">
+            <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={open}
+              onClick={() => setOpen((o) => !o)}
+              className={`-mb-px flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-3.5 py-2.5 font-medium hover:text-accent-text ${open ? 'text-accent-text' : 'text-ink-2'}`}
+            >
+              More project tools
+              <svg viewBox="0 0 24 24" className={`h-4 w-4 transition ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            {open && (
+              <div className="absolute left-0 top-full z-20 mt-1.5 w-[min(720px,calc(100vw-2rem))] max-md:fixed max-md:inset-x-4 max-md:top-auto max-md:w-auto rounded-r3 border border-line bg-surface p-3 shadow-s2">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {used.map((col, ci) => (
+                    <div key={ci} className="flex min-w-0 flex-col gap-3">
+                  {col.map(({ label, entries }) => (
+                    <section key={label} className="rounded-r2 bg-surface-2 p-2.5 last:flex-1">
+                      <h3 className="m-0 px-2 pb-1.5 pt-0.5 font-ui text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{label}</h3>
+                      {entries.map(([key, l]) => (
+                        <DLink
+                          key={key}
+                          to={`#/projects/${projectId}?tab=${key}`}
+                          onClick={() => setOpen(false)}
+                          aria-current={current === key ? 'page' : undefined}
+                          className={`flex items-center justify-between gap-2 rounded-r1 px-2 py-1.5 text-[14px] no-underline hover:bg-surface ${current === key ? 'bg-surface font-semibold' : ''}`}
+                          style={{ color: current === key ? 'var(--accent-text)' : 'var(--ink)' }}
+                        >
+                          {l}
+                          {current === key && <span className="h-1.5 w-1.5 flex-none rounded-full bg-accent" aria-hidden="true" />}
+                        </DLink>
+                      ))}
+                    </section>
+                  ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </nav>
@@ -237,26 +294,32 @@ function ProjectPage({ id, tab: wanted }) {
   const finished = p.status === 'finished';
   return (
     <>
-      <header className="mb-4">
-        <div className="mb-1.5 text-[13px] text-ink-3">
-          <DLink to="#/projects" className="text-inherit underline">Projects</DLink> / {p.code} <span className="ml-2">· {PHASES[p.phase]}</span>
-        </div>
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <header className="mb-5 rounded-r3 border border-line bg-surface p-card">
+        <nav aria-label="Breadcrumb" className="mb-2 flex flex-wrap items-center gap-1.5 text-[13px] text-ink-3">
+          <DLink to="#/projects" className="text-accent-text no-underline hover:underline">Projects</DLink>
+          <span aria-hidden="true">/</span>
+          <span>{p.code}</span>
+          <span className="ml-1 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-semibold text-accent-text">{PHASES[p.phase]}</span>
+        </nav>
+        <div className="flex flex-wrap items-start justify-between gap-gap-lg">
           <div className="min-w-[230px] flex-1">
-            <h1 className="m-0 text-[28px] font-semibold leading-tight tracking-tight">{p.name}</h1>
-            <p className="mb-0 mt-2 text-[13px] text-ink-3">
+            <h1 className="m-0 text-title font-semibold leading-tight tracking-tight">{p.name}</h1>
+            <p className="mb-0 mt-2 text-[13px] leading-relaxed text-ink-3">
               {p.kind} · {p.area} · {p.city} · Client {name(p.clientId)}
               {finished && <> · <Pill kind="soft">Finished {fmtD(p.finishedAt)}</Pill> hidden from phones</>}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-gap text-[13px]">
+          <div className="flex flex-wrap items-center gap-2 text-[13px] [&_a]:inline-flex [&_a]:min-h-9 [&_a]:items-center [&_a]:rounded-r1 [&_a]:border [&_a]:border-line-2 [&_a]:bg-surface [&_a]:px-3.5 [&_a]:font-semibold [&_a]:no-underline hover:[&_a]:border-accent hover:[&_a]:bg-accent-soft">
             {site && <SiteLink id={site.id}>Open site</SiteLink>}
             <ChatLink thread={thread}>Open chat</ChatLink>
             {role() === 'partner' && (
-              <details className="relative">
-                <summary className="cursor-pointer whitespace-nowrap py-1.5 font-medium text-ink-2">Project actions</summary>
-                <div className="absolute right-0 top-10 z-10 w-[260px] max-w-[calc(100vw-40px)] rounded-r2 border border-line-2 bg-surface p-4 shadow-s2">
-                  <p className="mb-3 mt-0 text-sm">
+              <details className="group relative">
+                <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text hover:border-accent hover:bg-accent-soft [&::-webkit-details-marker]:hidden">
+                  Project actions
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 transition group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </summary>
+                <div className="absolute right-0 top-11 z-10 w-[260px] max-w-[calc(100vw-40px)] rounded-r3 border border-line bg-surface p-4 shadow-s2">
+                  <p className="mb-3 mt-0 text-sm text-ink-2">
                     {finished
                       ? 'Reopen this project to make it available to site teams again.'
                       : 'Finish this project when its work is complete. It will leave active project lists and phones.'}
@@ -271,7 +334,7 @@ function ProjectPage({ id, tab: wanted }) {
         </div>
       </header>
       <ProjectTabs projectId={p.id} list={list} current={tab} />
-      <Tab p={p} />
+      <div className="min-w-0 [&_.grid>*]:min-w-0"><Tab p={p} /></div>
     </>
   );
 }

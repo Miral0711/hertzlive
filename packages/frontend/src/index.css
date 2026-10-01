@@ -23,6 +23,9 @@
   --nav-w: 188px;                                          /* desktop sidebar width */
   --header-h: 60px;                                        /* top bar height */
   --chat-w: 360px;                                         /* chat pane width */
+  --table-pad-x: 1.125rem;                                 /* table cell side padding */
+  --table-row-h: 2.75rem;                                  /* table body row height */
+  --table-head-h: 2.5rem;                                  /* table header height */
   --control-h: 2.25rem;                                    /* buttons and inputs */
 }
 @media (pointer: coarse) { :root { --control-h: 2.75rem; } }

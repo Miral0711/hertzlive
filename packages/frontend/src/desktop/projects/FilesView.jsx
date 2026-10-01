@@ -1,6 +1,6 @@
 import { state, svc, toast, render, uid } from '../../shared/core.js';
 import { TODAY, NAS_TREE } from '../../shared/data.js';
-import { Btn, Empty, Select } from '../../ui/ui';
+import { Btn, Empty, Table, Th, Td, Tr } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { openDialog } from '../session';
@@ -85,7 +85,7 @@ function fileShare(path) {
 }
 
 // ---------- pieces ----------
-const treeLink = 'flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap rounded-md px-2 py-[5px] text-[13px] no-underline';
+const treeLink = 'flex items-center gap-2 rounded-r1 py-1.5 pr-2 text-[13px] no-underline hover:bg-surface-3';
 function TreeLink({ to, on, depth = 0, children }) {
   return (
     <DLink to={to} className={`${treeLink} ${on ? 'bg-accent-soft font-semibold' : ''}`} style={{ paddingLeft: 8 + depth * 14, color: on ? 'var(--accent-text)' : 'inherit' }}>
@@ -110,7 +110,7 @@ function Tree({ base, cur, scope }) {
   if (!r) return null;
   return (
     <>
-      <TreeLink to={fileHref(base, r.path)} on={cur === r.path}><b>{r.node.p}</b></TreeLink>
+      <TreeLink to={fileHref(base, r.path)} on={cur === r.path}><Icon name="folder" small /><b>{r.node.p}</b></TreeLink>
       <TreeNodes node={r.node} path={r.path} depth={1} base={base} cur={cur} />
     </>
   );
@@ -125,25 +125,26 @@ function FileRow({ e, path, base, showPath }) {
   const sel = state.desk.fileSel === path;
   if (e.dir) {
     return (
-      <tr>
-        <td className="border-b border-line px-3.5 py-2">
-          <DLink to={fileHref(base, path)} className="text-inherit no-underline"><Icon name="folder" small /> {showPath ? path : e.p}</DLink>
-        </td>
-        <td className="border-b border-line" /><td className="border-b border-line" />
-      </tr>
+      <Tr>
+        <Td>
+          <DLink to={fileHref(base, path)} className="inline-flex items-center gap-2 font-medium text-ink no-underline"><Icon name="folder" small className="text-accent-text" /> {showPath ? path : e.p}</DLink>
+        </Td>
+        <Td className="text-ink-2">Folder</Td>
+        <Td className="text-ink-3">{(e.c || []).length ? `${(e.c || []).length} item${(e.c || []).length === 1 ? '' : 's'}` : ''}</Td>
+      </Tr>
     );
   }
   return (
-    <tr className={sel ? 'bg-accent-soft' : ''}>
-      <td className="border-b border-line px-3.5 py-2">
-        <button type="button" className="border-0 bg-transparent p-0 text-left text-inherit" onClick={() => fileSel(path)}>
-          <Icon name="file" small /> <Mono>{showPath ? path : e.p}</Mono>
+    <Tr className={sel ? '[&>td]:bg-accent-soft' : ''}>
+      <Td>
+        <button type="button" className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-left text-inherit" onClick={() => fileSel(path)}>
+          <Icon name="file" small className="text-ink-3" /> <Mono>{showPath ? path : e.p}</Mono>
         </button>
         <Tags e={e} />
-      </td>
-      <td className="border-b border-line px-3.5 py-2">{fileKind(e.p)}</td>
-      <td className="border-b border-line px-3.5 py-2">{e.size || ''}</td>
-    </tr>
+      </Td>
+      <Td className="text-ink-2">{fileKind(e.p)}</Td>
+      <Td className="text-ink-2">{e.size || ''}</Td>
+    </Tr>
   );
 }
 function FileThumb({ e, path, base }) {
@@ -161,7 +162,6 @@ function FileThumb({ e, path, base }) {
   );
 }
 
-const th = 'h-10 border-b border-line bg-surface-2 px-3.5 py-2 text-left text-xs font-semibold text-ink-2';
 
 export function FilesView({ base, path, scope }) {
   const q = state.desk.fileQ || '';
@@ -180,13 +180,11 @@ export function FilesView({ base, path, scope }) {
   const sel = state.desk.fileSel;
   const selE = sel && fileResolve(sel);
   const bar = selE && !selE.node.dir && selE.path === sel;
-  const head = (
-    <thead><tr>
-      <th className={th}>{q ? 'Match' : 'Name'}</th><th className={th}>Kind</th><th className={th}>Size</th>
-    </tr></thead>
-  );
   const wrap = (body) => (
-    <div className="overflow-x-auto rounded-r3 border border-line bg-surface"><table className="w-full border-collapse">{head}<tbody>{body}</tbody></table></div>
+    <Table>
+      <thead><tr><Th>{q ? 'Match' : 'Name'}</Th><Th>Kind</Th><Th>Size / items</Th></tr></thead>
+      <tbody>{body}</tbody>
+    </Table>
   );
   let listing;
   if (q) {
@@ -204,16 +202,19 @@ export function FilesView({ base, path, scope }) {
       : <tr><td colSpan={3} className="p-7 text-center text-ink-3">Empty folder.</td></tr>);
   }
   return (
-    <div className="grid items-start gap-gap md:grid-cols-[200px_minmax(0,1fr)]">
-      <nav className="flex flex-col gap-0.5 md:sticky md:top-0 md:border-r md:border-line md:pr-2 max-md:flex-row max-md:flex-wrap"><Tree base={base} cur={r.path} scope={scope} /></nav>
-      <div className="min-w-0">
-        <div className="mb-2 text-[13px] text-ink-3">
+    <div className="overflow-hidden rounded-r3 border border-line bg-surface md:grid md:grid-cols-[230px_minmax(0,1fr)]">
+      <nav aria-label="Folders" className="flex flex-col gap-0.5 border-b border-line bg-surface-2 p-3 md:border-b-0 md:border-r max-md:flex-row max-md:flex-wrap"><Tree base={base} cur={r.path} scope={scope} /></nav>
+      <div className="min-w-0 p-card">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-3">
+          <span>
           {r.crumbs.map(([l, p], i) => (
             <span key={p}>
-              {i > 0 && ' › '}
-              {i === r.crumbs.length - 1 ? <b className="text-ink">{l}</b> : <DLink to={fileHref(base, p)} className="text-inherit underline">{l}</DLink>}
+              {i > 0 && <span className="mx-1">›</span>}
+              {i === r.crumbs.length - 1 ? <b className="text-ink">{l}</b> : <DLink to={fileHref(base, p)} className="text-accent-text no-underline hover:underline">{l}</DLink>}
             </span>
           ))}
+          </span>
+          <span className="text-xs">{rows.filter((x) => x.e.dir).length} folder{rows.filter((x) => x.e.dir).length === 1 ? '' : 's'} · {rows.filter((x) => !x.e.dir).length} file{rows.filter((x) => !x.e.dir).length === 1 ? '' : 's'}</span>
         </div>
         <form
           className="mb-2.5 flex flex-wrap items-center gap-2.5"
@@ -221,12 +222,14 @@ export function FilesView({ base, path, scope }) {
         >
           <input
             type="search" name="q" defaultValue={q} key={q} placeholder={`Search ${scope ? 'this folder' : 'all shares'}`} aria-label="Search files"
-            className="min-h-9 rounded-r1 border border-line-2 bg-surface px-2.5 py-1.5 text-ink"
+            className="min-h-9 min-w-[200px] flex-1 rounded-r1 border border-line-2 bg-surface px-2.5 py-1.5 text-ink"
           />
-          <Select value={kind} aria-label="Kind" onChange={(e) => { state.desk.fileKind = e.target.value; render(); }}>
-            {['', 'CAD', 'PDF', 'Photo', 'Doc'].map((k) => <option key={k} value={k}>{k || 'All kinds'}</option>)}
-          </Select>
-          <Btn sm onClick={() => { state.desk.fileView = view === 'list' ? 'thumbs' : 'list'; render(); }}>{view === 'list' ? 'Thumbs' : 'List'}</Btn>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Kind">
+            {['', 'CAD', 'PDF', 'Photo', 'Doc'].map((k) => (
+              <button key={k} type="button" aria-pressed={kind === k} onClick={() => { state.desk.fileKind = k; render(); }} className={`inline-flex min-h-8 items-center rounded-full border px-3 text-[13px] font-semibold ${kind === k ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`}>{k || 'All'}</button>
+            ))}
+          </div>
+          <Btn sm onClick={() => { state.desk.fileView = view === 'list' ? 'thumbs' : 'list'; render(); }}>{view === 'list' ? 'Thumbnails' : 'List'}</Btn>
         </form>
         {bar && (
           <div className="mb-2.5 flex items-center gap-2 rounded-lg bg-accent-soft px-2.5 py-2">
@@ -237,7 +240,7 @@ export function FilesView({ base, path, scope }) {
           </div>
         )}
         {listing}
-        <p className="text-ink-3"><small>Read only. Path <Mono>{r.share.root}</Mono>. Copy path opens the file in your CAD app from the NAS.</small></p>
+        <p className="mb-0 mt-3 text-ink-3"><small>Read only. Path <Mono>{r.share.root}</Mono>. Copy path opens the file in your CAD app from the NAS.</small></p>
       </div>
     </div>
   );

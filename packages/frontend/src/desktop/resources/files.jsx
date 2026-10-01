@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { state, svc, can, go, toast, render, fmtD, uid } from '../../shared/core.js';
 import { NAS_TREE } from '../../shared/data.js';
-import { Btn, Card, Empty, Input, Select, Pill, StatusPill, PageHeader, List, Item } from '../../ui/ui';
+import { Btn, Card, Empty, Input, Select, Pill, StatusPill, PageHeader, List, Item, Table, Th, Td, Tr } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { first, name, role } from '../helpers';
@@ -62,30 +62,30 @@ export function nasDry() {
 }
 
 // ---------- browser ----------
-const fileLinkCls = 'inline-flex items-center gap-1.5 text-inherit no-underline hover:underline';
 
 function FileRow({ e, p, base, showPath }) {
   const sel = state.desk.fileSel === p;
   if (e.dir) {
     return (
-      <tr>
-        <td className="px-3.5 py-2"><DLink to={fileHref(base, p)} className={fileLinkCls}><Icon name="folder" small /> {showPath ? p : e.p}</DLink></td>
-        <td /><td />
-      </tr>
+      <Tr>
+        <Td><DLink to={fileHref(base, p)} className="inline-flex items-center gap-2 font-medium text-ink no-underline"><Icon name="folder" small className="text-accent-text" /> {showPath ? p : e.p}</DLink></Td>
+        <Td className="text-ink-2">Folder</Td>
+        <Td className="text-ink-3">{(e.c || []).length ? `${(e.c || []).length} item${(e.c || []).length === 1 ? '' : 's'}` : ''}</Td>
+      </Tr>
     );
   }
   return (
-    <tr className={sel ? 'bg-accent-soft' : ''}>
-      <td className="px-3.5 py-2">
-        <button type="button" className={`${fileLinkCls} border-0 bg-transparent p-0 text-left`} onClick={() => fileSel(p)}>
-          <Icon name="file" small /> <span className="font-mono text-[13px]">{showPath ? p : e.p}</span>
+    <Tr className={sel ? '[&>td]:bg-accent-soft' : ''}>
+      <Td>
+        <button type="button" className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-left text-inherit" onClick={() => fileSel(p)}>
+          <Icon name="file" small className="text-ink-3" /> <span className="font-mono text-[13px]">{showPath ? p : e.p}</span>
         </button>
         {e.chat && <> <Pill kind="soft">from chat</Pill></>}
         {e.why && <> <Pill kind="warn">{e.why}</Pill></>}
-      </td>
-      <td className="px-3.5 py-2">{fileKind(e.p)}</td>
-      <td className="px-3.5 py-2">{e.size || ''}</td>
-    </tr>
+      </Td>
+      <Td className="text-ink-2">{fileKind(e.p)}</Td>
+      <Td className="text-ink-2">{e.size || ''}</Td>
+    </Tr>
   );
 }
 
@@ -145,11 +145,11 @@ export function FilesView({ base, path, scope }) {
   rows.sort((a, b) => (b.e.dir ? 1 : 0) - (a.e.dir ? 1 : 0));
   const sel = state.desk.fileSel;
   const selE = sel && fileResolve(sel);
-  const th = 'h-10 border-b border-line bg-surface-2 px-3.5 py-2 text-left text-xs font-semibold text-ink-2';
   const table = (head, body) => (
-    <div className="overflow-x-auto rounded-r3 border border-line bg-surface">
-      <table className="w-full border-collapse"><thead><tr><th className={th}>{head}</th><th className={th}>Kind</th><th className={th}>Size</th></tr></thead><tbody>{body}</tbody></table>
-    </div>
+    <Table>
+      <thead><tr><Th>{head}</Th><Th>Kind</Th><Th>Size / items</Th></tr></thead>
+      <tbody>{body}</tbody>
+    </Table>
   );
   let listing;
   if (q) {

@@ -681,15 +681,14 @@ function InvoiceDialog({ d }) {
   const g = svc.gst(inv);
   const A = state.db.AGENCY;
   const row = (k, v) => (
-    <tr key={k}><th className="py-1 pr-4 text-left font-medium text-ink-2">{k}</th><td className="py-1 text-right">{v}</td></tr>
+    <div key={k} className="flex items-center justify-between gap-4 border-b border-line py-2 last:border-b-0"><dt className="font-medium text-ink-2">{k}</dt><dd className="m-0 text-right tabular-nums">{v}</dd></div>
   );
   return (
     <Modal title={`${inv.no} · ${P(inv.projectId).name}`}>
       <p className="mt-0 text-ink-3">
         {A.name} · GSTIN {A.gstin || 'not set'} · SAC {g.sac || '9983'} · Place of supply {g.placeOfSupply}
       </p>
-      <table className="w-full">
-        <tbody>
+      <dl className="m-0">
           {row('Stage', FEE_STAGES[inv.stage].name)}
           {row('Issued', fmtD(inv.issued))}
           {row('Due', fmtD(inv.due))}
@@ -697,8 +696,7 @@ function InvoiceDialog({ d }) {
           {g.inter ? row('IGST 18%', inr(g.igst)) : [row('CGST 9%', inr(g.cgst)), row('SGST 9%', inr(g.sgst))]}
           {row(<b>Total</b>, <b>{inr(g.total)}</b>)}
           {row('Status', <StatusPill status={inv.status} />)}
-        </tbody>
-      </table>
+      </dl>
       <p className="my-3 rounded-r1 bg-accent-soft px-3.5 py-2.5 text-accent-text">
         {g.inter ? 'Client billed from another state, so IGST.' : 'Client in the same state as the studio, so CGST + SGST.'} Change the billing state on the project if this is wrong.
       </p>
