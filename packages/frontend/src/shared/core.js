@@ -545,11 +545,13 @@ export const svc = {
   tasks(f = {}) {
     if (!can("task", "r")) return [];
     const u = me();
+    // f.all opts out of the open-only filter every existing caller relies on (Dashboard, Today,
+    // svc.load, the role Homes) — only the All Tasks page passes it, to also see done tasks.
     return state.db.TASKS.filter(
       (t) =>
         (!f.mine || t.owner === u.id) &&
         (!f.projectId || t.projectId === f.projectId) &&
-        t.status === "open",
+        (f.all || t.status === "open"),
     );
   },
   bookings(date) {

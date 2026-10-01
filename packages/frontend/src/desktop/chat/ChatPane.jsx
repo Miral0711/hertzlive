@@ -6,8 +6,8 @@ import {
   state, svc, can, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment,
 } from '../../shared/core.js';
 import { seedFilings } from '../../shared/filing.js';
-import { Btn, Pill } from '../../ui/ui';
-import { name, role, staff } from '../helpers';
+import { Btn, Pill, Dropdown, DropdownItem } from '../../ui/ui';
+import { P, name, role, staff } from '../helpers';
 import { FilingChip } from '../parts';
 import { openDialog, openThread, toggleChatPane } from '../session';
 import { Ph } from './media';
@@ -102,21 +102,35 @@ async function suggestReply(tid) {
 // ---------- conversation list ----------
 export function ConversationList({ threads, filterable = false }) {
   useDraftTick();
+  const [q, setQ] = useState('');
   const unreadOnly = filterable && state.desk.chatFilter === 'unread';
-  const rows = threads.filter((t) => !unreadOnly || unreadCount(t.id));
+  const needle = q.trim().toLowerCase();
+  const rows = threads
+    .filter((t) => !unreadOnly || unreadCount(t.id))
+    .filter((t) => !needle || t.name.toLowerCase().includes(needle) || conversationPreview(svc.messages(t.id).at(-1)).toLowerCase().includes(needle));
   const setFilter = (v) => { state.desk.chatFilter = v; render(); };
   return (
     <>
       {filterable && (
-        <div role="group" aria-label="Filter conversations" className="flex gap-2 border-b border-line px-4 py-3">
-          {[['all', 'All', !unreadOnly], ['unread', 'Unread', unreadOnly]].map(([k, l, on]) => (
-            <Btn
-              key={k} sm aria-pressed={on} onClick={() => setFilter(k)}
-              className={on ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
-            >
-              {l}
-            </Btn>
-          ))}
+        <div className="flex flex-col gap-2 border-b border-line px-4 py-3">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search conversations"
+            aria-label="Search conversations"
+            className="min-h-9 rounded-r1 border border-line-2 bg-surface-2 px-3 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
+          />
+          <div role="group" aria-label="Filter conversations" className="flex gap-2">
+            {[['all', 'All', !unreadOnly], ['unread', 'Unread', unreadOnly]].map(([k, l, on]) => (
+              <Btn
+                key={k} sm aria-pressed={on} onClick={() => setFilter(k)}
+                className={on ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
+              >
+                {l}
+              </Btn>
+            ))}
+          </div>
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
@@ -132,24 +146,24 @@ export function ConversationList({ threads, filterable = false }) {
               data-thread={t.id}
               aria-current={current ? 'true' : undefined}
               onClick={() => openThreadFocus(t.id)}
-              className={`flex min-h-[84px] w-full items-center gap-3 border-0 border-b border-line px-4 py-3.5 text-left text-inherit hover:bg-surface-2 ${current ? 'bg-surface-2' : 'bg-transparent'}`}
+              className={`flex min-h-[84px] w-full items-center gap-3 border-0 border-b border-line px-4 py-3.5 text-left text-inherit hover:bg-surface-2 ${current ? 'bg-accent-soft' : 'bg-transparent'}`}
             >
               <span className="inline-grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-3 text-[13px] font-semibold">{t.name.slice(0, 1)}</span>
               <span className="min-w-0 flex-1">
-                <b className="block font-semibold leading-snug">{t.name}</b>
-                <small className="mt-1 block truncate text-xs text-ink-3">{draft || conversationPreview(last)}</small>
+                <b className={`block leading-snug ${unread > 0 ? 'font-semibold text-ink' : 'font-medium text-ink-2'}`}>{t.name}</b>
+                <small className={`mt-1 block truncate text-xs ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>{draft || conversationPreview(last)}</small>
               </span>
               <span className="flex flex-none flex-col items-end gap-1 text-[11px]">
                 <small className="text-ink-3">{last ? fmtD(last.at) : ''}</small>
                 {draft && <span className="font-semibold text-accent-text">Draft</span>}
-                {unread > 0 && <span className="font-semibold text-accent-text">{unread} unread</span>}
+                {unread > 0 && <span className="inline-grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 font-semibold text-accent-ink">{unread}</span>}
               </span>
             </button>
           );
         })}
         {!rows.length && (
           <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">
-            {unreadOnly ? 'No unread conversations.' : 'No conversations available for your role.'}
+            {needle ? 'No conversations match your search.' : unreadOnly ? 'No unread conversations.' : 'No conversations available for your role.'}
           </p>
         )}
       </div>
@@ -337,7 +351,7 @@ function Composer({ thread, last }) {
     <div className="border-t border-line p-3">
       <p role="status" className="m-0 min-h-0 text-xs text-crit empty:hidden">{status}</p>
       {staff() && last && last.by !== state.userId && (
-        <Btn sm className="mb-2" onClick={() => suggestReply(thread.id)}>AI reply suggestion</Btn>
+        <Btn kind="link" sm className="mb-2" onClick={() => suggestReply(thread.id)}>✨ Suggest reply</Btn>
       )}
       {(pending?.type === 'document' || pending?.type === 'audio') && (
         <PendingFileBar pending={pending} onCancel={() => setPending(null)} onSend={sendSimpleFile} />
@@ -397,7 +411,14 @@ function contextProject() {
   if (parts[0] === 'sites' && parts[1]) return svc.project(svc.site(parts[1])?.projectId);
   return null;
 }
-const kindNote = (k) => (k === 'client' ? 'Shared with client' : k === 'site' ? 'Site team' : k === 'internal' ? 'Studio team only' : 'Members of this conversation');
+// A short "who/what this is" line, not four separate tabs — project name folded in where a
+// thread's own kind (client/site/internal) doesn't already say which project it's for.
+const KIND_LABEL = { client: 'Shared with client', site: 'Site team', internal: 'Studio team only' };
+const contextLine = (t) => {
+  const label = KIND_LABEL[t.kind] || 'Members of this conversation';
+  const proj = t.projectId ? P(t.projectId)?.name : null;
+  return proj ? `${label} · ${proj}` : label;
+};
 
 export function ChatView({ workspace = false }) {
   const paneRef = useRef(null);
@@ -416,8 +437,11 @@ export function ChatView({ workspace = false }) {
   const scoped = project && !desk.allChats ? ts.filter((t) => t.projectId === project.id) : ts;
   if (workspace && (desk.chatList || !svc.thread(desk.thread))) {
     return (
-      <aside id="conversation" ref={paneRef} className="grid h-full min-h-0 place-items-center bg-surface p-6 text-ink-3 max-[980px]:hidden">
-        <p>Choose a conversation to read updates and reply.</p>
+      <aside id="conversation" ref={paneRef} className="grid h-full min-h-0 place-items-center border-l border-line bg-surface p-6 text-center max-[980px]:hidden">
+        <div>
+          <p className="m-0 text-lg font-semibold text-ink">Your conversations</p>
+          <p className="m-0 mt-1.5 text-ink-3">Select a conversation to view messages, updates and replies.</p>
+        </div>
       </aside>
     );
   }
@@ -444,36 +468,39 @@ export function ChatView({ workspace = false }) {
       id="conversation"
       ref={paneRef}
       aria-label="Conversations"
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface ${workspace ? 'h-full max-[980px]:border-0' : 'border-l border-line'}`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''}`}
     >
       <div className="flex min-h-20 flex-wrap items-center gap-2 border-b border-line p-4">
         <div ref={titleRef} tabIndex={-1} className="min-w-0 basis-full focus:outline-none">
           <b className="block font-semibold leading-snug">
             {desk.chatList ? (project && !desk.allChats ? project.name : 'Conversations') : cur.name}
           </b>
-          <small className="mt-1 block text-xs text-ink-3">{desk.chatList ? 'Choose a conversation' : kindNote(cur.kind)}</small>
+          <small className="mt-1 block text-xs text-ink-3">{desk.chatList ? 'Choose a conversation' : contextLine(cur)}</small>
         </div>
         {!desk.chatList && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Btn sm onClick={() => openDialog({ kind: 'media', threadId: cur.id, tab: 'Photos' })}>Media</Btn>
-            <Btn sm onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })}>Start video call</Btn>
+            {sib.length > 1 && (
+              <Dropdown trigger="Context" align="left" panelClassName="!w-56">
+                {sib.map((x) => (
+                  <DropdownItem key={x.id} onClick={() => openThreadFocus(x.id)} className={x.id === cur.id ? '!bg-accent-soft !text-accent-text' : ''}>
+                    {x.name}
+                  </DropdownItem>
+                ))}
+              </Dropdown>
+            )}
+            {/* Video calling is a real but occasional workflow — one tap away, not a prominent
+                header button next to Media. */}
+            <Dropdown trigger="More" align="right" panelClassName="!w-48">
+              <DropdownItem onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })}>Start video call</DropdownItem>
+            </Dropdown>
           </div>
         )}
-        {!desk.chatList && <Btn sm onClick={showList}>Back</Btn>}
+        {/* "Back" only matters when the conversation list isn't already on screen — the narrow
+            (<980px) single-column layout, or the drawer this pane becomes on small viewports. */}
+        {!desk.chatList && <Btn sm onClick={showList} className={workspace ? 'hidden max-[980px]:inline-flex' : ''}>Back</Btn>}
         {!workspace && <Btn sm aria-label="Close chats" onClick={toggleChatPane}>Close</Btn>}
       </div>
-      {sib.length > 1 && (
-        <div role="tablist" aria-label="Conversations in this project" className="flex gap-2 border-b border-line px-4 py-3">
-          {sib.map((x) => (
-            <Btn
-              key={x.id} sm kind={x.id === cur.id ? 'primary' : 'default'} role="tab" aria-selected={x.id === cur.id}
-              onClick={() => openThreadFocus(x.id)}
-            >
-              {{ client: 'Client', internal: 'Studio', site: 'Site' }[x.kind] || x.name}
-            </Btn>
-          ))}
-        </div>
-      )}
       {!desk.chatList && cur.kind === 'internal' && (
         <div className="bg-warn-soft px-3.5 py-2.5 font-medium text-warn">Internal only. Client never sees this thread.</div>
       )}

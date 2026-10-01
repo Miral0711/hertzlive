@@ -67,11 +67,36 @@ export function Chip({ status = '', children, ...rest }) {
   return (
     <button
       type="button"
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2 text-xs font-medium leading-6 hover:brightness-95 ${chipTone[status] || chipTone['']}`}
+      className={`inline-flex min-w-0 max-w-[220px] items-center gap-1.5 rounded-full border px-2 text-xs font-medium leading-6 hover:brightness-95 ${chipTone[status] || chipTone['']}`}
       {...rest}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${chipDot[status] || chipDot['']}`} />
+      <span className={`h-1.5 w-1.5 flex-none rounded-full ${chipDot[status] || chipDot['']}`} />
+      <span className="truncate">{children}</span>
+    </button>
+  );
+}
+
+// A single pressed/unpressed filter toggle, for small groups like "All / CAD / PDF / Photo" row
+// filters (type, source, record-kind...). Pass `on`; the group itself stays the caller's state.
+export function ToggleChip({ on, children, ...rest }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold transition ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`}
+      {...rest}
+    >
       {children}
+    </button>
+  );
+}
+
+// A labelled on/off switch for personal settings/preferences (quiet mode, opt-outs...).
+export function Switch({ on, onClick, label, sub }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onClick} className="flex w-full items-center justify-between gap-4 rounded-r2 border border-line bg-surface px-4 py-3 text-left hover:border-accent">
+      <span><b className="block">{label}</b>{sub && <small className="text-ink-3">{sub}</small>}</span>
+      <i className={`relative h-6 w-11 flex-none rounded-full transition ${on ? 'bg-accent' : 'bg-surface-3'}`}><b className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-s1 transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} /></i>
     </button>
   );
 }
@@ -123,8 +148,10 @@ export const Banner = ({ internal = false, children }) => (
     {children}
   </div>
 );
-export const Avatar = ({ children, studio = false }) => (
-  <span className={`inline-grid h-10 w-10 flex-none place-items-center rounded-full text-[13px] font-semibold ${studio ? 'bg-accent text-accent-ink' : 'bg-surface-3 text-ink'}`}>
+export const Avatar = ({ children, studio = false, accent = false, sm = false }) => (
+  <span
+    className={`inline-grid flex-none place-items-center rounded-full font-semibold ${sm ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-[13px]'} ${studio ? 'bg-accent text-accent-ink' : accent ? 'bg-accent-soft text-accent-text' : 'bg-surface-3 text-ink'}`}
+  >
     {children}
   </span>
 );
@@ -289,12 +316,20 @@ export const Td = ({ align = 'left', className = '', wrap = false, children, ...
 );
 export const Tr = ({ className = '', children, ...rest }) => <tr className={`group ${className}`} {...rest}>{children}</tr>;
 
+// A column is numeric if its header says so (₹/# prefix - currency/counts, kept for sort math)
+// or every cell in it is plain digits/percent (hours, days, counts) - so numeric columns line up
+// and right-align consistently across every table without each caller having to prefix headers.
+const plainNumber = /^-?[\d,]+(\.\d+)?%?$/;
 // cols: header strings ('' = actions column). A leading ₹ or # marks a numeric column (right aligned, sorted by value).
 // Optional `align` array overrides per column: ['left', 'right', ...].
 export function DataTable({ cols, rows, align }) {
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState(null);
-  const isNum = (i) => /^₹|^#/.test(cols[i] || '');
+  const isNum = (i) => {
+    if (/^₹|^#/.test(cols[i] || '')) return true;
+    const vals = rows.map((r) => textOf(r[i]).trim()).filter(Boolean);
+    return vals.length > 0 && vals.every((v) => plainNumber.test(v));
+  };
   // One rule everywhere: every column is left aligned with equal width; only the actions column sits at the right.
   const colAlign = (i) => align?.[i] || (!cols[i] ? 'right' : 'left');
   const shown = useMemo(() => {

@@ -3,7 +3,7 @@ import { Avatar, Btn, Card, Field, Input, PageHeader, Select, StatusPill, Tabs, 
 import { first } from '../helpers';
 import { DLink } from '../nav';
 import { openDialog } from '../session';
-import { Mono, SRC, SecHead, Stat, tabBase } from './common';
+import { Mono, SRC, SecHead, tabBase } from './common';
 
 const TABS = [['new', 'New'], ['accepted', 'Accepted'], ['all', 'All'], ['web', 'Web form preview']];
 const TAB_LABEL = { new: 'New', accepted: 'Accepted', all: 'All' };
@@ -67,28 +67,35 @@ export default function Enquiries({ q }) {
   const byTab = { new: E.filter((e) => e.status === 'new'), accepted: E.filter((e) => e.status === 'accepted'), all: E }[tab] || E;
   const src = q.src || 'all';
   const rows = src === 'all' ? byTab : byTab.filter((e) => e.source === src);
+  const newCount = E.filter((e) => e.status === 'new').length;
   const header = (
     <PageHeader title="Enquiries" sub="New leads from every channel, ready to review, assign or decide.">
       {can('enquiry', 'w') && tab !== 'web' && (
-        <Btn kind="primary" icon="plus" className="!min-h-11 !px-5" onClick={() => { state.desk.enqForm = !state.desk.enqForm; render(); }}>Add phone enquiry</Btn>
+        <Btn kind="primary" icon="plus" onClick={() => { state.desk.enqForm = !state.desk.enqForm; render(); }}>Add phone enquiry</Btn>
       )}
-      <DLink to="#/settings?tab=services" className="inline-flex min-h-11 items-center rounded-r1 border border-line-2 bg-surface px-4 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">Routing rules</DLink>
+      <DLink to="#/settings?tab=services" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">Routing rules</DLink>
     </PageHeader>
   );
-  const stats = (
-    <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
-      <Stat label="Awaiting review" value={E.filter((e) => e.status === 'new').length} sub="new enquiries" tone={E.some((e) => e.status === 'new') ? 'text-warn' : 'text-ok'} />
-      <Stat label="Accepted" value={E.filter((e) => e.status === 'accepted').length} sub="can book a meeting" tone="text-ok" />
-      <Stat label="Declined" value={E.filter((e) => ['rejected', 'not_eligible'].includes(e.status)).length} sub="rejected or not eligible" />
-      <Stat label="All enquiries" value={E.length} sub={`${new Set(E.map((e) => e.source)).size} channels`} />
-    </div>
+  // A quiet one-line summary, not four KPI cards - the enquiry queue below is the main content.
+  const summary = (
+    <Card className="mb-4 !py-2.5">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px]">
+        <span><b className={newCount ? 'text-warn' : 'text-accent-text'}>{newCount}</b> <span className="text-ink-3">awaiting review</span></span>
+        <span className="text-line-2">·</span>
+        <span><b className="text-accent-text">{E.filter((e) => e.status === 'accepted').length}</b> <span className="text-ink-3">accepted</span></span>
+        <span className="text-line-2">·</span>
+        <span className="text-ink-3">{E.filter((e) => ['rejected', 'not_eligible'].includes(e.status)).length} declined</span>
+        <span className="text-line-2">·</span>
+        <span className="text-ink-3">{E.length} total across {new Set(E.map((e) => e.source)).size} channels</span>
+      </div>
+    </Card>
   );
 
   if (tab === 'web') {
     return (
       <>
         {header}
-        {stats}
+        {summary}
         <Tabs base={tabBase('enquiries')} list={TABS} current={tab} />
         <WebPreview />
       </>
@@ -97,12 +104,11 @@ export default function Enquiries({ q }) {
 
   const filterSrc = (k) => go(`#/enquiries?tab=${encodeURIComponent(parseRoute().q.tab || 'new')}&src=${encodeURIComponent(k)}`);
   const open = (id) => openDialog({ kind: 'enquiry', id });
-  const chip = (on) => `inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold transition ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`;
   const count = (k) => byTab.filter((e) => e.source === k).length;
   return (
     <>
       {header}
-      {stats}
+      {summary}
       <Tabs base={tabBase('enquiries')} list={TABS} current={tab} />
       {state.desk.enqForm && (
         <Card title="Log a phone enquiry" className="mb-4">
@@ -122,19 +128,16 @@ export default function Enquiries({ q }) {
           </form>
         </Card>
       )}
-      <SecHead title={`${TAB_LABEL[tab] || 'All'} enquiries`} sub={`${rows.length} record${rows.length === 1 ? '' : 's'} · one Review action per record to assign, accept or decline.`}>
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by source">
-          <button type="button" aria-pressed={src === 'all'} className={chip(src === 'all')} onClick={() => filterSrc('all')}>All <span className="opacity-70">{byTab.length}</span></button>
-          {SOURCE_KEYS.map((k) => (
-            <button key={k} type="button" aria-pressed={src === k} className={chip(src === k)} onClick={() => filterSrc(k)}>{SRC[k]} <span className="opacity-70">{count(k)}</span></button>
-          ))}
-        </div>
+      {/* One filtering hierarchy: Tabs above picks the queue (new/accepted/all), this single
+          source dropdown narrows it further - not a second row of competing chip toggles. */}
+      <SecHead title={`${TAB_LABEL[tab] || 'All'} enquiries`} sub={`${rows.length} record${rows.length === 1 ? '' : 's'}`}>
+        <Select aria-label="Filter by source" value={src} onChange={(e) => filterSrc(e.target.value)} className="!min-h-9 !w-auto">
+          <option value="all">All sources · {byTab.length}</option>
+          {SOURCE_KEYS.map((k) => <option key={k} value={k}>{SRC[k]} · {count(k)}</option>)}
+        </Select>
       </SecHead>
       {rows.length ? (
         <div className="overflow-hidden rounded-r3 border border-line bg-surface">
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_110px_110px_130px_88px] gap-3 border-b border-line bg-surface-2 px-4 py-2.5 text-xs font-semibold text-ink-2 lg:grid">
-            <span>Prospect</span><span>Wants</span><span>Source</span><span>Owner</span><span>Received</span><span />
-          </div>
           {rows.map((e) => (
             <div
               key={e.id}
@@ -142,20 +145,20 @@ export default function Enquiries({ q }) {
               tabIndex={0}
               onClick={() => open(e.id)}
               onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(e.id); } }}
-              className="grid cursor-pointer items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 transition last:border-b-0 hover:bg-surface-2 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_110px_110px_130px_88px]"
+              className="flex cursor-pointer items-start gap-3 border-b border-line px-4 py-3 transition last:border-b-0 hover:bg-surface-2"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <Avatar>{(e.name || '?').slice(0, 1)}</Avatar>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2"><b>{e.name}</b><StatusPill status={e.status === 'new' ? 'pending' : e.status} /></div>
-                  <small className="block truncate text-ink-3">{e.msg || 'No message left.'}</small>
+              <Avatar>{(e.name || '?').slice(0, 1)}</Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <b className="truncate">{e.name}</b>
+                  {/* Skip the pill when it would just repeat the tab everyone's already looking at. */}
+                  {e.status !== 'new' && <StatusPill status={e.status} />}
                 </div>
+                <div className="truncate text-[13px] text-ink-2">{svc.serviceType(e.typeId)} · {e.city || 'City not given'}</div>
+                {e.msg && <div className="truncate text-[13px] text-ink-3">“{e.msg}”</div>}
+                <div className="mt-0.5 truncate text-xs text-ink-3">{SRC[e.source] || e.source} · {e.assignee ? first(e.assignee) : 'Unassigned'} · {fmtDT(e.at)}</div>
               </div>
-              <div className="min-w-0 text-[13px]"><span className="block truncate font-medium">{svc.serviceType(e.typeId)}</span><span className="text-ink-3">{e.city || 'City not given'}</span></div>
-              <div><span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-ink-2">{SRC[e.source] || e.source}</span></div>
-              <div className="text-[13px] text-ink-2">{e.assignee ? first(e.assignee) : 'Unassigned'}</div>
-              <div className="text-[13px] text-ink-3">{fmtDT(e.at)}</div>
-              <div className="lg:text-right"><Btn sm onClick={(ev) => { ev.stopPropagation(); open(e.id); }}>Review</Btn></div>
+              <Btn sm kind="link" className="flex-none self-center" onClick={(ev) => { ev.stopPropagation(); open(e.id); }}>Review</Btn>
             </div>
           ))}
         </div>

@@ -123,7 +123,7 @@ export default function Shell() {
 
       <div className={`relative grid min-h-0 max-lg:grid-cols-[minmax(0,1fr)] ${noChat ? 'grid-cols-shell' : 'grid-cols-shell-chat max-[1250px]:grid-cols-shell'}`}>
         {navOpen && <button type="button" aria-label="Close menu" onClick={() => setNavOpen(false)} className="absolute inset-0 z-30 hidden bg-black/40 max-lg:block" />}
-        <nav aria-label="Modules" className={`flex flex-col gap-0.5 overflow-auto bg-nav px-2.5 pb-3 pt-1 text-nav-ink max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-[min(280px,85vw)] max-lg:shadow-s2 max-lg:transition-transform ${navOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}>
+        <nav aria-label="Modules" className={`flex min-h-0 flex-col gap-0.5 overflow-auto bg-nav px-2.5 pb-3 pt-1 text-nav-ink max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-[min(280px,85vw)] max-lg:shadow-s2 max-lg:transition-transform ${navOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}>
           <SideNav page={focusedWork ? 'projects' : page} />
           <div className="mt-auto flex flex-col gap-2 border-t border-nav-line pt-3">
             <DLink to="#/settings" className="flex min-h-9 items-center gap-3 rounded-r1 px-3 text-[13.5px] font-medium text-nav-ink no-underline opacity-90 transition hover:bg-nav-hover hover:opacity-100">
@@ -145,7 +145,7 @@ export default function Shell() {
           id="workspace"
           tabIndex={-1}
           data-page={page}
-          className="min-w-0 overflow-auto px-page-x pb-16 pt-page-y focus:outline-none"
+          className="min-h-0 min-w-0 overflow-auto px-page-x pb-16 pt-page-y focus:outline-none"
         >
           {(state.storageError || state.desk.draftStorageError) && (
             <div role="alert" className="mb-3.5 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">

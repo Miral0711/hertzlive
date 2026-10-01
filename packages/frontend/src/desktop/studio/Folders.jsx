@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { state, svc, toast, uid } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
-import { Btn, Empty, Input, Table, Th, Td, Tr } from '../../ui/ui';
+import { Btn, Empty, Input, Table, Th, Td, Tr, ToggleChip } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { openDialog } from '../session';
@@ -97,7 +97,6 @@ export default function Folders({ path, scope = 'Employees', base = '#/people?ta
   };
   const dirs = rows.filter((x) => x.e.dir).length;
   const files = rows.length - dirs;
-  const chip = (on) => `inline-flex min-h-8 items-center rounded-full border px-3 text-[13px] font-semibold ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`;
   return (
     <div className="overflow-hidden rounded-r3 border border-line bg-surface md:grid md:grid-cols-[250px_minmax(0,1fr)]">
       <nav className="border-b border-line bg-surface-2 p-3 text-[13px] md:border-b-0 md:border-r" aria-label="Folders">
@@ -119,7 +118,7 @@ export default function Folders({ path, scope = 'Employees', base = '#/people?ta
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this folder" aria-label="Search files" className="min-w-[200px] flex-1" />
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Kind">
-            {['', 'CAD', 'PDF', 'Photo', 'Doc'].map((k) => <button key={k} type="button" aria-pressed={kind === k} className={chip(kind === k)} onClick={() => setKind(k)}>{k || 'All'}</button>)}
+            {['', 'CAD', 'PDF', 'Photo', 'Doc'].map((k) => <ToggleChip key={k} on={kind === k} onClick={() => setKind(k)}>{k || 'All'}</ToggleChip>)}
           </div>
           <Btn sm onClick={() => setView(view === 'list' ? 'thumbs' : 'list')}>{view === 'list' ? 'Thumbnails' : 'List'}</Btn>
         </div>
