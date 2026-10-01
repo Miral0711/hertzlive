@@ -76,6 +76,31 @@ export function Chip({ status = '', children, ...rest }) {
   );
 }
 
+// A single pressed/unpressed filter toggle, for small groups like "All / CAD / PDF / Photo" row
+// filters (type, source, record-kind...). Pass `on`; the group itself stays the caller's state.
+export function ToggleChip({ on, children, ...rest }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold transition ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+// A labelled on/off switch for personal settings/preferences (quiet mode, opt-outs...).
+export function Switch({ on, onClick, label, sub }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={onClick} className="flex w-full items-center justify-between gap-4 rounded-r2 border border-line bg-surface px-4 py-3 text-left hover:border-accent">
+      <span><b className="block">{label}</b>{sub && <small className="text-ink-3">{sub}</small>}</span>
+      <i className={`relative h-6 w-11 flex-none rounded-full transition ${on ? 'bg-accent' : 'bg-surface-3'}`}><b className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-s1 transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} /></i>
+    </button>
+  );
+}
+
 // ---------- Layout blocks ----------
 export function Card({ title, children, className = '', ...rest }) {
   return (
@@ -123,8 +148,10 @@ export const Banner = ({ internal = false, children }) => (
     {children}
   </div>
 );
-export const Avatar = ({ children, studio = false }) => (
-  <span className={`inline-grid h-10 w-10 flex-none place-items-center rounded-full text-[13px] font-semibold ${studio ? 'bg-accent text-accent-ink' : 'bg-surface-3 text-ink'}`}>
+export const Avatar = ({ children, studio = false, accent = false, sm = false }) => (
+  <span
+    className={`inline-grid flex-none place-items-center rounded-full font-semibold ${sm ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-[13px]'} ${studio ? 'bg-accent text-accent-ink' : accent ? 'bg-accent-soft text-accent-text' : 'bg-surface-3 text-ink'}`}
+  >
     {children}
   </span>
 );
@@ -271,10 +298,18 @@ function numericValue(text) {
   const m = String(text).replace(/,/g, '').match(/(-?\d+(?:\.\d+)?)\s*(Cr|L|K)?\b/i);
   return m ? Number(m[1]) * ({ cr: 1e7, l: 1e5, k: 1e3 }[m[2]?.toLowerCase()] || 1) : NaN;
 }
+// A column is numeric if its header says so (₹/# prefix - currency/counts, kept for sort math)
+// or every cell in it is plain digits/percent (hours, days, counts) - so numeric columns line up
+// and right-align consistently across every table without each caller having to prefix headers.
+const plainNumber = /^-?[\d,]+(\.\d+)?%?$/;
 export function DataTable({ cols, rows }) {
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState(null);
-  const isNum = (i) => /^₹|^#/.test(cols[i] || '');
+  const isNum = (i) => {
+    if (/^₹|^#/.test(cols[i] || '')) return true;
+    const vals = rows.map((r) => textOf(r[i]).trim()).filter(Boolean);
+    return vals.length > 0 && vals.every((v) => plainNumber.test(v));
+  };
   const shown = useMemo(() => {
     let out = rows.map((r, i) => ({ r, i }));
     if (filter.trim()) {

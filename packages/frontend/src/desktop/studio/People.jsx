@@ -3,7 +3,9 @@ import { state, svc, can, inr, fmtD, fmtDT, go, me, persist, render, toast, uid 
 import { TEAM_GOAL, TODAY } from '../../shared/data.js';
 import { HOURLY } from '../../shared/data2.js';
 import { user } from '../../shared/core.js';
-import { Bar, Btn, Card, DataTable, Grid2, Input, List, Item, PageHeader, Pill, Select, StatusPill, Tabs } from '../../ui/ui';
+import {
+  Avatar, Bar, Btn, Card, DataTable, Empty, Grid2, Input, List, Item, PageHeader, Pill, Select, StatusPill, Switch, Tabs, ToggleChip,
+} from '../../ui/ui';
 import { FromChat } from '../parts';
 import { P, V, first, name, role } from '../helpers';
 import { openDialog } from '../session';
@@ -31,11 +33,11 @@ const Directory = () => {
             const tel = (state.db.VENDORS.find((v) => v.userId === u.id) || {}).phone || u.phone
               || `+91 98${String(u.id).replace(/\D/g, '').padStart(3, '0')}0 00000`;
             return [
-              <span className="inline-flex items-center gap-2.5"><span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent-text">{u.ini || u.name.slice(0, 1)}</span><b>{u.name}</b></span>,
-              u.title || u.role,
+              <span className="inline-flex items-center gap-2.5"><Avatar accent sm>{u.ini || u.name.slice(0, 1)}</Avatar><b>{u.name}</b></span>,
+              <span className="text-ink-2">{u.title || u.role}</span>,
               <a href={`tel:${tel.replace(/\s/g, '')}`} className="text-accent-text underline">{tel}</a>,
-              (u.skills || []).join(', '),
-              state.db.PROJECTS.filter((p) => p.teamIds.includes(u.id)).map((p) => p.name.split(' ')[0]).join(', '),
+              <span className="text-ink-3">{(u.skills || []).join(', ')}</span>,
+              <span className="text-ink-3">{state.db.PROJECTS.filter((p) => p.teamIds.includes(u.id)).map((p) => p.name.split(' ')[0]).join(', ')}</span>,
               a.in ? <StatusPill status={'in ' + a.in} /> : <StatusPill status={a.mark || 'not in'} />,
             ];
           })}
@@ -131,7 +133,7 @@ function Leaves() {
       )}
       <div className="mb-3.5 grid items-start gap-gap lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title={`Who is away${awayRows.length ? ` · ${awayRows.length}` : ''}`}>
-          {awayRows.length === 0 ? <p className="m-0 rounded-r2 bg-surface-2 px-3.5 py-5 text-center text-ink-3">Nobody is away in the next 30 days.</p> : awayRows.map((x, i) => {
+          {awayRows.length === 0 ? <Empty>Nobody is away in the next 30 days.</Empty> : awayRows.map((x, i) => {
             const { visits, sites } = leaveClashes(x.userId, x.from, x.to);
             const clash = visits.length + sites.length;
             return (
@@ -164,7 +166,7 @@ function Leaves() {
           </Card>
         )}
       </div>
-      <SecHead title="All requests" sub={`${requests.length} shown${pendingN ? ` · ${pendingN} waiting for a decision` : ''}`} />
+      <div className="mt-5"><SecHead title="All requests" sub={`${requests.length} shown${pendingN ? ` · ${pendingN} waiting for a decision` : ''}`} /></div>
       <Card>
         {error && <p className="mb-2.5 text-crit">{error}</p>}
         {approver && (
@@ -243,7 +245,7 @@ function Attendance({ q }) {
         </Card>
         <div className="flex flex-col gap-gap">
           <Card title="Away today">
-            {away.length === 0 ? <p className="m-0 text-ink-3">Everyone is available.</p> : away.map((x, i) => (
+            {away.length === 0 ? <Empty>Everyone is available.</Empty> : away.map((x, i) => (
               <div key={i} className="border-t border-line py-2 first:border-t-0 first:pt-0"><b>{x.userId ? name(x.userId) : 'Unassigned'}</b><small className="block text-ink-3">{x.why}</small></div>
             ))}
           </Card>
@@ -289,7 +291,7 @@ function Timesheets() {
           return [
             name(u),
             ...state.db.PROJECTS.map((p) => ps[p.id] || ''),
-            tot,
+            <b>{tot}</b>,
             Math.round((tot / 16) * 100) + '%',
             ...(cost ? [inr(tot * (HOURLY[user(u).role] || 0))] : []),
           ];
@@ -402,12 +404,6 @@ function Points() {
   const board = svc.people().filter((x) => x.pts && !x.ptsOptOut).sort((x, y) => y.pts - x.pts);
   const top = board.slice(0, 3);
   const toggle = (key, msg) => { u[key] = !u[key]; persist(); toast(msg(u[key])); render(); };
-  const Switch = ({ on, onClick, label, sub }) => (
-    <button type="button" role="switch" aria-checked={on} onClick={onClick} className="flex w-full items-center justify-between gap-4 rounded-r2 border border-line bg-surface px-4 py-3 text-left hover:border-accent">
-      <span><b className="block">{label}</b><small className="text-ink-3">{sub}</small></span>
-      <i className={`relative h-6 w-11 flex-none rounded-full transition ${on ? 'bg-accent' : 'bg-surface-3'}`}><b className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface shadow-s1 transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} /></i>
-    </button>
-  );
   return (
     <>
       <SecHead title="Points and badges" sub="The team goal comes first. Individual points are a friendly extra." />
@@ -430,7 +426,7 @@ function Points() {
             <div className="mt-2 text-2xl font-semibold tracking-tight text-accent-text">{x.pts.toLocaleString('en-IN')} <span className="text-sm font-normal text-ink-3">points</span></div>
           </div>
         ))}
-        {top.length === 0 && <p className="m-0 rounded-r2 bg-surface-2 px-4 py-6 text-center text-ink-3 md:col-span-3">No one is on the leaderboard yet.</p>}
+        {top.length === 0 && <div className="md:col-span-3"><Empty>No one is on the leaderboard yet.</Empty></div>}
       </div>
       <div className="mb-3.5 grid gap-3 md:grid-cols-2">
         <Switch on={!!u.ptsOptOut} onClick={() => toggle('ptsOptOut', (v) => (v ? 'You are hidden from the leaderboard.' : 'You are back on the leaderboard.'))} label="Opt out of the leaderboard" sub="Your points stay private. You still count toward the team goal." />
@@ -479,10 +475,10 @@ function Reviews() {
         {rows.map((r) => (
           <Item key={r.id}>
             <span className="min-w-0 flex-1">
-              <b>{partner ? name(r.userId) + ' · ' : ''}{r.month}</b> <Pill kind={r.score >= 4 ? 'ok' : r.score >= 3 ? 'soft' : 'warn'}>Score {r.score}/5</Pill><br />
-              <small><b>Strengths:</b> {r.strengths.join(', ')} · <b>Growth:</b> {r.growth}</small><br />
-              <small className="text-ink-3">{r.reason}</small>
-              {r.note && <><br /><small><i>Note: {r.note}</i></small></>}
+              <div className="flex flex-wrap items-center gap-2"><b>{partner ? name(r.userId) + ' · ' : ''}{r.month}</b> <Pill kind={r.score >= 4 ? 'ok' : r.score >= 3 ? 'soft' : 'warn'}>Score {r.score}/5</Pill></div>
+              <div className="mt-1 text-[13px] text-ink-2"><b className="font-semibold text-ink">Strengths</b> {r.strengths.join(', ')} · <b className="font-semibold text-ink">Growth</b> {r.growth}</div>
+              <div className="mt-0.5 text-[13px] text-ink-3">{r.reason}</div>
+              {r.note && <div className="mt-0.5 text-[13px] italic text-ink-3">Note: {r.note}</div>}
             </span>
             {partner ? (
               <Btn sm onClick={() => openDialog({ kind: 'review', userId: r.userId })}>Replace</Btn>
@@ -509,7 +505,7 @@ const Contacts = () => {
       </SecHead>
       <Card>
         {list.length === 0 ? (
-          <div className="rounded-r2 bg-surface-2 px-4 py-9 text-center"><b className="block">No contacts yet</b><span className="text-[13px] text-ink-3">Use Pick from phone list to bring in the people you work with.</span></div>
+          <Empty><b className="block text-ink">No contacts yet</b><span className="text-[13px]">Use Pick from phone list to bring in the people you work with.</span></Empty>
         ) : <DataTable cols={['Name', 'Phone', 'Guessed match']} rows={list.map((c) => [c.name, c.phone, c.guess || '—'])} />}
       </Card>
     </>
@@ -525,7 +521,6 @@ function Audit() {
   const rows = all.filter((a) => (!kind || typeOf(a) === kind) && (!text || `${a.what} ${a.entity} ${a.by}`.toLowerCase().includes(text.toLowerCase()))).slice(0, 60);
   const days = [...new Set(rows.map((a) => String(a.at).slice(0, 10)))];
   const who = new Set(all.map((a) => a.by)).size;
-  const chip = (on) => `inline-flex min-h-8 items-center rounded-full border px-3 text-[13px] font-semibold ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`;
   return (
     <>
       <SecHead title="Audit trail" sub="Every change to money, approvals, leave and people, newest first." />
@@ -538,18 +533,18 @@ function Audit() {
       <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search changes" aria-label="Search audit trail" className="min-w-[200px] flex-1" />
-          <button type="button" aria-pressed={!kind} className={chip(!kind)} onClick={() => setKind('')}>All</button>
-          {kinds.map((k) => <button key={k} type="button" aria-pressed={kind === k} className={chip(kind === k)} onClick={() => setKind(k)}>{k}</button>)}
+          <ToggleChip on={!kind} onClick={() => setKind('')}>All</ToggleChip>
+          {kinds.map((k) => <ToggleChip key={k} on={kind === k} onClick={() => setKind(k)}>{k}</ToggleChip>)}
         </div>
-        {rows.length === 0 && <p className="m-0 rounded-r2 bg-surface-2 px-4 py-8 text-center text-ink-3">No changes match.</p>}
+        {rows.length === 0 && <Empty>No changes match.</Empty>}
         {days.map((day) => (
           <section key={day} className="mb-4 last:mb-0">
             <h3 className="mb-1 mt-0 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.1em] text-accent-text">{fmtD(day)}{day === TODAY ? ' · Today' : ''}<i className="h-px flex-1 bg-line" /></h3>
             {rows.filter((a) => String(a.at).slice(0, 10) === day).map((a, i) => (
               <div key={i} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0">
-                <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent-text">{first(a.by).slice(0, 1)}</span>
+                <Avatar accent sm>{first(a.by).slice(0, 1)}</Avatar>
                 <span className="min-w-0 flex-1"><b className="block">{a.what}</b><small className="text-ink-3">{first(a.by)} · {fmtDT(a.at).split(' · ')[1] || fmtDT(a.at)}</small></span>
-                <span className="flex-none rounded-full bg-surface-2 px-2.5 py-0.5 font-mono text-xs text-ink-2">{a.entity}</span>
+                <Pill>{a.entity}</Pill>
               </div>
             ))}
           </section>
