@@ -10,7 +10,6 @@ import { openDialog } from '../session';
 import { AssistButton } from '../chat/assist';
 import Ph from '../../ui/Ph';
 import { IssueWorkspace, DeliveryWorkspace } from './Work';
-import { Details } from './bits';
 import { trackFill } from '../../ui/tones';
 
 function sitePlan(s) {
@@ -26,11 +25,13 @@ const siteOnTrack = (s) => {
 
 const openIssues = (id) => svc.issues().filter((i) => i.siteId === id && i.status !== 'closed');
 
+// Content only — the page section around it supplies the heading (SecHead), same convention as
+// every other full-width section on this page (Checklists, Daily log, Snags, ...).
 function SitesChart() {
   const rows = svc.sites().map((s) => ({ s, plan: sitePlan(s) }));
   if (!rows.length) return null;
   return (
-    <Card title="Progress against plan" className="mb-3.5">
+    <Card>
       {rows.map(({ s, plan }) => (
         <div key={s.id} className="mb-2 grid grid-cols-[minmax(90px,1fr)_2fr_minmax(90px,1fr)] items-center gap-3">
           <span><SiteLink id={s.id}>{s.name}</SiteLink></span>
@@ -41,7 +42,7 @@ function SitesChart() {
           <small className="text-ink-3">{s.progress}% done{plan === null ? '' : `, plan ${plan}%`}</small>
         </div>
       ))}
-      <p className="text-ink-3">Plan is working days between project start and handover, site holidays from Settings skipped. Tick marks where the site should be today.</p>
+      <p className="m-0 text-ink-3">Plan is working days between project start and handover, site holidays from Settings skipped. Tick marks where the site should be today.</p>
     </Card>
   );
 }
@@ -112,7 +113,7 @@ function SitesOverview({ sites }) {
   const shorts = state.db.GRNS.filter((g) => ids.includes(g.siteId) && g.status === 'short');
   const due = state.db.MATERIALS.filter((m) => ids.includes(m.siteId) && m.status === 'approved').slice(0, 4);
   const updates = sites.flatMap((x) => svc.feed(x.id).map((f) => ({ ...f, siteId: x.id })))
-    .sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
+    .sort((a, b) => b.at.localeCompare(a.at));
   const cash = sites.map((x) => ({ x, c: svc.pettyCash(x.id) })).filter((r) => r.c);
   const Row = ({ to, title, sub, tag }) => (
     <DLink to={to} className="flex items-center gap-3 border-t border-line py-2.5 no-underline first:border-t-0 first:pt-0" style={{ color: 'inherit' }}>
@@ -141,12 +142,29 @@ function SitesOverview({ sites }) {
           )}
         </Card>
         <Card title="Recent site updates">
-          {updates.length === 0 ? <Empty2>No updates yet.</Empty2> : updates.map((f, i) => (
-            <Row key={i} to={`#/sites/${f.siteId}?tab=feed`}
-              title={f.text || f.aiSummary || (f.type === 'photo' ? 'Photo update' : 'Voice note')}
-              sub={`${siteName(f.siteId)} · ${first(f.by)} · ${fmtDT(f.at)}`}
-              tag={<Icon name={f.type === 'photo' ? 'camera' : 'mic'} small className="text-ink-3" />} />
-          ))}
+          {updates.length === 0 ? <Empty2>No updates yet.</Empty2> : (
+            <>
+              {updates.slice(0, 3).map((f, i) => (
+                <Row key={i} to={`#/sites/${f.siteId}?tab=feed`}
+                  title={f.text || f.aiSummary || (f.type === 'photo' ? 'Photo update' : 'Voice note')}
+                  sub={`${siteName(f.siteId)} · ${first(f.by)} · ${fmtDT(f.at)}`}
+                  tag={<Icon name={f.type === 'photo' ? 'camera' : 'mic'} small className="text-ink-3" />} />
+              ))}
+              {updates.length > 3 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[13px] font-medium text-accent-text">View all {updates.length} updates</summary>
+                  <div className="mt-1">
+                    {updates.slice(3).map((f, i) => (
+                      <Row key={i} to={`#/sites/${f.siteId}?tab=feed`}
+                        title={f.text || f.aiSummary || (f.type === 'photo' ? 'Photo update' : 'Voice note')}
+                        sub={`${siteName(f.siteId)} · ${first(f.by)} · ${fmtDT(f.at)}`}
+                        tag={<Icon name={f.type === 'photo' ? 'camera' : 'mic'} small className="text-ink-3" />} />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </>
+          )}
         </Card>
       </div>
       <div className="flex flex-col gap-gap">
@@ -163,22 +181,32 @@ function SitesOverview({ sites }) {
             );
           })}
         </Card>
-        {cash.length > 0 && (
-          <Card title="Site cash">
-            {cash.map(({ x, c }) => (
-              <div key={x.id} className="border-t border-line py-2.5 first:border-t-0 first:pt-0">
-                <div className="flex items-baseline justify-between gap-2"><b>{x.name}</b><span className="text-[13px] font-semibold text-accent-text">{inr(c.left)} left</span></div>
-                <div className="my-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2"><i className={`block h-full rounded-full ${c.left / c.float < 0.3 ? 'bg-warn' : 'bg-accent'}`} style={{ width: `${Math.max(0, Math.min(100, (c.left / c.float) * 100))}%` }} /></div>
-                <small className="text-ink-3">{inr(c.spent)} spent of {inr(c.float)}</small>
+        {/* Cash + materials were two small, orphaned-feeling cards — one "follow-through" card
+            reads as a single intentional section instead of two half-empty boxes. */}
+        {(cash.length > 0 || due.length > 0) && (
+          <Card title="Site follow-through">
+            {cash.length > 0 && (
+              <div className="mb-3">
+                <p className="m-0 mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">Site cash</p>
+                {cash.map(({ x, c }) => (
+                  <div key={x.id} className="border-t border-line py-2 first:border-t-0 first:pt-0">
+                    <div className="flex items-baseline justify-between gap-2"><b>{x.name}</b><span className="text-[13px] font-semibold text-accent-text">{inr(c.left)} left</span></div>
+                    <div className="my-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2"><i className={`block h-full rounded-full ${c.left / c.float < 0.3 ? 'bg-warn' : 'bg-accent'}`} style={{ width: `${Math.max(0, Math.min(100, (c.left / c.float) * 100))}%` }} /></div>
+                    <small className="text-ink-3">{inr(c.spent)} spent of {inr(c.float)}</small>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            {due.length > 0 && (
+              <div>
+                <p className="m-0 mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">Materials to expect</p>
+                {due.map((m) => (
+                  <Row key={m.id} to={`#/sites/${m.siteId}?tab=materials`} title={m.name} sub={`${siteName(m.siteId)}${m.vendor ? ` · ${m.vendor}` : ''}`} />
+                ))}
+              </div>
+            )}
           </Card>
         )}
-        <Card title="Approved materials to expect">
-          {due.length === 0 ? <Empty2>Nothing approved and waiting.</Empty2> : due.map((m) => (
-            <Row key={m.id} to={`#/sites/${m.siteId}?tab=materials`} title={m.name} sub={`${siteName(m.siteId)}${m.vendor ? ` · ${m.vendor}` : ''}`} />
-          ))}
-        </Card>
       </div>
     </div>
   );
@@ -210,7 +238,7 @@ export function SitesIndex() {
               const short = shortN(s.id);
               return (
                 <article key={s.id} className="flex flex-col overflow-hidden rounded-r3 border border-line bg-surface transition hover:border-accent">
-                  <div className="h-32 w-full overflow-hidden bg-surface-2"><SiteImage s={s} /></div>
+                  <div className="h-20 w-full overflow-hidden bg-surface-2"><SiteImage s={s} /></div>
                   <div className="flex flex-1 flex-col gap-3 p-4">
                     <div>
                       <h2 className="m-0 text-lg font-semibold"><SiteLink id={s.id}>{s.name}</SiteLink></h2>
@@ -235,25 +263,29 @@ export function SitesIndex() {
         </>
       ) : <Empty>No sites available for your role.{canAdd ? ' Use Add site to create the first one.' : ''}</Empty>}
       {sites.length > 0 && <SitesOverview sites={sites} />}
-      <div className="mt-5">
-        <Details summary="Site register · contractors, attendance and progress">
-          <DataTable
-            cols={['Site', 'Project', 'Stage', 'Progress', 'Site manager', 'Contractors', 'On site now', 'Last visit', 'Open issues']}
-            rows={sites.map((s) => [
-              <SiteLink id={s.id}>{s.name}</SiteLink>,
-              P(s.projectId)?.name || '',
-              s.stage,
-              <span className="inline-flex items-center gap-1.5"><span className="inline-block w-20"><Bar value={s.progress} /></span>{s.progress}%</span>,
-              first(s.managerId),
-              s.contractorIds.map(name).join(', '),
-              svc.checkins(s.id).map((c) => `${first(c.userId)} ${fmtT(c.at)}`).join(', ') || '—',
-              fmtD(s.lastVisit),
-              openIssues(s.id).length,
-            ])}
-          />
-        </Details>
-        {role() === 'partner' && <Details summary="Progress against plan"><SitesChart /></Details>}
+      <div className="mt-gap">
+        <SecHead title="Site register" sub="Contractors, attendance and progress." />
+        <DataTable
+          cols={['Site', 'Project', 'Stage', 'Progress', 'Site manager', 'Contractors', 'On site now', 'Last visit', 'Open issues']}
+          rows={sites.map((s) => [
+            <SiteLink id={s.id}>{s.name}</SiteLink>,
+            P(s.projectId)?.name || '',
+            s.stage,
+            <span className="inline-flex items-center gap-1.5"><span className="inline-block w-20"><Bar value={s.progress} /></span>{s.progress}%</span>,
+            first(s.managerId),
+            s.contractorIds.map(name).join(', '),
+            svc.checkins(s.id).map((c) => `${first(c.userId)} ${fmtT(c.at)}`).join(', ') || '—',
+            fmtD(s.lastVisit),
+            openIssues(s.id).length,
+          ])}
+        />
       </div>
+      {role() === 'partner' && (
+        <div className="mt-gap">
+          <SecHead title="Progress against plan" />
+          <SitesChart />
+        </div>
+      )}
     </>
   );
 }
