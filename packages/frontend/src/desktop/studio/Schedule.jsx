@@ -1,8 +1,10 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { RESOURCE } from '../data';
 import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable } from '../../ui/ui';
+import { TONE_SOFT } from '../../ui/tones';
+import Icon from '../../ui/Icon';
 import { P, first, name } from '../helpers';
 import { DLink } from '../nav';
 import { openDialog, closeDialog } from '../session';
@@ -80,22 +82,18 @@ function FreeSlots({ date }) {
     openDialog({ kind: 'book-slot', date: x.date });
   };
   return (
-    <section className="mb-4 rounded-r3 border border-line bg-surface p-4">
-      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="m-0 text-[15px] font-semibold">Next 3 free slots</h3>
-        <span className="text-xs text-ink-3">First 1 h openings for you and the meeting room</span>
-      </div>
-      {slots.length === 0 ? <p className="m-0 rounded-r2 bg-surface-2 px-3.5 py-3 text-center text-ink-3">No free slot in the next two weeks.</p> : (
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          {slots.map((x, i) => (
-            <button key={i} type="button" disabled={!can('booking', 'w')} onClick={() => pick(x)} className="flex items-center justify-between gap-2 rounded-r2 border border-line bg-surface-2 px-4 py-3 text-left hover:border-accent hover:bg-accent-soft">
-              <span><b className="block">{x.date === TODAY ? 'Today' : fmtD(x.date)}</b><span className="text-[13px] text-ink-2">{hh(x.start)}–{hh(x.end)}</span></span>
-              <span className="text-xs font-semibold text-accent-text">Book</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </section>
+    <div className="mb-4 flex flex-wrap items-center gap-2.5 text-[13px]">
+      <span className="font-semibold text-ink-2">Next free</span>
+      <span className="text-ink-3">·</span>
+      {slots.length === 0 ? <span className="text-ink-3">No free slot in the next two weeks.</span> : slots.map((x, i) => (
+        <button
+          key={i} type="button" disabled={!can('booking', 'w')} onClick={() => pick(x)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-medium hover:border-accent hover:bg-accent-soft"
+        >
+          {x.date === TODAY ? 'Today' : fmtD(x.date)} {hh(x.start)}–{hh(x.end)}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -114,29 +112,55 @@ function Rooms({ q }) {
   const hrs = hours(wh.start, wh.end).filter((h) => h % 1 === 0);
   const bs = state.db.BOOKINGS.filter((b) => b.date === date && b.status !== 'declined');
   const nowH = date === TODAY ? new Date().getHours() : null;
-  const rows = [
-    ...state.db.ROOMS.map((r) => ({
-      id: r.id,
-      group: 'Rooms',
-      label: (
-        <>
-          <b>{r.name}</b><br />
-          <small className="text-ink-3">{r.cap} seats{r.location && state.db.ROOMS.some((x) => x.location !== r.location) ? ' · ' + r.location : ''}</small>
-        </>
-      ),
-      hit: (h) => bs.find((x) => x.roomId === r.id && x.start < h + 1 && x.end > h),
-    })),
-    ...svc.people().map((u) => ({
-      id: u.id,
-      group: 'People',
-      label: <><b className="font-medium">{u.name}</b><br /><small className="text-ink-3">{ROLES[u.role].label}</small></>,
-      hit: (h) => bs.find((x) => (x.attendees || []).includes(u.id) && x.start < h + 1 && x.end + (x.travel || 0) > h),
-    })),
-  ];
+  // The hour grid is wider than the page on most screens, so it scrolls horizontally inside its
+  // own box. Native trackpad/scrollbar scrolling still works, but these arrow buttons make it
+  // obvious and reliable that later hours (and the last column) are reachable, not cropped off.
+  const gridRef = useRef(null);
+  const [edge, setEdge] = useState({ start: true, end: false });
+  const checkEdge = () => {
+    const el = gridRef.current;
+    if (!el) return;
+    setEdge({ start: el.scrollLeft <= 2, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 2 });
+  };
+  useEffect(checkEdge, [date]);
+  // Jump by whole hour columns (not an arbitrary pixel amount) so the view always lands on a
+  // clean column boundary instead of stopping mid-column, which would leave a sliver of the
+  // previous cell's content peeking out from behind the sticky label column.
+  const scrollGrid = (dir) => {
+    const el = gridRef.current;
+    if (!el) return;
+    const colW = el.querySelector('thead th:nth-child(2)')?.offsetWidth || 120;
+    el.scrollBy({ left: dir * colW * 2, behavior: 'smooth' });
+  };
+  const roomRows = state.db.ROOMS.map((r) => ({
+    id: r.id,
+    group: 'Rooms',
+    title: `${r.name} · ${r.cap} seats`,
+    label: <><b>{r.name}</b> <span className="text-ink-3">· {r.cap} seats{r.location && state.db.ROOMS.some((x) => x.location !== r.location) ? ' · ' + r.location : ''}</span></>,
+    hit: (h) => bs.find((x) => x.roomId === r.id && x.start < h + 1 && x.end > h),
+  }));
+  const peopleRows = svc.people().map((u) => ({
+    id: u.id,
+    group: 'People',
+    title: `${u.name} · ${ROLES[u.role].label}`,
+    label: <><b className="font-medium">{u.name}</b> <span className="text-ink-3">· {ROLES[u.role].label}</span></>,
+    hit: (h) => bs.find((x) => (x.attendees || []).includes(u.id) && x.start < h + 1 && x.end + (x.travel || 0) > h),
+  }));
+  // People/rooms with a meeting today sort to the top of their group, so the grid reads
+  // busiest-first instead of making you scan past empty rows to find who has something on.
+  const byBusy = (a, b) => hrs.some((h) => b.hit(h)) - hrs.some((h) => a.hit(h));
+  const rows = [...roomRows.sort(byBusy), ...peopleRows.sort(byBusy)].map((r) => ({ ...r, busy: hrs.some((h) => r.hit(h)) }));
   const cell = (b, h) => {
     if (!b) return null;
     if (b.start > h - 1 && b.start <= h) {
-      return <Pill kind={b.status === 'pending' ? 'warn' : b.kind === 'client' ? 'ok' : 'soft'}><span title={b.title}>{b.title.slice(0, 22)}{b.status === 'pending' ? ' ?' : ''}</span></Pill>;
+      const ctx = b.projectId ? P(b.projectId).name : b.clientId ? name(b.clientId) : '';
+      const tone = b.status === 'pending' ? TONE_SOFT.warn : b.kind === 'client' ? TONE_SOFT.ok : TONE_SOFT.accent;
+      return (
+        <div title={`${b.title}${ctx ? ' · ' + ctx : ''}${b.status === 'pending' ? ' · awaiting confirmation' : ''}`} className={`rounded-r1 border px-1.5 py-1 text-left leading-tight ${tone}`}>
+          <div className="truncate text-[11px] font-semibold">{b.title}{b.status === 'pending' ? ' ?' : ''}</div>
+          {ctx && <div className="truncate text-[10px] opacity-80">{ctx}</div>}
+        </div>
+      );
     }
     if (b.travel && h >= b.end) return <small className="text-ink-3">travel</small>;
     return <i className="mx-auto block h-1 w-6 rounded-full bg-accent/30" />;
@@ -154,25 +178,53 @@ function Rooms({ q }) {
         </div>
       </SecHead>
       <FreeSlots date={date} />
-      <div className="overflow-x-auto rounded-r3 border border-line bg-surface">
-        <table className="w-full min-w-[720px] border-collapse text-[13px]">
+      {/* table-fixed + an explicit label-column width means the grid exactly fills its box at any
+          width >= min-w, so the browser never shows a lingering/residual scrollbar when every
+          column is already visible. Below min-w it still scrolls, and these buttons (shown only
+          then) are a reliable, always-reachable way to the last column - placed in normal flow
+          above the grid, never overlapping row or header text. */}
+      {(!edge.start || !edge.end) && (
+        <div className="mb-2 flex justify-end gap-1.5">
+          <Btn sm disabled={edge.start} aria-label="Scroll earlier" onClick={() => scrollGrid(-1)} className="!min-h-8 !w-8 !rounded-full !px-0">
+            <Icon name="chev" small className="rotate-180" />
+          </Btn>
+          <Btn sm disabled={edge.end} aria-label="Scroll later" onClick={() => scrollGrid(1)} className="!min-h-8 !w-8 !rounded-full !px-0">
+            <Icon name="chev" small />
+          </Btn>
+        </div>
+      )}
+      <div ref={gridRef} onScroll={checkEdge} className="overflow-x-auto rounded-r3 border border-line bg-surface">
+        <table className="w-full min-w-[920px] table-fixed border-collapse text-[13px]">
           <thead>
             <tr>
-              <th className="sticky left-0 border-b border-line bg-surface-2 p-2" />
-              {hrs.map((h) => <th key={h} className={`border-b border-line p-2 text-xs font-semibold ${nowH === h ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-ink-2'}`}>{hh(h)}</th>)}
+              <th className="sticky left-0 w-52 border-b border-line-2 bg-surface-2 p-2" />
+              {hrs.map((h) => (
+                <th key={h} className={`border-b border-line-2 bg-surface-2 p-2 text-xs font-semibold ${nowH === h ? 'border-x border-accent text-accent-text' : 'text-ink-2'}`}>
+                  {hh(h)}
+                  {nowH === h && <span className="ml-1 inline-block rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold leading-none text-accent-ink align-middle">now</span>}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <Fragment key={r.id}>
                 {(i === 0 || rows[i - 1].group !== r.group) && (
-                  <tr key={`g-${r.group}`}><td colSpan={hrs.length + 1} className="bg-surface-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{r.group}</td></tr>
+                  <tr key={`g-${r.group}`}>
+                    <td colSpan={hrs.length + 1} className={`px-2.5 pb-1.5 ${i === 0 ? 'pt-2.5' : 'border-t border-line pt-3.5'}`}>
+                      <Pill kind="soft"><span className="tracking-[0.08em]">{r.group.toUpperCase()}</span></Pill>
+                    </td>
+                  </tr>
                 )}
-                <tr key={r.id}>
-                  <td className="sticky left-0 whitespace-nowrap border-b border-line bg-surface p-2.5">{r.label}</td>
+                <tr key={r.id} className={r.busy ? '' : 'text-ink-3'}>
+                  <td title={r.title} className={`sticky left-0 w-52 truncate border-b border-line bg-surface px-2.5 ${r.busy ? 'py-2' : 'py-1'}`}>{r.label}</td>
                   {hrs.map((h) => {
                     const b = r.hit(h);
-                    return <td key={h} className={`border-b border-line p-1.5 text-center ${b ? 'bg-accent-soft' : nowH === h ? 'bg-surface-2' : ''}`}>{cell(b, h)}</td>;
+                    return (
+                      <td key={h} className={`border-b border-l border-line p-1 text-center ${!b && nowH === h ? 'bg-accent/10' : ''}`}>
+                        {cell(b, h)}
+                      </td>
+                    );
                   })}
                 </tr>
               </Fragment>
@@ -678,12 +730,17 @@ export default function Schedule({ q }) {
           <Btn kind="primary" icon="plus" className="!min-h-12 !px-6 !text-base" onClick={() => openDialog({ kind: 'book-slot', date: q.date || TODAY })}>Book a slot</Btn>
         )}
       </PageHeader>
-      <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
-        <Stat label="Meetings today" value={today.length} sub={`${fmtD(TODAY)}`} />
-        <Stat label="Awaiting approval" value={pend} sub={pend ? 'client requests' : 'all clear'} tone={pend ? 'text-warn' : 'text-ok'} />
-        <Stat label="Away today" value={away} sub="on leave" />
-        <Stat label="Next holiday" value={next ? fmtD(next.date) : '—'} sub={next ? `${next.name} · in ${daysTo} day${daysTo === 1 ? '' : 's'}` : 'none scheduled'} />
-      </div>
+      <Card className="mb-4 !py-2.5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px]">
+          <span><b className="text-accent-text">{today.length}</b> <span className="text-ink-3">meeting{today.length === 1 ? '' : 's'} today</span></span>
+          <span className="text-line-2">·</span>
+          <span className={pend ? 'font-semibold text-warn' : 'text-ink-3'}>{pend ? `${pend} awaiting approval` : 'All clear on approvals'}</span>
+          <span className="text-line-2">·</span>
+          <span><b className="text-accent-text">{away}</b> <span className="text-ink-3">away today</span></span>
+          <span className="text-line-2">·</span>
+          <span className="text-ink-3">Next holiday {next ? `${fmtD(next.date)} · ${next.name} · in ${daysTo} day${daysTo === 1 ? '' : 's'}` : 'none scheduled'}</span>
+        </div>
+      </Card>
       <Tabs base={tabBase('schedule')} list={list} current={tab} />
       {body}
     </>

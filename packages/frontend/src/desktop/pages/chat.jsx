@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { state, svc, toast, render, accessibleMessage, messageAttachment, fmtT, fmtD } from '../../shared/core.js';
 import { filingRules, FILE_KINDS, ROOM_WORDS } from '../../shared/filing.js';
 import {
-  Btn, Card, DataTable, Empty, Field, Grid2, Input, Kpi, Kpis, PageHeader, Select,
+  Btn, Card, Empty, Field, Input, PageHeader, Select,
 } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { FilingChip, FromChat } from '../parts';
@@ -26,18 +26,18 @@ const Unavailable = ({ title, children }) => (
 );
 
 // ---------- Chats workspace ----------
-function filedTable(rows) {
+// Compact single-line row used by the supporting sections below the chat panel
+// (not a DataTable - this area is secondary to the conversation and should read
+// like a short activity list, not a report).
+function FiledRow({ m }) {
   return (
-    <DataTable
-      cols={['When', 'Who', 'Message', 'Filed as', '']}
-      rows={rows.map((x) => [
-        fmtT(x.m.at),
-        first(x.m.by),
-        (x.m.text || x.m.transcript || x.m.link?.title || '').slice(0, 90),
-        <FilingChip key="c" m={x.m} />,
-        <FromChat key="f" msgId={x.m.id} />,
-      ])}
-    />
+    <div className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
+      <small className="w-14 flex-none text-ink-3">{fmtT(m.at)}</small>
+      <span className="w-20 flex-none truncate text-[13px] font-medium">{first(m.by)}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{(m.text || m.transcript || m.link?.title || '').slice(0, 70)}</span>
+      <FilingChip m={m} />
+      <FromChat msgId={m.id} />
+    </div>
   );
 }
 
@@ -69,57 +69,63 @@ function ChatsPage({ parts, q }) {
         </section>
         <ChatView workspace />
       </div>
-      <details className="mt-7">
-        <summary className="cursor-pointer border-t border-line py-4 text-[17px] font-semibold">AI filing review · {check.length} to check</summary>
-        <Kpis>
-          <Kpi label="Messages" value={rows.length} />
-          <Kpi label="Filed by AI" value={rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} />
-          <Kpi label="Need a check" value={check.length} crit={check.length > 0} />
-          <Kpi label="Corrected by people" value={rows.filter((x) => x.f.by === 'user').length} />
-        </Kpis>
-        <Card title="Please check these">
-          <p className="mb-3 text-[13px] text-ink-3">The AI was not sure. Click the chip to file it in the right place.</p>
-          {filedTable(check.map((x) => ({ m: x.m })))}
+      {/* Supporting workspace information, not a second dashboard - a normal, always-visible
+          section with a plain heading, kept visually secondary to the chat panel above. */}
+      <section className="mt-gap-lg border-t border-line pt-gap">
+        <h2 className="text-[15px] font-semibold text-ink-2">AI filing review</h2>
+        <p className="mb-gap mt-1 text-[13px] text-ink-3">
+          {rows.length} messages · {rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} filed by AI · {check.length} need a check · {rows.filter((x) => x.f.by === 'user').length} corrected by people
+        </p>
+        {check.length > 0 && (
+          <Card title={`Please check these · ${check.length}`}>
+            <p className="mb-2 text-[13px] text-ink-3">The AI was not sure. Click the chip to file it in the right place.</p>
+            <div className="flex flex-col">{check.map((x) => <FiledRow key={x.m.id} m={x.m} />)}</div>
+          </Card>
+        )}
+      </section>
+
+      <div className="mt-gap grid grid-cols-2 items-start gap-gap max-[980px]:grid-cols-1">
+        <Card title="Direct messages and groups">
+          <div className="flex flex-col">
+            {dms.length ? dms.map((t) => (
+              <button
+                key={t.id} type="button" onClick={() => openThreadFromList(t.id)}
+                className="flex min-h-9 w-full items-center gap-3 border-t border-line py-2 text-left first:border-t-0 hover:bg-surface-3"
+              >
+                <span className="min-w-0 flex-1 truncate text-[13px]"><b>{t.name}</b> <small className="text-ink-3">{t.memberIds.map(first).join(', ')}</small></span>
+                <small className="flex-none text-ink-3">{t.kind}</small>
+              </button>
+            )) : <Empty>No direct messages for this role.</Empty>}
+          </div>
         </Card>
-        <div className="mt-3.5" />
-        <Grid2>
-          <Card title="Direct messages and groups">
-            <div className="flex flex-col gap-1.5">
-              {dms.length ? dms.map((t) => (
-                <button
-                  key={t.id} type="button" onClick={() => openThreadFromList(t.id)}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5 text-left hover:bg-surface-3"
-                >
-                  <span className="min-w-0 flex-1"><b>{t.name}</b><br /><small className="text-ink-3">{t.memberIds.map(first).join(', ')}</small></span>
-                  <small className="text-ink-3">{t.kind}</small>
-                </button>
-              )) : <Empty>No direct messages for this role.</Empty>}
-            </div>
-            <h2 className="mb-2 mt-4 text-lg font-semibold">Announcements</h2>
-            <div className="flex flex-col gap-1.5">
-              {ANNOUNCEMENTS.map((a, i) => (
-                <div key={i} className="flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
-                  <span className="min-w-0 flex-1">{a.text}</span>
-                  <small className="text-ink-3">{first(a.by)} · {fmtD(a.at)}</small>
+        <Card title="Announcements">
+          <div className="flex flex-col">
+            {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => (
+              <div key={i} className="flex min-h-9 items-center gap-3 border-t border-line py-2 first:border-t-0">
+                <span className="min-w-0 flex-1 truncate text-[13px]">{a.text}</span>
+                <small className="flex-none text-ink-3">{first(a.by)} · {fmtD(a.at)}</small>
+              </div>
+            )) : <Empty>No announcements.</Empty>}
+          </div>
+        </Card>
+        <Card title="Rules the AI learned">
+          {rules.length ? (
+            <div className="flex flex-col">
+              {rules.map(([k, p]) => (
+                <div key={k} className="flex min-h-9 items-center gap-3 border-t border-line py-2 first:border-t-0 text-[13px]">
+                  <span className="min-w-0 flex-1 truncate">{first(k.split('|')[0])} in {state.db.THREADS.find((t) => t.id === k.split('|')[1])?.name || k}</span>
+                  <small className="flex-none text-ink-3">files to {P(p)?.name || p}</small>
                 </div>
               ))}
             </div>
-          </Card>
-          <Card title="Rules the AI learned">
-            {rules.length ? (
-              <DataTable
-                cols={['Sender in thread', 'Files to']}
-                rows={rules.map(([k, p]) => [
-                  first(k.split('|')[0]) + ' in ' + (state.db.THREADS.find((t) => t.id === k.split('|')[1])?.name || k),
-                  P(p)?.name || p,
-                ])}
-              />
-            ) : <Empty>Correct a filing and the AI remembers it for that sender and thread.</Empty>}
-            <h2 className="mb-2 mt-4 text-lg font-semibold">Recently filed</h2>
-            {filedTable(rows.filter((x) => x.f.status === 'filed').slice(-8).reverse().map((x) => ({ m: x.m })))}
-          </Card>
-        </Grid2>
-      </details>
+          ) : <Empty>Correct a filing and the AI remembers it for that sender and thread.</Empty>}
+        </Card>
+        <Card title="Recently filed">
+          <div className="flex flex-col">
+            {rows.filter((x) => x.f.status === 'filed').slice(-5).reverse().map((x) => <FiledRow key={x.m.id} m={x.m} />)}
+          </div>
+        </Card>
+      </div>
     </>
   );
 }
