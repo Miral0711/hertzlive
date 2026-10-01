@@ -3,19 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { state, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
 import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
-import { Divider, Dropdown, DropdownItem, Empty } from '../ui/ui';
+import { Empty } from '../ui/ui';
 import { DLink, DESKTOP_BASE, href } from './nav';
 import NavSearch from './NavSearch';
+import NavActions from './NavActions';
 import { NAV, NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
 import DialogHost from './DialogHost';
-import {
-  cycleTheme, logout, resetSampleData, switchPersona, toggleChatPane,
-} from './session';
-import { PERSONAS } from './data';
-
-const themeLabel = { system: 'System', light: 'Light', dark: 'Dark' };
+import { toggleChatPane } from './session';
 
 const ICON = Object.fromEntries(NAV.map(([k, , i]) => [k, i]));
 const groupLabel = 'm-0 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.1em] text-nav-ink opacity-60';
@@ -122,25 +118,7 @@ export default function Shell() {
             <Icon name="chat" small /> <span className="max-sm:hidden">Chats</span>
           </button>
         )}
-        <Dropdown trigger={<><Icon name="me" small /> <span className="max-sm:hidden">Preview options</span></>} panelClassName="!flex w-72 flex-col gap-2.5 !p-3.5">
-          <label className="mb-1 flex items-center gap-2 text-[13px] text-ink-2">
-            Viewing as
-            <select
-              aria-label="Switch persona"
-              value={state.userId}
-              onChange={(e) => switchPersona(e.target.value)}
-              className="min-h-9 flex-1 rounded-r1 border border-line-2 bg-surface px-2.5 text-ink"
-            >
-              {PERSONAS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}
-            </select>
-          </label>
-          <Divider className="mb-1" />
-          <DropdownItem icon="moon" onClick={cycleTheme}>Theme: {themeLabel[state.theme]}</DropdownItem>
-          <DropdownItem icon="reset" onClick={resetSampleData}>Reset sample data</DropdownItem>
-          <DropdownItem icon="logout" onClick={() => { logout(); navigate('/login', { replace: true }); }}>Log out</DropdownItem>
-          <Divider className="my-1" />
-          <small className="px-2.5 text-ink-3">Interactive preview · sample records</small>
-        </Dropdown>
+        <NavActions />
       </header>
 
       <div className={`relative grid min-h-0 max-lg:grid-cols-1 ${noChat ? 'grid-cols-shell' : 'grid-cols-shell-chat max-[1250px]:grid-cols-shell'}`}>
