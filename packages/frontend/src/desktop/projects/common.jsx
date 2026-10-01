@@ -23,25 +23,28 @@ export function Ph({ hue, seed, ar = 1.333, className = '' }) {
 }
 
 export const Photos = ({ children }) => (
-  <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">{children}</div>
+  <div className="mt-3 grid items-start gap-gap [grid-template-columns:repeat(auto-fill,minmax(170px,1fr))]">{children}</div>
 );
 export const Figure = ({ children, caption }) => (
-  <figure className="m-0 overflow-hidden rounded-r2 border border-line bg-surface">
+  <figure className="m-0 overflow-hidden rounded-r3 border border-line bg-surface transition hover:border-accent">
     {children}
-    <figcaption className="px-2.5 py-2 text-xs">{caption}</figcaption>
+    <figcaption className="px-3 py-2.5 text-[13px] leading-snug">{caption}</figcaption>
   </figure>
 );
 
-export const Sub = ({ children }) => <p className="mb-3 mt-0 text-[13px] text-ink-3">{children}</p>;
+export const Sub = ({ children }) => <p className="mb-3 mt-0 max-w-[75ch] text-[13px] leading-relaxed text-ink-3">{children}</p>;
 export const H2 = ({ children }) => <h2 className="mb-2.5 mt-4 text-lg font-semibold leading-snug first:mt-0">{children}</h2>;
 export const H3 = ({ children }) => <h3 className="mb-2 mt-3 text-base font-semibold">{children}</h3>;
-export const Hdr = ({ children }) => <div className="mb-2 flex flex-wrap items-center justify-between gap-3">{children}</div>;
+export const Hdr = ({ children }) => <div className="mb-3 flex flex-wrap items-center justify-between gap-3">{children}</div>;
 export const Muted = ({ children, className = '' }) => <span className={`text-ink-3 ${className}`}>{children}</span>;
 export const Mono = ({ children }) => <span className="font-mono text-[13px]">{children}</span>;
 export const Small = ({ children, className = '' }) => <small className={`block text-ink-3 ${className}`}>{children}</small>;
 export const Details = ({ summary, children, className = '' }) => (
-  <details className={`my-5 ${className}`}>
-    <summary className="min-h-11 cursor-pointer py-2.5 font-medium text-ink-2">{summary}</summary>
+  <details className={`group my-5 ${className}`}>
+    <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-r1 py-2.5 font-semibold text-ink-2 hover:text-accent-text [&::-webkit-details-marker]:hidden">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+      {summary}
+    </summary>
     <div className="mt-2.5">{children}</div>
   </details>
 );

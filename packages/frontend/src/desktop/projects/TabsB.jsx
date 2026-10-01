@@ -4,12 +4,13 @@ import { seedFilings } from '../../shared/filing.js';
 import { FEES, FEE_STAGES } from '../../shared/data2.js';
 import { Btn, Card, DataTable, Empty, Kpi, Kpis, Bar, Select, StatusPill } from '../../ui/ui';
 import { DLink } from '../nav';
+import Icon from '../../ui/Icon';
 import { filedRows } from '../parts';
 import { FINISHES } from '../data.js';
 import { P, V, first } from '../helpers';
 import { AssistCompareButton } from '../chat/assist';
 import {
-  role, staff, FromChat, Ph, Photos, Figure, Sub, H2, H3, Hdr, Mono,
+  role, staff, FromChat, Ph, Sub, H2, Hdr, Mono,
 } from './common';
 
 // ---------- finishes ----------
@@ -196,7 +197,7 @@ export function BudgetTab({ p }) {
             <div className="min-w-[80px]"><Bar value={Math.round(ratio(l.actual, l.budget) * 100)} tone={ratio(l.actual, l.budget) > 0.9 ? 'crit' : ratio(l.actual, l.budget) > 0.75 ? 'warn' : ''} /></div>,
           ])}
         />
-        <p className="text-ink-3">
+        <p className="mb-0 mt-4 flex flex-wrap items-center gap-2.5 text-ink-3">
           Client can see budget: {P(p.id).budgetVisible ? 'Yes' : 'No'}.{' '}
           <Btn sm onClick={() => budgetToggle(p.id)}>{P(p.id).budgetVisible ? 'Hide from client' : 'Show to client'}</Btn>
         </p>
@@ -266,61 +267,93 @@ export function FeesTab({ p }) {
 
 // ---------- team ----------
 export function TeamTab({ p }) {
+  const folders = svc.peopleFolder(p.id);
   return (
-    <Card title="Team">
-      <DataTable
-        cols={['Person', 'Role', 'Skills', 'Hours last week', 'In today']}
-        rows={p.teamIds.map((id) => {
-          const u = user(id);
-          const a = state.db.ATTENDANCE_TODAY.find((x) => x.userId === id);
-          return [
-            u.name,
-            u.title || u.role,
-            (u.skills || []).join(', '),
-            state.db.TIMESHEETS.filter((t) => t.userId === id && t.projectId === p.id).reduce((s, t) => s + t.hours, 0),
-            a?.in ? <StatusPill status={'in ' + a.in} /> : a?.mark === 'leave' ? <StatusPill status="on leave" /> : '—',
-          ];
-        })}
-      />
-      <H2>Contractors on site</H2>
-      <DataTable
-        cols={['Firm', 'Trade', 'Rating', 'Phone']}
-        rows={state.db.VENDORS.filter((v) => (v.projects || []).includes(p.id)).map((v) => [
-          v.name, v.trade, '★'.repeat(v.rating), staff() ? v.phone : 'via studio',
-        ])}
-      />
-      <H2>People folder</H2>
-      {svc.peopleFolder(p.id).map((g) => (
-        <div key={g.name}>
-          <H3>{g.name}</H3>
-          <DataTable
-            cols={['Name', 'Title', 'Last active']}
-            rows={g.people.map((x) => [x.name, x.title || '', x.last ? fmtDT(x.last) : '—'])}
-          />
+    <div className="grid gap-gap-lg">
+      <Card>
+        <Hdr><h2 className="m-0 text-lg font-semibold">Team</h2><span className="text-[13px] text-ink-3">{p.teamIds.length} people</span></Hdr>
+        <DataTable
+          cols={['Person', 'Role', 'Skills', 'Hours last week', 'In today']}
+          rows={p.teamIds.map((id) => {
+            const u = user(id);
+            const a = state.db.ATTENDANCE_TODAY.find((x) => x.userId === id);
+            return [
+              <b className="font-medium">{u.name}</b>,
+              u.title || u.role,
+              (u.skills || []).join(', '),
+              state.db.TIMESHEETS.filter((t) => t.userId === id && t.projectId === p.id).reduce((s, t) => s + t.hours, 0),
+              a?.in ? <StatusPill status={'in ' + a.in} /> : a?.mark === 'leave' ? <StatusPill status="on leave" /> : '—',
+            ];
+          })}
+        />
+      </Card>
+      <Card>
+        <Hdr><h2 className="m-0 text-lg font-semibold">Contractors on site</h2></Hdr>
+        <DataTable
+          cols={['Firm', 'Trade', 'Rating', 'Phone']}
+          rows={state.db.VENDORS.filter((v) => (v.projects || []).includes(p.id)).map((v) => [
+            <b className="font-medium">{v.name}</b>, v.trade, <span className="text-warn">{'★'.repeat(v.rating)}</span>, staff() ? v.phone : 'via studio',
+          ])}
+        />
+      </Card>
+      <div>
+        <h2 className="mb-3 mt-0 text-lg font-semibold">People folder</h2>
+        <div className="grid items-start gap-gap-lg lg:grid-cols-2 xl:grid-cols-3 [&>*]:min-w-0">
+          {folders.filter((g) => g.people.length > 0).map((g) => (
+            <Card key={g.name}>
+              <Hdr><h3 className="m-0 text-base font-semibold">{g.name}</h3><span className="text-[13px] text-ink-3">{g.people.length}</span></Hdr>
+              <div className="divide-y divide-line">
+                {g.people.map((x) => (
+                  <div key={x.name + (x.title || '')} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-accent-soft text-xs font-semibold text-accent-text">{x.name.slice(0, 1)}</span>
+                    <span className="min-w-0 flex-1"><b className="block truncate font-medium">{x.name}</b><small className="block truncate text-ink-3">{x.title || ''}</small></span>
+                    <small className="flex-none text-right text-ink-3">{x.last ? fmtDT(x.last) : '—'}</small>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
         </div>
-      ))}
-    </Card>
+      </div>
+    </div>
   );
 }
 
 // ---------- decisions ----------
 export function DecisionsTab({ p }) {
   const fromChatD = filedRows({ projectId: p.id, kind: 'decision' });
+  const items = [
+    ...p.decisions.map((d) => ({ text: d, source: 'Project record', kind: 'Record', link: null })),
+    ...fromChatD.map((x) => ({ text: x.m.text, source: `${first(x.m.by)} · ${fmtD(x.m.at)}`, kind: 'Chat', link: <FromChat msgId={x.m.id} /> })),
+    ...state.db.MEETINGS.filter((m) => m.projectId === p.id && m.approved).map((m) => ({
+      text: m.summary,
+      source: fmtD(m.at),
+      kind: 'Meeting',
+      link: <DLink to={`#/projects/${p.id}?tab=meetings`} className="font-medium text-accent-text no-underline hover:underline">Open meeting</DLink>,
+    })),
+  ];
+  const tone = { Record: 'bg-accent-soft text-accent-text', Chat: 'bg-ok-soft text-ok', Meeting: 'bg-warn-soft text-warn' };
   return (
-    <Card title="Decisions">
+    <Card>
+      <Hdr>
+        <h2 className="m-0 text-lg font-semibold">Decisions</h2>
+        <span className="text-[13px] text-ink-3">{items.length} pinned</span>
+      </Hdr>
       <Sub>Pinned decisions from chat and meetings. Nothing here changes without a new decision.</Sub>
-      <DataTable
-        cols={['Decision', 'Source', '']}
-        rows={[
-          ...p.decisions.map((d) => [d, 'Project record', '']),
-          ...fromChatD.map((x) => [x.m.text, `Chat · ${first(x.m.by)} · ${fmtD(x.m.at)}`, <FromChat msgId={x.m.id} />]),
-          ...state.db.MEETINGS.filter((m) => m.projectId === p.id && m.approved).map((m) => [
-            m.summary,
-            `Meeting · ${fmtD(m.at)}`,
-            <DLink to={`#/projects/${p.id}?tab=meetings`} className="text-accent-text underline">Meeting</DLink>,
-          ]),
-        ]}
-      />
+      {items.length === 0 ? <Empty>No decisions pinned yet.</Empty> : (
+        <ul className="m-0 list-none divide-y divide-line overflow-hidden rounded-r3 border border-line p-0">
+          {items.map((d, i) => (
+            <li key={i} className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-surface px-4 py-3">
+              <span className={`w-[4.75rem] flex-none rounded-full text-center text-xs font-semibold leading-6 ${tone[d.kind]}`}>{d.kind}</span>
+              <div className="min-w-[220px] flex-1">
+                <p className="m-0 font-medium leading-snug">{d.text}</p>
+                <small className="text-ink-3">{d.source}</small>
+              </div>
+              {d.link && <div className="flex-none">{d.link}</div>}
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
@@ -339,19 +372,25 @@ export function MoodboardTab({ p }) {
         <h2 className="m-0 text-lg font-semibold">Moodboard</h2>
         <AssistCompareButton projectId={p.id} />
       </Hdr>
-      <p className="text-ink-3">For optional finish palettes, open a photo in its conversation and choose Explore finishes.</p>
+      <p className="mb-4 mt-0 text-[13px] text-ink-3">For optional finish palettes, open a photo in its conversation and choose Explore finishes.</p>
       {items.length ? (
-        <Photos>
+        <div className="grid gap-gap [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
           {items.map((b) => (
-            <Figure key={b.id ?? b.title} caption={<>{b.title}{b.decided && <> <StatusPill status="decided" /></>}</>}>
-              <Ph hue={b.hue} seed={b.seed} ar={b.tall ? 0.8 : 1.333} />
-            </Figure>
+            <figure key={b.id ?? b.title} className="m-0 flex flex-col overflow-hidden rounded-r3 border border-line bg-surface transition hover:border-accent hover:shadow-s1">
+              <div className="aspect-[4/3] overflow-hidden bg-surface-2 [&_canvas]:!h-full [&_canvas]:w-full [&_canvas]:object-cover [&>div]:h-full">
+                <Ph hue={b.hue} seed={b.seed} ar={1.333} />
+              </div>
+              <figcaption className="flex flex-1 flex-col items-start gap-2 p-3">
+                <span className="text-[14px] font-medium leading-snug">{b.title}</span>
+                {b.decided && <StatusPill status="decided" />}
+              </figcaption>
+            </figure>
           ))}
-        </Photos>
+        </div>
       ) : <Empty>No references yet.</Empty>}
       {links.length > 0 && (
         <>
-          <H2>References shared in chat, not yet on the board</H2>
+          <div className="mt-6"><H2>References shared in chat, not yet on the board</H2></div>
           <DataTable
             cols={['Who', 'Reference', '', '']}
             rows={links.map((x) => [
@@ -373,16 +412,23 @@ export function HandoverTab({ p }) {
   return (
     <Card title="Handover pack">
       <Sub>Warranties, as-builts, approvals and the final snag list. Ready when everything is green.</Sub>
-      <DataTable
-        cols={['Item', 'Status']}
-        rows={[
-          ['Warranties and manuals', <StatusPill status={docs.some((d) => d.kind === 'Warranty') ? 'received' : 'pending'} />],
-          ['As-built drawings', <StatusPill status={docs.some((d) => d.kind === 'As-built') ? 'received' : 'pending'} />],
-          ['Statutory approvals', <StatusPill status={docs.some((d) => d.kind === 'Approval') ? 'received' : 'pending'} />],
-          ['Snags closed', <StatusPill status={snags.every((n) => n.status === 'closed') ? 'done' : `${snags.filter((n) => n.status !== 'closed').length} open`} />],
-          ['Final invoice', <StatusPill status={state.db.INVOICES.some((i) => i.projectId === p.id && i.stage === 4) ? 'raised' : 'pending'} />],
-        ]}
-      />
+      <ul className="m-0 list-none divide-y divide-line overflow-hidden rounded-r3 border border-line p-0">
+        {[
+          ['Warranties and manuals', docs.some((d) => d.kind === 'Warranty') ? 'received' : 'pending'],
+          ['As-built drawings', docs.some((d) => d.kind === 'As-built') ? 'received' : 'pending'],
+          ['Statutory approvals', docs.some((d) => d.kind === 'Approval') ? 'received' : 'pending'],
+          ['Snags closed', snags.every((n) => n.status === 'closed') ? 'done' : `${snags.filter((n) => n.status !== 'closed').length} open`],
+          ['Final invoice', state.db.INVOICES.some((i) => i.projectId === p.id && i.stage === 4) ? 'raised' : 'pending'],
+        ].map(([item, status]) => (
+          <li key={item} className="flex items-center gap-3 bg-surface px-4 py-3">
+            <span className={`grid h-8 w-8 flex-none place-items-center rounded-full ${/received|done|raised/.test(status) ? 'bg-ok-soft text-ok' : /open/.test(status) ? 'bg-crit-soft text-crit' : 'bg-warn-soft text-warn'}`}>
+              <Icon name={/received|done|raised/.test(status) ? 'check' : 'clock'} small />
+            </span>
+            <span className="min-w-0 flex-1 font-medium">{item}</span>
+            <StatusPill status={status} />
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

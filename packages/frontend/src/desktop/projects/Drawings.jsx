@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { state, svc, can, toast, persist, render, fmtD, fmtDT } from '../../shared/core.js';
-import { Btn, Card, DataTable, Grid2, StatusPill, Empty } from '../../ui/ui';
+import { Btn, Card, DataTable, StatusPill, Empty } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { filedRows } from '../parts';
 import { first, name } from '../helpers';
@@ -195,8 +195,8 @@ function DrawingQuickList({ p }) {
           <h3 className="mb-1 mt-4 text-base font-semibold">Saved by you</h3>
           <ShortcutRows rows={saved.slice(0, 3)} projectId={p.id} />
           {saved.length > 3 && (
-            <details>
-              <summary className="cursor-pointer py-2.5 text-accent-text">All saved · {saved.length}</summary>
+            <details className="group">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 py-2 font-semibold text-accent-text hover:underline [&::-webkit-details-marker]:hidden"><svg viewBox="0 0 24 24" className="h-4 w-4 flex-none transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>All saved · {saved.length}</summary>
               <ShortcutRows rows={saved.slice(3)} projectId={p.id} />
             </details>
           )}
@@ -221,22 +221,25 @@ export function DrawingsTab({ p }) {
   return (
     <>
       <DrawingQuickList p={p} />
-      <Grid2>
+      <div className="grid items-start gap-gap-lg lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.3fr)] [&>*]:min-w-0">
         <Card>
           <H2>Drawing register</H2>
           <Sub>Check the stated revision and purpose before use.</Sub>
           <div className="grid gap-2.5">
             {drs.map((d) => (
-              <article key={d.no} className={`flex items-start gap-gap rounded-r2 border p-4 ${d.no === sel ? 'border-accent bg-accent-soft' : 'border-line'}`}>
-                <span className="mt-0.5 text-accent-text"><Icon name="drawing" /></span>
-                <div className="min-w-0 flex-1">
-                  <h3 className="mb-1.5 mt-0 text-[17px] font-semibold">{d.name}</h3>
-                  <p className="my-1 text-sm text-ink-2">{d.no} · <b>{d.rev}</b></p>
-                  <StatusPill status={d.status} />
-                  <p className="my-1 text-sm text-ink-2">{fmtD(d.date)} · {name(d.by)}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Btn sm onClick={() => openSheet(d.no)}>Open markup</Btn>
-                    <Btn sm onClick={() => drawingView(p.id, d.no)}>View record</Btn>
+              <article key={d.no} className={`rounded-r2 border p-3.5 ${d.no === sel ? 'border-accent bg-accent-soft' : 'border-line bg-surface'}`}>
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 text-accent-text"><Icon name="drawing" /></span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="m-0 text-[16px] font-semibold leading-snug">{d.name}</h3>
+                      <StatusPill status={d.status} />
+                    </div>
+                    <p className="mb-0 mt-1 text-sm text-ink-2"><Mono>{d.no}</Mono> · <b>{d.rev}</b> · {fmtD(d.date)} · {name(d.by)}</p>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      <Btn sm onClick={() => openSheet(d.no)}>Open markup</Btn>
+                      <Btn sm onClick={() => drawingView(p.id, d.no)}>View record</Btn>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -249,45 +252,51 @@ export function DrawingsTab({ p }) {
               rows={drs.map((d) => [d.no, d.name, d.rev, fmtD(d.date), <StatusPill status={d.status} />, name(d.by)])}
             />
           </Details>
-          <H2>Drawing index</H2>
-          <Sub>Planned sheets per stage. Struck through once issued, approved or finalised.</Sub>
-          <DataTable
-            cols={['Stage', 'No', 'Name', 'Status', '']}
-            rows={svc.drawingIndex(p.id).map((r) => [
-              r.stage,
-              <Mono>{r.no}</Mono>,
-              r.done ? <s>{r.name}</s> : r.name,
-              r.done ? `Done · ${r.how || ''} · ${name(r.doneBy)}` : 'Pending',
-              <>
-                {r.dwg && staff() && svc.connection('autocad') && (
-                  <a className="mr-1 inline-flex min-h-8 items-center rounded-r1 border border-line-2 px-2.5 text-[13px] font-semibold no-underline" href={r.dwg} target="_blank" rel="noopener noreferrer">Open in AutoCAD Web</a>
-                )}
-                {!r.done && staff() && <Btn sm onClick={() => openDialog({ kind: 'finalise-drawing', id: r.id })}>Finalise</Btn>}
-              </>,
-            ])}
-          />
-          {staff() && (
-            <>
-              <H2>Issued to site</H2>
-              <DataTable
-                cols={['Drawing', 'Rev', 'To', 'When', 'By']}
-                rows={state.db.TRANSMITTALS.filter((t) => t.projectId === p.id).map((t) => [
-                  <Mono>{t.no}</Mono>, t.rev, name(t.to), fmtDT(t.at), first(t.by),
-                ])}
-              />
-            </>
-          )}
         </Card>
-        <Card>
+        <Card className="lg:sticky lg:top-0">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
             <h2 className="m-0 text-lg font-semibold">Markup · <Mono>{sel || ''}</Mono></h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Btn sm onClick={markupClear}>Clear marks</Btn>
               {staff() && can('thread', 'w') && <Btn sm kind="primary" onClick={() => markupSend(p.id)}>Send markup to site</Btn>}
             </div>
           </div>
           <Sub>Demonstration sheet; the original drawing file is not attached. Click to add a red cloud. {marks} mark{marks === 1 ? '' : 's'}.</Sub>
           <SheetCanvas />
+        </Card>
+      </div>
+      <Card className="mt-gap-lg">
+        <H2>Drawing index</H2>
+        <Sub>Planned sheets per stage. Struck through once issued, approved or finalised.</Sub>
+        <DataTable
+          cols={['Stage', 'No', 'Name', 'Status', '']}
+          rows={svc.drawingIndex(p.id).map((r) => [
+            r.stage,
+            <Mono>{r.no}</Mono>,
+            r.done ? <s>{r.name}</s> : r.name,
+            r.done ? `Done · ${r.how || ''} · ${name(r.doneBy)}` : 'Pending',
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {r.dwg && staff() && svc.connection('autocad') && (
+                <a className="inline-flex min-h-8 items-center whitespace-nowrap rounded-r1 border border-line-2 px-2.5 text-[13px] font-semibold no-underline" href={r.dwg} target="_blank" rel="noopener noreferrer">Open in AutoCAD Web</a>
+              )}
+              {!r.done && staff() && <Btn sm onClick={() => openDialog({ kind: 'finalise-drawing', id: r.id })}>Finalise</Btn>}
+            </div>,
+          ])}
+        />
+      </Card>
+      <div className={`mt-gap-lg grid items-start gap-gap-lg [&>*]:min-w-0 ${staff() ? 'xl:grid-cols-2' : ''}`}>
+        {staff() && (
+          <Card>
+            <H2>Issued to site</H2>
+            <DataTable
+              cols={['Drawing', 'Rev', 'To', 'When', 'By']}
+              rows={state.db.TRANSMITTALS.filter((t) => t.projectId === p.id).map((t) => [
+                <Mono>{t.no}</Mono>, t.rev, name(t.to), fmtDT(t.at), first(t.by),
+              ])}
+            />
+          </Card>
+        )}
+        <Card>
           <H2>Drawings mentioned in chat</H2>
           <DataTable
             cols={['Who', 'Message', 'Drawing', '']}
@@ -296,7 +305,7 @@ export function DrawingsTab({ p }) {
             ])}
           />
         </Card>
-      </Grid2>
+      </div>
     </>
   );
 }

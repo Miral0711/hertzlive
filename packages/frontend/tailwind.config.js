@@ -8,7 +8,7 @@ module.exports = {
     extend: {
       spacing: {
         gap: v('gap'), 'gap-lg': v('gap-lg'), card: v('card-pad'), 'page-x': v('page-x'), 'page-y': v('page-y'),
-        nav: v('nav-w'), header: v('header-h'), chat: v('chat-w'),
+        nav: v('nav-w'), 'tbl-x': v('table-pad-x'), 'row': v('table-row-h'), 'head': v('table-head-h'), header: v('header-h'), chat: v('chat-w'),
       },
       fontSize: { title: v('text-title'), stat: v('text-stat'), hero: v('text-hero') },
       gridTemplateColumns: { shell: 'var(--nav-w) minmax(0,1fr)', 'shell-chat': 'var(--nav-w) minmax(0,1fr) var(--chat-w)' },

@@ -3,18 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { state, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
 import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
-import { Divider, Dropdown, DropdownItem, Empty } from '../ui/ui';
+import { Empty } from '../ui/ui';
 import { DLink, DESKTOP_BASE, href } from './nav';
+import NavSearch from './NavSearch';
+import NavActions from './NavActions';
 import { NAV, NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
 import DialogHost from './DialogHost';
-import {
-  cycleTheme, logout, resetSampleData, switchPersona, toggleChatPane,
-} from './session';
-import { PERSONAS } from './data';
-
-const themeLabel = { system: 'System', light: 'Light', dark: 'Dark' };
+import { toggleChatPane } from './session';
 
 const ICON = Object.fromEntries(NAV.map(([k, , i]) => [k, i]));
 const groupLabel = 'm-0 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.1em] text-nav-ink opacity-60';
@@ -61,7 +58,6 @@ export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const mainRef = useRef(null);
-  const searchRef = useRef(null);
   const [navOpen, setNavOpen] = useState(false);
 
   // Keep the legacy route string in step with the URL for code that calls parseRoute().
@@ -84,13 +80,6 @@ export default function Shell() {
     else root.dataset.theme = state.theme;
     applyAgencyTheme();
   });
-  useEffect(() => {
-    const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchRef.current?.focus(); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
 
   const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio'].includes(page);
   const workspace = page === 'chats' && allowed;
@@ -101,7 +90,7 @@ export default function Shell() {
   const brand = tenantBrand();
 
   return (
-    <div className="grid h-dvh grid-rows-shell">
+    <div className="grid h-dvh grid-rows-shell overflow-hidden">
       <a
         href="#workspace"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-r1 focus:bg-surface focus:px-3 focus:py-2"
@@ -117,29 +106,7 @@ export default function Shell() {
           <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
           <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
         </DLink>
-        <form
-          role="search"
-          className="flex flex-1 items-center"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const v = new FormData(e.currentTarget).get('q');
-            navigate(href(`#/search?q=${encodeURIComponent(v)}`));
-          }}
-        >
-          <div className="relative min-w-0 max-w-[560px] flex-1">
-            <Icon name="search" small className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-            <input
-              ref={searchRef}
-              type="search"
-              name="q"
-              key={page === 'search' ? q.q : 'search'}
-              defaultValue={page === 'search' ? q.q || '' : ''}
-              placeholder="Search your workspace"
-              aria-label="Search projects, people, drawings and messages"
-              className="min-h-[38px] w-full rounded-r2 border border-transparent bg-surface-2 py-1.5 pl-9 pr-3.5 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
-            />
-          </div>
-        </form>
+        <NavSearch />
         {!(workspace || focusedWork) && (
           <button
             type="button"
@@ -151,28 +118,10 @@ export default function Shell() {
             <Icon name="chat" small /> <span className="max-sm:hidden">Chats</span>
           </button>
         )}
-        <Dropdown trigger={<><Icon name="me" small /> <span className="max-sm:hidden">Preview options</span></>} panelClassName="!flex w-72 flex-col gap-2.5 !p-3.5">
-          <label className="mb-1 flex items-center gap-2 text-[13px] text-ink-2">
-            Viewing as
-            <select
-              aria-label="Switch persona"
-              value={state.userId}
-              onChange={(e) => switchPersona(e.target.value)}
-              className="min-h-9 flex-1 rounded-r1 border border-line-2 bg-surface px-2.5 text-ink"
-            >
-              {PERSONAS.map(([id, l]) => <option key={id} value={id}>{l}</option>)}
-            </select>
-          </label>
-          <Divider className="mb-1" />
-          <DropdownItem icon="moon" onClick={cycleTheme}>Theme: {themeLabel[state.theme]}</DropdownItem>
-          <DropdownItem icon="reset" onClick={resetSampleData}>Reset sample data</DropdownItem>
-          <DropdownItem icon="logout" onClick={() => { logout(); navigate('/login', { replace: true }); }}>Log out</DropdownItem>
-          <Divider className="my-1" />
-          <small className="px-2.5 text-ink-3">Interactive preview · sample records</small>
-        </Dropdown>
+        <NavActions />
       </header>
 
-      <div className={`relative grid min-h-0 max-lg:grid-cols-1 ${noChat ? 'grid-cols-shell' : 'grid-cols-shell-chat max-[1250px]:grid-cols-shell'}`}>
+      <div className={`relative grid min-h-0 max-lg:grid-cols-[minmax(0,1fr)] ${noChat ? 'grid-cols-shell' : 'grid-cols-shell-chat max-[1250px]:grid-cols-shell'}`}>
         {navOpen && <button type="button" aria-label="Close menu" onClick={() => setNavOpen(false)} className="absolute inset-0 z-30 hidden bg-black/40 max-lg:block" />}
         <nav aria-label="Modules" className={`flex min-h-0 flex-col gap-0.5 overflow-auto bg-nav px-2.5 pb-3 pt-1 text-nav-ink max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-[min(280px,85vw)] max-lg:shadow-s2 max-lg:transition-transform ${navOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}>
           <SideNav page={focusedWork ? 'projects' : page} />

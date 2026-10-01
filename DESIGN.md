@@ -33,3 +33,10 @@ Tailwind defaults: `sm` 640, `md` 768, `lg` 1024, `xl` 1280, `2xl` 1536.
 2. Grids start at one or two columns and add columns at `lg` or `xl`.
 3. Wide tables sit inside `overflow-x-auto` (the `DataTable` component already does).
 4. Colours come from tokens (`bg-surface`, `text-ink`, `text-accent-text`), never hex values.
+
+## Tables
+Every table is built from the primitives in `packages/frontend/src/ui/ui.jsx`, so one change restyles all of them.
+- `DataTable cols rows` is the default: sortable, filterable above 8 rows, wide tables scroll inside their own card. A column header starting with `₹` or `#` is numeric (right aligned, sorted by value). A header of `''` is an actions column (right aligned). Pass `align={['left','right',...]}` to override.
+- `Table`, `Th`, `Td`, `Tr` are for custom tables (file lists, calendar grids, load grid). Use them instead of raw `<table>` tags.
+- Tokens in `index.css`: `--table-pad-x`, `--table-row-h`, `--table-head-h` (Tailwind: `px-tbl-x`, `h-row`, `h-head`). Header and cell classes are `TH_CLS` and `TD_CLS`.
+- For label and value lists (not tabular data) use a `<dl>`, not a table.

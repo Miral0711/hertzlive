@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { RESOURCE } from '../data';
-import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable } from '../../ui/ui';
+import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable, Table, Th, Td, Tr } from '../../ui/ui';
 import { TONE_SOFT } from '../../ui/tones';
 import Icon from '../../ui/Icon';
 import { P, first, name } from '../helpers';
@@ -412,23 +412,22 @@ export function LoadGrid({ reassign = false }) {
     render();
   };
   return (
-    <div className="overflow-x-auto rounded-r3 border border-line">
-      <table className="w-full border-collapse text-[13px]">
+    <Table>
         <thead>
           <tr>
-            <th className="border-b border-line bg-surface-2 p-2 text-left text-xs">Person</th>
-            {WEEKS.map((w) => <th key={w} className="border-b border-line bg-surface-2 p-2 text-left text-xs">Week of {w}</th>)}
+            <Th>Person</Th>
+            {WEEKS.map((w) => <Th key={w}>Week of {w}</Th>)}
           </tr>
         </thead>
         <tbody>
           {RESOURCE.map((r, ri) => (
-            <tr key={r.userId}>
-              <td className="border-b border-line p-2"><b>{name(r.userId)}</b></td>
+            <Tr key={r.userId}>
+              <Td className="font-medium">{name(r.userId)}</Td>
               {r.weeks.map((w, wi) => {
                 const tot = Object.values(w).reduce((a, b) => a + b, 0);
                 const entries = Object.entries(w);
                 return (
-                  <td key={wi} className={`border-b border-line p-2 align-top ${tone(tot)}`}>
+                  <Td key={wi} className={`!align-top !whitespace-normal ${tone(tot)}`}>
                     {entries.length
                       ? entries.map(([p, h]) => <div key={p}>{P(p).name.split(' ')[0]} {h}</div>)
                       : <span className="text-ink-3">Free</span>}
@@ -446,14 +445,13 @@ export function LoadGrid({ reassign = false }) {
                         </Select>
                       </div>
                     )}
-                  </td>
+                  </Td>
                 );
               })}
-            </tr>
+            </Tr>
           ))}
         </tbody>
-      </table>
-    </div>
+      </Table>
   );
 }
 

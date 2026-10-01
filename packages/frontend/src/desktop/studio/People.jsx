@@ -131,7 +131,7 @@ function Leaves() {
           ))}
         </div>
       )}
-      <div className="mb-3.5 grid items-start gap-gap lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className={`mb-3.5 grid items-start gap-gap [&>*]:min-w-0 ${can('leave', 'w') && types.length > 0 ? 'lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]' : ''}`}>
         <Card title={`Who is away${awayRows.length ? ` · ${awayRows.length}` : ''}`}>
           {awayRows.length === 0 ? <Empty>Nobody is away in the next 30 days.</Empty> : awayRows.map((x, i) => {
             const { visits, sites } = leaveClashes(x.userId, x.from, x.to);

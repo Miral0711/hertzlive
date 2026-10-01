@@ -7,7 +7,7 @@ import { filedRows } from '../parts';
 import { first, name } from '../helpers';
 import { formData, openDialog } from '../session';
 import {
-  role, staff, FromChat, Photos, Figure, Sub, H2, Hdr, Muted, Details, FormRow, Ai,
+  role, staff, FromChat, Sub, H2, Hdr, Muted, Details, FormRow, Ai,
 } from './common';
 import { FilesView } from './FilesView';
 
@@ -25,13 +25,16 @@ export function FilesTab({ p }) {
   return (
     <>
       {staff() && (gd || nas) && (
-        <Card title="Archive and NAS" className="mb-3.5">
-          <Sub>Working files live on the studio NAS. Older project folders stay on Google Drive.</Sub>
+        <section className="mb-gap-lg flex flex-wrap items-center justify-between gap-gap rounded-r3 border border-line bg-surface p-card">
+          <div className="min-w-[240px] flex-1">
+            <h2 className="m-0 text-lg font-semibold">Archive and NAS</h2>
+            <p className="mb-0 mt-1 text-[13px] text-ink-3">Working files live on the studio NAS. Older project folders stay on Google Drive.</p>
+          </div>
           <div className="flex flex-wrap items-center gap-2.5">
             {gd && p.driveFolder && <a className={extBtn} href={p.driveFolder} target="_blank" rel="noopener noreferrer">Open Drive archive</a>}
             {nas && <a className={extBtn} href={`${nas.url}/#/${scope}`} target="_blank" rel="noopener noreferrer">Open on NAS</a>}
           </div>
-        </Card>
+        </section>
       )}
       <FilesView base={`#/projects/${p.id}?tab=files`} path={q && q.startsWith(scope) ? q : scope} scope={scope} />
     </>
@@ -74,43 +77,64 @@ export function ApprovalsTab({ p }) {
   const dt = (a, k) => (w
     ? <Input type="date" defaultValue={a[k] || ''} key={a[k] || ''} aria-label={k} onChange={(e) => saField(a.id, k, e.target.value)} />
     : a[k] ? fmtD(a[k]) : '—');
+  const fld = (label, node) => (
+    <label className="flex min-w-0 flex-col gap-1 text-xs font-semibold text-ink-3">{label}<span className="text-[14px] font-normal text-ink">{node}</span></label>
+  );
+  const granted = rows.filter((a) => a.status === 'granted').length;
   return (
-    <Card title="Statutory approvals">
+    <Card>
+      <Hdr>
+        <h2 className="m-0 text-lg font-semibold">Statutory approvals</h2>
+        <span className="text-[13px] text-ink-3">{granted} of {rows.length} granted</span>
+      </Hdr>
       <Sub>Checklist comes from the city template in Settings. Fill owner, dates and status here. Follow-up dates that have passed show on the partner's Today.</Sub>
-      <DataTable
-        cols={['Approval', 'Authority', 'Owner', 'Submitted', 'Due', 'Follow up', 'Status', '']}
-        rows={rows.map((a) => [
-          <>{a.name}{a.fromTemplate && <> <small className="text-ink-3">from checklist</small></>}</>,
-          w
-            ? <Input defaultValue={a.authority || ''} key={a.authority || ''} placeholder="Who grants it" aria-label="Authority" onBlur={(e) => e.target.value !== (a.authority || '') && saField(a.id, 'authority', e.target.value)} />
-            : a.authority || '—',
-          w
-            ? (
-              <Select value={a.ownerId || ''} aria-label="Owner" onChange={(e) => saField(a.id, 'ownerId', e.target.value)}>
-                <option value="">—</option>
-                {owners.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </Select>
-            )
-            : a.ownerId ? name(a.ownerId) : '—',
-          dt(a, 'submitted'),
-          dt(a, 'due'),
-          <>{dt(a, 'followUp')}{a.followUp && a.followUp <= TODAY && a.status !== 'granted' && <> <Pill kind="warn">follow up</Pill></>}</>,
-          w
-            ? (
-              <Select value={a.status} aria-label="Status" onChange={(e) => saField(a.id, 'status', e.target.value)}>
-                {['todo', 'submitted', 'granted', 'rejected'].map((x) => <option key={x}>{x}</option>)}
-              </Select>
-            )
-            : <StatusPill status={a.status} />,
-          w ? <Btn sm onClick={() => saDel(a.id)}>Remove</Btn> : '',
-        ])}
-      />
+      <div className="grid gap-3">
+        {rows.map((a) => (
+          <article key={a.id || a.name} className="rounded-r3 border border-line bg-surface p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="m-0 text-[16px] font-semibold">
+                {a.name}{a.fromTemplate && <small className="ml-2 font-normal text-ink-3">from checklist</small>}
+              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                {a.followUp && a.followUp <= TODAY && a.status !== 'granted' && <Pill kind="warn">follow up</Pill>}
+                {!w && <StatusPill status={a.status} />}
+                {w && <Btn sm onClick={() => saDel(a.id)}>Remove</Btn>}
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              {fld('Authority', w
+                ? <Input defaultValue={a.authority || ''} key={a.authority || ''} placeholder="Who grants it" aria-label="Authority" onBlur={(e) => e.target.value !== (a.authority || '') && saField(a.id, 'authority', e.target.value)} />
+                : a.authority || '—')}
+              {fld('Owner', w
+                ? (
+                  <Select value={a.ownerId || ''} aria-label="Owner" onChange={(e) => saField(a.id, 'ownerId', e.target.value)}>
+                    <option value="">—</option>
+                    {owners.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </Select>
+                )
+                : a.ownerId ? name(a.ownerId) : '—')}
+              {fld('Submitted', dt(a, 'submitted'))}
+              {fld('Due', dt(a, 'due'))}
+              {fld('Follow up', dt(a, 'followUp'))}
+              {w && fld('Status', (
+                <Select value={a.status} aria-label="Status" onChange={(e) => saField(a.id, 'status', e.target.value)}>
+                  {['todo', 'submitted', 'granted', 'rejected'].map((x) => <option key={x}>{x}</option>)}
+                </Select>
+              ))}
+            </div>
+          </article>
+        ))}
+        {rows.length === 0 && <Empty>No approvals on the checklist yet.</Empty>}
+      </div>
       {w && (
-        <FormRow onSubmit={(e) => saAdd(e, p.id)}>
-          <Input name="name" placeholder="Another approval, e.g. Lift licence" required aria-label="Approval name" />
-          <Input name="authority" placeholder="Authority" aria-label="Authority" />
-          <Btn type="submit">Add</Btn>
-        </FormRow>
+        <div className="mt-4 rounded-r2 bg-surface-2 p-3.5">
+          <p className="mb-2 mt-0 text-xs font-semibold uppercase tracking-[0.1em] text-accent-text">Add an approval</p>
+          <FormRow onSubmit={(e) => saAdd(e, p.id)}>
+            <Input name="name" placeholder="Another approval, e.g. Lift licence" required aria-label="Approval name" className="min-w-[220px] flex-1" />
+            <Input name="authority" placeholder="Authority" aria-label="Authority" className="min-w-[180px] flex-1" />
+            <Btn type="submit" kind="primary">Add</Btn>
+          </FormRow>
+        </div>
       )}
     </Card>
   );
@@ -132,7 +156,7 @@ export function IntakeTab({ p }) {
           <div key={r.id} className={rowCls}>
             <b>{r.item}</b> <StatusPill status={label[r.status] || r.status} />
             {r.at && <small className="text-ink-3">{fmtD(r.at)}</small>}
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex flex-wrap gap-2">
               {r.status !== 'received' && (
                 <>
                   {staff() && <Btn sm onClick={() => { svc.askIntake(r.id); toast('Asked client.'); render(); }}>Ask client</Btn>}
@@ -158,21 +182,19 @@ export function ReferencesTab({ p }) {
       </Hdr>
       <Sub>Pinterest, Instagram and web links the client has shared. Separate from the studio moodboard.</Sub>
       {rows.length ? (
-        <Photos>
+        <div className="grid gap-gap [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
           {rows.map((r) => (
-            <Figure
-              key={r.id}
-              caption={(
-                <>
-                  {r.room || ''} · {r.src || 'Web'}
-                  {staff() && <> <Btn sm onClick={() => { svc.promoteRef(r.id); toast('Added to moodboard.'); render(); }}>Promote to moodboard</Btn></>}
-                </>
+            <article key={r.id} className="flex flex-col rounded-r3 border border-line bg-surface p-card transition hover:border-accent hover:shadow-s1">
+              <a className="font-semibold leading-snug text-accent-text underline-offset-2 [overflow-wrap:anywhere] hover:underline" href={r.url} target="_blank" rel="noopener noreferrer">{r.title || r.url}</a>
+              <p className="m-0 mt-1.5 text-[13px] text-ink-3">{r.room || ''} · {r.src || 'Web'}</p>
+              {staff() && (
+                <div className="mt-auto pt-3">
+                  <Btn sm onClick={() => { svc.promoteRef(r.id); toast('Added to moodboard.'); render(); }}>Promote to moodboard</Btn>
+                </div>
               )}
-            >
-              <a className="block px-2.5 pt-2 text-accent-text underline [overflow-wrap:anywhere]" href={r.url} target="_blank" rel="noopener noreferrer">{r.title || r.url}</a>
-            </Figure>
+            </article>
           ))}
-        </Photos>
+        </div>
       ) : <Empty>No references shared yet.</Empty>}
     </Card>
   );
@@ -220,8 +242,8 @@ export function TasksTab({ p }) {
     <Card>
       <Hdr><h2 className="m-0 text-lg font-semibold">Tasks <Muted>{open.length} open</Muted></h2></Hdr>
       {can('task', 'w') && (
-        <details className="mb-4">
-          <summary className="min-h-10 cursor-pointer py-2.5 text-accent-text">Add a task</summary>
+        <details className="group mb-4">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 py-2 font-semibold text-accent-text hover:underline [&::-webkit-details-marker]:hidden"><svg viewBox="0 0 24 24" className="h-4 w-4 flex-none transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>Add a task</summary>
           <form className="flex flex-wrap items-end gap-2.5 rounded-lg border border-line bg-surface p-3" onSubmit={(e) => addTask(e, p.id)}>
             <label className="flex min-w-[200px] flex-1 flex-col gap-1.5">Task title<Input name="title" placeholder="What needs doing?" required /></label>
             <label className="flex flex-col gap-1.5">Due date<Input type="date" name="due" defaultValue={TODAY} aria-label="Due" /></label>
@@ -335,8 +357,8 @@ export function MeetingsTab({ p }) {
         <h2 className="m-0 text-lg font-semibold">{m.title}</h2>
         <span className="text-ink-3">{fmtDT(m.at)} · {m.attendees.map(first).join(', ')}</span>
       </Hdr>
-      {staff() && <p>{m.notes}</p>}
-      {m.summary && <Ai><b>Summary for client</b>{'\n'}{m.summary}</Ai>}
+      {staff() && <p className="mb-3 mt-0 text-ink-2">{m.notes}</p>}
+      {m.summary && <div className="mb-3"><Ai><b>Summary for client</b>{'\n'}{m.summary}</Ai></div>}
       <DataTable
         cols={['Action', 'Owner', 'Due', 'Done']}
         rows={m.actions.map((a) => [a.text, first(a.owner), fmtD(a.due), <StatusPill status={a.done ? 'done' : 'open'} />])}
@@ -360,7 +382,20 @@ function docSign(id) {
 export function DocsTab({ p }) {
   const docs = state.db.DOCS.filter((d) => d.projectId === p.id && (staff() || d.clientVisible));
   const receipts = filedRows({ projectId: p.id, kind: 'receipt' });
+  const stat = (label, value) => (
+    <div className="rounded-r3 border border-line bg-surface px-4 py-3">
+      <div className="text-xs text-ink-3">{label}</div>
+      <div className="text-stat font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
+    </div>
+  );
   return (
+    <>
+    <div className="mb-gap-lg grid grid-cols-2 gap-gap lg:grid-cols-4">
+      {stat('Documents', docs.length)}
+      {stat('Signed', docs.filter((d) => d.signed).length)}
+      {stat('Awaiting signature', docs.filter((d) => d.kind === 'Agreement' && !d.signed).length)}
+      {staff() && stat('Shared with client', docs.filter((d) => d.clientVisible).length)}
+    </div>
     <Card title="Documents">
       <DataTable
         cols={['Document', 'Kind', 'Date', 'By', 'Signed', ...(staff() ? ['Client sees'] : [])]}
@@ -381,5 +416,6 @@ export function DocsTab({ p }) {
         </>
       )}
     </Card>
+    </>
   );
 }

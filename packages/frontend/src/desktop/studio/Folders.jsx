@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { state, svc, toast, uid } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
-import { Btn, Empty, Input, ToggleChip } from '../../ui/ui';
+import { Btn, Empty, Input, Table, Th, Td, Tr, ToggleChip } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { openDialog } from '../session';
@@ -135,30 +135,28 @@ export default function Folders({ path, scope = 'Employees', base = '#/people?ta
             {rows.map(({ e, path: p }) => <FileThumb key={p} e={e} p={p} base={base} sel={sel} onSelect={() => setSel(sel === p ? null : p)} />)}
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-r2 border border-line">
-            <table className="w-full border-collapse">
-              <thead><tr>{[query ? 'Match' : 'Name', 'Kind', 'Size'].map((h) => <th key={h} className="border-b border-line bg-surface-2 px-3.5 py-2 text-left text-xs font-semibold text-ink-2">{h}</th>)}</tr></thead>
-              <tbody>
-                {rows.map(({ e, path: p }) => (
-                  <tr key={p} className={`hover:bg-surface-2 ${sel === p ? 'bg-accent-soft' : ''}`}>
-                    <td className="border-b border-line px-3.5 py-2.5">
-                      {e.dir ? (
-                        <DLink to={link(base, p)} className="inline-flex items-center gap-2 font-medium text-ink no-underline"><Icon name="folder" small className="text-accent-text" /> {query ? p : e.p}</DLink>
-                      ) : (
-                        <button type="button" className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-left text-ink" onClick={() => setSel(sel === p ? null : p)}>
-                          <Icon name="file" small className="text-ink-3" /> <Mono>{query ? p : e.p}</Mono>
-                        </button>
-                      )}
-                      {e.chat && <span className="ml-1 rounded-full bg-accent-soft px-2 text-xs text-accent-text">from chat</span>}
-                      {e.why && <span className="ml-1 rounded-full bg-warn-soft px-2 text-xs text-warn">{e.why}</span>}
-                    </td>
-                    <td className="border-b border-line px-3.5 py-2.5 text-ink-2">{e.dir ? 'Folder' : kindOf(e.p)}</td>
-                    <td className="border-b border-line px-3.5 py-2.5 text-ink-2">{e.size || ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <thead><tr><Th>{query ? 'Match' : 'Name'}</Th><Th>Kind</Th><Th>Size</Th></tr></thead>
+            <tbody>
+              {rows.map(({ e, path: p }) => (
+                <Tr key={p} className={sel === p ? '[&>td]:bg-accent-soft' : ''}>
+                  <Td>
+                    {e.dir ? (
+                      <DLink to={link(base, p)} className="inline-flex items-center gap-2 font-medium text-ink no-underline"><Icon name="folder" small className="text-accent-text" /> {query ? p : e.p}</DLink>
+                    ) : (
+                      <button type="button" className="inline-flex items-center gap-2 border-0 bg-transparent p-0 text-left text-ink" onClick={() => setSel(sel === p ? null : p)}>
+                        <Icon name="file" small className="text-ink-3" /> <Mono>{query ? p : e.p}</Mono>
+                      </button>
+                    )}
+                    {e.chat && <span className="ml-1 rounded-full bg-accent-soft px-2 text-xs text-accent-text">from chat</span>}
+                    {e.why && <span className="ml-1 rounded-full bg-warn-soft px-2 text-xs text-warn">{e.why}</span>}
+                  </Td>
+                  <Td className="text-ink-2">{e.dir ? 'Folder' : kindOf(e.p)}</Td>
+                  <Td className="text-ink-2">{e.size || ''}</Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
         ) : <Empty>{query ? `No files match "${query}".` : 'Empty folder.'}</Empty>}
         <p className="mb-0 mt-3 text-xs text-ink-3">Read only. Path <Mono>{r.share.root}</Mono>. Copy path opens the file in your CAD app from the NAS.</p>
       </div>

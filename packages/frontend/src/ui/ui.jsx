@@ -298,11 +298,31 @@ function numericValue(text) {
   const m = String(text).replace(/,/g, '').match(/(-?\d+(?:\.\d+)?)\s*(Cr|L|K)?\b/i);
   return m ? Number(m[1]) * ({ cr: 1e7, l: 1e5, k: 1e3 }[m[2]?.toLowerCase()] || 1) : NaN;
 }
+// ---------- Table primitives: every table in the app is built from these, so alignment, spacing,
+// header style, hover and borders are defined once (tokens: --table-pad-x, --table-row-h, --table-head-h). ----------
+export const TH_CLS = 'h-head whitespace-nowrap border-b border-line bg-surface-2 px-tbl-x py-2 text-xs font-semibold uppercase tracking-[0.04em] text-ink-2';
+export const TD_CLS = 'h-row border-b border-line px-tbl-x py-2 align-middle text-[14px] group-last:border-b-0 group-hover:bg-surface-2';
+const alignCls = { left: 'text-left', right: 'text-right tabular-nums [&:not(:last-child)]:pr-10', center: 'text-center' };
+export const Table = ({ children, className = '', minWidth, fixed = false, compact = false }) => (
+  <div className={`overflow-x-auto rounded-r3 border border-line bg-surface ${className}`}>
+    <table className={`w-full border-collapse text-ink ${fixed ? 'table-fixed' : ''} ${compact ? '[&_td]:!px-2 [&_th]:!px-2 [&_td]:!text-[13px]' : ''}`} style={minWidth ? { minWidth } : undefined}>{children}</table>
+  </div>
+);
+export const Th = ({ align = 'left', className = '', children, ...rest }) => (
+  <th scope="col" className={`${TH_CLS} ${alignCls[align]} ${className}`} {...rest}>{children}</th>
+);
+export const Td = ({ align = 'left', className = '', wrap = false, children, ...rest }) => (
+  <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-40 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
+);
+export const Tr = ({ className = '', children, ...rest }) => <tr className={`group ${className}`} {...rest}>{children}</tr>;
+
 // A column is numeric if its header says so (₹/# prefix - currency/counts, kept for sort math)
 // or every cell in it is plain digits/percent (hours, days, counts) - so numeric columns line up
 // and right-align consistently across every table without each caller having to prefix headers.
 const plainNumber = /^-?[\d,]+(\.\d+)?%?$/;
-export function DataTable({ cols, rows }) {
+// cols: header strings ('' = actions column). A leading ₹ or # marks a numeric column (right aligned, sorted by value).
+// Optional `align` array overrides per column: ['left', 'right', ...].
+export function DataTable({ cols, rows, align }) {
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState(null);
   const isNum = (i) => {
@@ -310,6 +330,8 @@ export function DataTable({ cols, rows }) {
     const vals = rows.map((r) => textOf(r[i]).trim()).filter(Boolean);
     return vals.length > 0 && vals.every((v) => plainNumber.test(v));
   };
+  // One rule everywhere: every column is left aligned with equal width; only the actions column sits at the right.
+  const colAlign = (i) => align?.[i] || (!cols[i] ? 'right' : 'left');
   const shown = useMemo(() => {
     let out = rows.map((r, i) => ({ r, i }));
     if (filter.trim()) {
@@ -328,6 +350,9 @@ export function DataTable({ cols, rows }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, filter, sort]);
   if (!rows.length) return <Empty />;
+  // Short-text tables get equal column widths so spacing is even; tables with action buttons or long text size to content.
+  // Equal widths only when the table has no actions column and no long or control-heavy cells; those would be clipped, so they size to content.
+  const fixed = cols.length <= 8 && !cols.includes('') && rows.every((r) => r.every((c) => textOf(c).length <= 48));
   return (
     <>
       {rows.length > 8 && (
@@ -340,52 +365,46 @@ export function DataTable({ cols, rows }) {
           className={`${control} mb-2 block max-w-[280px]`}
         />
       )}
-      <div className="overflow-x-auto rounded-r3 border border-line bg-surface">
-        <table className="w-full min-w-full border-collapse text-ink">
-          <thead>
-            <tr>
-              {cols.map((c, i) => (
-                <th
-                  key={i}
-                  scope="col"
-                  aria-sort={sort?.col === i ? (sort.asc ? 'ascending' : 'descending') : undefined}
-                  className={`h-10 border-b border-line bg-surface-2 px-3.5 py-2 text-xs font-semibold text-ink-2 ${isNum(i) ? 'text-right' : 'text-left'} whitespace-nowrap`}
-                >
-                  {c ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 border-0 bg-transparent p-0 font-semibold"
-                      onClick={() => setSort((s) => ({ col: i, asc: s?.col === i ? !s.asc : true }))}
-                    >
-                      {c.replace(/^[₹#]/, '')}
-                      <span
-                        aria-hidden="true"
-                        className={`mt-0.5 h-0 w-0 border-4 border-transparent ${sort?.col === i ? 'border-t-accent-text opacity-100' : 'border-t-ink-3 opacity-50'} ${sort?.col === i && sort.asc ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-                  ) : (
-                    <span className="sr-only">Actions</span>
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map(({ r, i }) => (
-              <tr key={i} className="group">
-                {r.map((c, j) => (
-                  <td
-                    key={j}
-                    className={`h-10 border-b border-line px-3.5 py-2 align-middle group-last:border-b-0 group-hover:bg-surface-2 ${isNum(j) ? 'text-right' : ''} ${textOf(c).length > 48 ? 'min-w-40 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'}`}
+      <Table fixed={fixed} compact={cols.length >= 8} minWidth={fixed ? cols.length * 130 : undefined}>
+        <thead>
+          <tr>
+            {cols.map((c, i) => (
+              <Th
+                key={i}
+                align={colAlign(i)}
+                aria-sort={sort?.col === i ? (sort.asc ? 'ascending' : 'descending') : undefined}
+              >
+                {c ? (
+                  <button
+                    type="button"
+                    className={`inline-flex items-center gap-1 border-0 bg-transparent p-0 font-semibold uppercase tracking-[0.04em]`}
+                    onClick={() => setSort((s) => ({ col: i, asc: s?.col === i ? !s.asc : true }))}
                   >
-                    {c}
-                  </td>
-                ))}
-              </tr>
+                    {c.replace(/^[₹#]/, '')}
+                    <span
+                      aria-hidden="true"
+                      className={`mt-0.5 h-0 w-0 border-4 border-transparent ${sort?.col === i ? 'border-t-accent-text opacity-100' : 'border-t-ink-3 opacity-50'} ${sort?.col === i && sort.asc ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                ) : (
+                  <span className="sr-only">Actions</span>
+                )}
+              </Th>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map(({ r, i }) => (
+            <Tr key={i}>
+              {r.map((c, j) => (
+                <Td key={j} align={colAlign(j)} wrap={textOf(c).length > 48} className={j === 0 && cols[0] ? 'font-medium' : ''}>
+                  {c}
+                </Td>
+              ))}
+            </Tr>
+          ))}
+        </tbody>
+      </Table>
     </>
   );
 }

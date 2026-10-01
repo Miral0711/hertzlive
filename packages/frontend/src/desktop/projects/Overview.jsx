@@ -145,37 +145,46 @@ function ProjectAttention({ p, issues, decisions }) {
           <h2 className="mb-2 mt-0 text-[15px] font-semibold">{label} <Muted>{rows.length}</Muted></h2>
           {rows.slice(0, 2)}
           {rows.length > 2 && (
-            <details>
-              <summary className="cursor-pointer py-2.5 text-accent-text">Show {rows.length - 2} more</summary>
+            <details className="group">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 py-2 font-semibold text-accent-text hover:underline [&::-webkit-details-marker]:hidden"><svg viewBox="0 0 24 24" className="h-4 w-4 flex-none transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>Show {rows.length - 2} more</summary>
               {rows.slice(2)}
             </details>
           )}
         </section>
       );
     });
-  return (
-    <>
-      {lead && (
-        <section className="pb-6 pt-1">
-          <Eyebrow>Needs our answer{lead.due ? ' · earliest due question' : ''}</Eyebrow>
-          <h2 className="mb-4 mt-2 max-w-[32ch] text-[26px] font-semibold leading-tight">{lead.title}</h2>
-          <p className="my-2 max-w-[65ch] text-base leading-relaxed text-ink-2">
-            “{(source.transcript || source.text || 'Photo update').slice(0, 240)}”
-          </p>
-          <p className="text-ink-3">
-            {name(source.by)} · {svc.site(lead.siteId)?.name || p.name}{lead.due ? ' · Due ' + fmtD(lead.due) : ' · Due date not set'}
-          </p>
-          <Btn kind="primary" className="mt-2" onClick={() => reviewIssue(lead.id)}>Review and reply <Icon name="chev" small /></Btn>
-        </section>
-      )}
-      {remainder.length ? (
-        <div className={`grid gap-5 md:grid-cols-2 lg:grid-cols-3 ${lead ? 'border-t border-line pt-4' : ''}`}>
-          {lead && <div className="col-span-full"><Eyebrow>Also in this project</Eyebrow></div>}
-          {remainder}
-        </div>
-      ) : lead ? null : <p className="text-ink-3">No issue or client-decision records to show.</p>}
-    </>
+  const leadBlock = lead && (
+    <section className="min-w-0">
+      <Eyebrow>Needs our answer{lead.due ? ' · earliest due question' : ''}</Eyebrow>
+      <h2 className="mb-3 mt-2 text-[24px] font-semibold leading-tight">{lead.title}</h2>
+      <p className="my-2 text-base leading-relaxed text-ink-2">
+        “{(source.transcript || source.text || 'Photo update').slice(0, 240)}”
+      </p>
+      <p className="text-ink-3">
+        {name(source.by)} · {svc.site(lead.siteId)?.name || p.name}{lead.due ? ' · Due ' + fmtD(lead.due) : ' · Due date not set'}
+      </p>
+      <Btn kind="primary" className="mt-2" onClick={() => reviewIssue(lead.id)}>Review and reply <Icon name="chev" small /></Btn>
+    </section>
   );
+  if (lead) {
+    // Lead question and the first group sit on the left; the remaining groups fill the right column.
+    const [firstGroup, ...restGroups] = remainder;
+    return (
+      <div className={`grid gap-gap-lg ${remainder.length ? 'lg:grid-cols-2' : ''} [&>*]:min-w-0`}>
+        <div className="flex flex-col gap-gap-lg">
+          {leadBlock}
+          {firstGroup && <div className="border-t border-line pt-4"><Eyebrow>Also in this project</Eyebrow><div className="mt-2">{firstGroup}</div></div>}
+        </div>
+        {restGroups.length > 0 && (
+          <div className="grid content-start gap-gap-lg border-t border-line pt-4 lg:border-l lg:border-t-0 lg:pl-gap-lg lg:pt-0">{restGroups}</div>
+        )}
+      </div>
+    );
+  }
+  const cols = { 1: '', 2: 'md:grid-cols-2', 3: 'md:grid-cols-2 lg:grid-cols-3' }[Math.min(remainder.length, 3)] || 'md:grid-cols-2 lg:grid-cols-3';
+  return remainder.length
+    ? <div className={`grid gap-gap-lg ${cols}`}>{remainder}</div>
+    : <p className="text-ink-3">No issue or client-decision records to show.</p>;
 }
 function viewDecision(id) {
   if (!svc.decisionsDue({ all: true }).some((d) => d.id === id && svc.thread(d.threadId))) return;
@@ -233,7 +242,7 @@ export function OverviewTab({ p }) {
         </div>
         <div><ProjectAttention p={p} issues={issues} decisions={decisions} /></div>
       </section>
-      <div className="mb-5 grid items-start gap-5 md:grid-cols-2 [&>*]:min-w-0">
+      <div className="mb-5 grid gap-5 md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
         <ProjectUpdates projectId={p.id} />
         <Card>
           <h2 className="mb-2.5 mt-0 text-lg font-semibold">Project plan</h2>
