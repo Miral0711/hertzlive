@@ -103,6 +103,7 @@ export function submitBook(e) {
   } else {
     state.desk.clash = null;
     state.desk.bookForm = null;
+    if (state.desk.dialog?.kind === 'book-slot') state.desk.dialog = null;
     toast(r.pending ? 'Requested. The studio will confirm.' : 'Booked.');
     render();
   }
@@ -137,3 +138,18 @@ export const approvalRecords = () => {
 };
 
 export { TODAY };
+
+// Small stat tile and section header shared by the Schedule tabs.
+export const Stat = ({ label, value, sub, tone = '' }) => (
+  <div className="rounded-r3 border border-line bg-surface px-4 py-3.5">
+    <div className="text-xs text-ink-3">{label}</div>
+    <div className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
+    <div className={`truncate text-xs font-semibold ${tone || 'text-ink-3'}`}>{sub}</div>
+  </div>
+);
+export const SecHead = ({ title, sub, children }) => (
+  <div className="mb-3.5 flex flex-wrap items-end justify-between gap-3">
+    <div><h2 className="m-0 text-xl font-semibold">{title}</h2>{sub && <p className="m-0 text-[13px] text-ink-3">{sub}</p>}</div>
+    {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+  </div>
+);

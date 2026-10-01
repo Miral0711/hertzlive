@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { RESOURCE } from '../data';
-import { Btn, Card, Field, Grid3, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable } from '../../ui/ui';
+import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable } from '../../ui/ui';
 import { P, first, name } from '../helpers';
 import { DLink } from '../nav';
-import { openDialog } from '../session';
+import { openDialog, closeDialog } from '../session';
+import Modal from '../Modal';
 import { deleteHoliday, listHolidays, listLeaveRequests } from '../../api/leaveClient';
 import {
-  ClashBox, H2, Muted, PURPOSE, SubText, TODAY, TextLink, approvalRecords, dateShift, hours, submitBook, tabBase,
+  ClashBox, H2, Muted, PURPOSE, SecHead, SubText, Stat, TODAY, TextLink, approvalRecords, dateShift, hours, submitBook, tabBase,
 } from './common';
 
 function BookForm({ date, clientId }) {
@@ -20,8 +21,8 @@ function BookForm({ date, clientId }) {
   return (
     <>
       <form onSubmit={submitBook} key={JSON.stringify(b)}>
-        <Grid3>
-          <Field label="What for"><Input name="title" required placeholder="Jagwani kitchen review" defaultValue={b.title || ''} /></Field>
+        <div className="grid gap-x-3 sm:grid-cols-2">
+          <Field label="What for" className="sm:col-span-2"><Input name="title" required placeholder="Jagwani kitchen review" defaultValue={b.title || ''} /></Field>
           <Field label="Purpose">
             <Select name="purpose" defaultValue={b.purpose || 'office'}>
               {Object.entries(PURPOSE).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -60,14 +61,50 @@ function BookForm({ date, clientId }) {
               <option value="">Once</option><option value="weekly">Weekly × 4</option>
             </Select>
           </Field>
-        </Grid3>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Btn kind="primary" type="submit">Book</Btn>
-          <Muted>Office meeting reserves the room. Site visit reserves the site manager plus 1 h travel. Video call reserves people only.</Muted>
         </div>
+        <Btn kind="primary" type="submit" className="w-full justify-center">Book slot</Btn>
+        <p className="mb-0 mt-2 text-xs text-ink-3">Office meeting reserves the room. Site visit reserves the site manager plus 1 h travel. Video call reserves people only.</p>
       </form>
       <ClashBox c={state.desk.clash} />
     </>
+  );
+}
+
+function FreeSlots({ date }) {
+  const wh = svc.cfg().hours;
+  const draft = svc.prepBooking({ title: 'Meeting', purpose: 'office', date, start: wh.start, end: wh.start + 1, attendees: [state.userId] });
+  const slots = svc.freeSlots(draft, 3);
+  const pick = (x) => {
+    Object.assign(state.desk.bookForm || (state.desk.bookForm = {}), { date: x.date, start: x.start, len: x.end - x.start });
+    state.desk.clash = null;
+    openDialog({ kind: 'book-slot', date: x.date });
+  };
+  return (
+    <section className="mb-4 rounded-r3 border border-line bg-surface p-4">
+      <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="m-0 text-[15px] font-semibold">Next 3 free slots</h3>
+        <span className="text-xs text-ink-3">First 1 h openings for you and the meeting room</span>
+      </div>
+      {slots.length === 0 ? <p className="m-0 rounded-r2 bg-surface-2 px-3.5 py-3 text-center text-ink-3">No free slot in the next two weeks.</p> : (
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {slots.map((x, i) => (
+            <button key={i} type="button" disabled={!can('booking', 'w')} onClick={() => pick(x)} className="flex items-center justify-between gap-2 rounded-r2 border border-line bg-surface-2 px-4 py-3 text-left hover:border-accent hover:bg-accent-soft">
+              <span><b className="block">{x.date === TODAY ? 'Today' : fmtD(x.date)}</b><span className="text-[13px] text-ink-2">{hh(x.start)}–{hh(x.end)}</span></span>
+              <span className="text-xs font-semibold text-accent-text">Book</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function BookSlotDialog({ d }) {
+  return (
+    <Modal title="Book a slot" wide>
+      <BookForm date={d.date || TODAY} />
+      <div className="mt-3 flex justify-end"><Btn onClick={closeDialog}>Cancel</Btn></div>
+    </Modal>
   );
 }
 
@@ -76,9 +113,11 @@ function Rooms({ q }) {
   const wh = svc.cfg().hours;
   const hrs = hours(wh.start, wh.end).filter((h) => h % 1 === 0);
   const bs = state.db.BOOKINGS.filter((b) => b.date === date && b.status !== 'declined');
+  const nowH = date === TODAY ? new Date().getHours() : null;
   const rows = [
     ...state.db.ROOMS.map((r) => ({
       id: r.id,
+      group: 'Rooms',
       label: (
         <>
           <b>{r.name}</b><br />
@@ -89,7 +128,8 @@ function Rooms({ q }) {
     })),
     ...svc.people().map((u) => ({
       id: u.id,
-      label: <>{u.name}<br /><small className="text-ink-3">{ROLES[u.role].label}</small></>,
+      group: 'People',
+      label: <><b className="font-medium">{u.name}</b><br /><small className="text-ink-3">{ROLES[u.role].label}</small></>,
       hit: (h) => bs.find((x) => (x.attendees || []).includes(u.id) && x.start < h + 1 && x.end + (x.travel || 0) > h),
     })),
   ];
@@ -99,56 +139,61 @@ function Rooms({ q }) {
       return <Pill kind={b.status === 'pending' ? 'warn' : b.kind === 'client' ? 'ok' : 'soft'}><span title={b.title}>{b.title.slice(0, 22)}{b.status === 'pending' ? ' ?' : ''}</span></Pill>;
     }
     if (b.travel && h >= b.end) return <small className="text-ink-3">travel</small>;
-    return '·';
+    return <i className="mx-auto block h-1 w-6 rounded-full bg-accent/30" />;
   };
   const hol = state.db.HOLIDAYS.find((h) => h.date === date);
-  const nav = 'inline-flex min-h-8 items-center rounded-r1 border border-line-2 bg-surface px-2.5 text-[13px] font-semibold text-ink no-underline hover:bg-surface-2';
+  const nav = 'inline-flex min-h-8 items-center px-3 text-[13px] font-semibold text-accent-text no-underline hover:bg-accent-soft';
   return (
-    <Card>
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-lg font-semibold">
-          {fmtD(date)}{date === TODAY ? ' · today' : ''}{hol && <> · <Pill kind="crit">{hol.name}</Pill></>}
-        </h2>
-        <div className="flex gap-2">
+    <div>
+      <SecHead title={`${fmtD(date)}${date === TODAY ? ' · today' : ''}`} sub="Rooms and people as rows, office hours as columns.">
+        {hol && <Pill kind="crit">{hol.name}</Pill>}
+        <div className="inline-flex overflow-hidden rounded-r1 border border-line-2 bg-surface">
           <DLink className={nav} to={`#/schedule?tab=rooms&date=${dateShift(date, -1)}`}>‹ Prev</DLink>
-          <DLink className={nav} to="#/schedule?tab=rooms">Today</DLink>
+          <DLink className={`${nav} border-x border-line-2`} to="#/schedule?tab=rooms">Today</DLink>
           <DLink className={nav} to={`#/schedule?tab=rooms&date=${dateShift(date, 1)}`}>Next ›</DLink>
         </div>
-      </div>
-      <div className="overflow-x-auto rounded-r3 border border-line">
-        <table className="w-full border-collapse text-[13px]">
+      </SecHead>
+      <FreeSlots date={date} />
+      <div className="overflow-x-auto rounded-r3 border border-line bg-surface">
+        <table className="w-full min-w-[720px] border-collapse text-[13px]">
           <thead>
             <tr>
-              <th className="border-b border-line bg-surface-2 p-2" />
-              {hrs.map((h) => <th key={h} className="border-b border-line bg-surface-2 p-2 text-xs font-semibold text-ink-2">{hh(h)}</th>)}
+              <th className="sticky left-0 border-b border-line bg-surface-2 p-2" />
+              {hrs.map((h) => <th key={h} className={`border-b border-line p-2 text-xs font-semibold ${nowH === h ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-ink-2'}`}>{hh(h)}</th>)}
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="whitespace-nowrap border-b border-line p-2">{r.label}</td>
-                {hrs.map((h) => {
-                  const b = r.hit(h);
-                  return <td key={h} className={`border-b border-line p-1.5 text-center ${b ? 'bg-accent-soft' : ''}`}>{cell(b, h)}</td>;
-                })}
-              </tr>
+            {rows.map((r, i) => (
+              <Fragment key={r.id}>
+                {(i === 0 || rows[i - 1].group !== r.group) && (
+                  <tr key={`g-${r.group}`}><td colSpan={hrs.length + 1} className="bg-surface-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{r.group}</td></tr>
+                )}
+                <tr key={r.id}>
+                  <td className="sticky left-0 whitespace-nowrap border-b border-line bg-surface p-2.5">{r.label}</td>
+                  {hrs.map((h) => {
+                    const b = r.hit(h);
+                    return <td key={h} className={`border-b border-line p-1.5 text-center ${b ? 'bg-accent-soft' : nowH === h ? 'bg-surface-2' : ''}`}>{cell(b, h)}</td>;
+                  })}
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>
       </div>
+      <p className="mb-0 mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-accent" />Office</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-ok" />Client</span>
+        <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-warn" />Awaiting confirmation (?)</span>
+        <span>Travel time is blocked after site visits</span>
+      </p>
       {!state.db.ROOMS.length && <SubText className="mt-2">No rooms set up, so bookings check people only. Add rooms in Settings.</SubText>}
-      {can('booking', 'w') && (
-        <>
-          <H2 className="mt-[18px]">Book</H2>
-          <BookForm date={date} clientId={q.client} />
-        </>
-      )}
-    </Card>
+    </div>
   );
 }
 
 function Approvals() {
   const pend = svc.pendingBookings();
+  const decided = state.db.BOOKINGS.filter((k) => k.clientId && k.status !== 'pending').slice(-5).reverse();
   const [sel, setSel] = useState({});
   const decide = (id, ok) => {
     const k = svc.decideBooking(id, ok);
@@ -165,8 +210,15 @@ function Approvals() {
   };
   const allSel = pend.length > 0 && pend.every((k) => sel[k.id]);
   return (
-    <Card title="Client meeting requests">
-      <SubText>Clients book only after their enquiry is accepted. Nothing goes on the calendar until an owner confirms.</SubText>
+    <>
+    <SecHead title="Client meeting requests" sub="Clients book only after their enquiry is accepted. Nothing goes on the calendar until an owner confirms." />
+    <Card>
+      {pend.length === 0 && (
+        <div className="rounded-r2 bg-surface-2 px-4 py-8 text-center">
+          <b className="block">No requests waiting</b>
+          <span className="text-[13px] text-ink-3">New client meeting requests will appear here for you to confirm or decline.</span>
+        </div>
+      )}
       {pend.length > 0 && (
         <div className="mb-2.5 flex flex-wrap items-center gap-2.5">
           <label className="flex items-center gap-2">
@@ -176,7 +228,7 @@ function Approvals() {
           <Btn sm onClick={() => bulk(false)}>Decline selected</Btn>
         </div>
       )}
-      <DataTable
+      {pend.length > 0 && <DataTable
         cols={['', 'When', 'Client', 'What', 'With', 'Purpose', '']}
         rows={pend.map((k) => [
           <input type="checkbox" checked={!!sel[k.id]} aria-label={`Select ${k.title}`} onChange={(e) => setSel({ ...sel, [k.id]: e.target.checked })} />,
@@ -190,8 +242,20 @@ function Approvals() {
             <Btn sm onClick={() => decide(k.id, false)}>Decline</Btn>
           </div>,
         ])}
-      />
+      />}
     </Card>
+    {decided.length > 0 && (
+      <>
+        <div className="mt-5"><SecHead title="Recently decided" sub="Client bookings you have already confirmed or declined." /></div>
+        <Card>
+          <DataTable
+            cols={['When', 'Client', 'What', 'Outcome']}
+            rows={decided.map((k) => [`${fmtD(k.date)} ${hh(k.start)}–${hh(k.end)}`, name(k.clientId || k.by), k.title, <StatusPill status={k.status === 'declined' ? 'declined' : 'approved'} />])}
+          />
+        </Card>
+      </>
+    )}
+    </>
   );
 }
 
@@ -203,13 +267,19 @@ function Records() {
     navigator.clipboard?.writeText(csv);
     toast('CSV copied. Paste into a sheet.');
   };
+  const kinds = [...new Set(recs.map((r) => r.kind))];
   return (
-    <Card>
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-lg font-semibold">Approval records</h2>
+    <>
+      <SecHead title="Approval records" sub="Every approval turned into a record: who approved, what, and when.">
         <Btn sm onClick={copy}>Copy CSV</Btn>
-      </div>
-      <SubText>Every approval turned into a record: who approved, what, and when.</SubText>
+      </SecHead>
+      {recs.length > 0 && (
+        <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+          <Stat label="Total records" value={recs.length} sub="all approvals" />
+          {kinds.slice(0, 3).map((k) => <Stat key={k} label={k} value={recs.filter((r) => r.kind === k).length} sub="records" />)}
+        </div>
+      )}
+    <Card>
       {recs.length ? (
         <DataTable
           cols={['Kind', 'Project', 'Approver', 'What', 'When']}
@@ -217,39 +287,56 @@ function Records() {
         />
       ) : <SubText>No approvals recorded yet.</SubText>}
     </Card>
+    </>
   );
 }
 
 function Who() {
   const label = (a) => (a.mark === 'leave' ? 'on leave' : a.mark === 'half' ? 'half day' : a.mark === 'late' ? 'late' : a.in ? 'in' : 'not in');
+  const people = svc.people();
+  const att = (u) => state.db.ATTENDANCE_TODAY.find((x) => x.userId === u.id) || {};
+  const count = (l) => people.filter((u) => label(att(u)) === l).length;
   return (
-    <Card title="Who is where today">
-      <DataTable
-        cols={['Person', 'In', 'Status', 'Note', 'Stand-in if needed']}
-        rows={svc.people().map((u) => {
-          const a = state.db.ATTENDANCE_TODAY.find((x) => x.userId === u.id) || {};
-          return [
-            u.name,
-            a.in || '—',
-            <StatusPill status={label(a)} />,
-            a.note || '',
-            a.mark === 'leave' ? svc.standIns(u.id).map((x) => first(x.u.id)).join(', ') || '—' : '',
-          ];
-        })}
-      />
-      <H2>Partners</H2>
-      <DataTable
-        cols={['Partner', 'Today', 'Next free']}
-        rows={svc.people().filter((u) => u.role === 'partner').map((u) => {
-          const bk = state.db.BOOKINGS.filter((b) => b.date === TODAY && (b.attendees || []).includes(u.id));
-          return [
-            u.name,
-            bk.map((b) => `${hh(b.start)} ${b.title}`).join(', ') || 'Free',
-            bk.length ? hh(Math.max(...bk.map((b) => b.end))) : 'Now',
-          ];
-        })}
-      />
-    </Card>
+    <>
+      <SecHead title="Who is where today" sub={`${fmtD(TODAY)} · attendance, leave and who can stand in.`} />
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="In" value={count('in')} sub="on time" tone="text-ok" />
+        <Stat label="Late" value={count('late')} sub="after 09:30" tone={count('late') ? 'text-warn' : ''} />
+        <Stat label="On leave" value={count('on leave')} sub="away today" />
+        <Stat label="Not in yet" value={count('not in') + count('half day')} sub="no check-in" />
+      </div>
+      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
+        <Card title="Team">
+          <DataTable
+            cols={['Person', 'In', 'Status', 'Note', 'Stand-in if needed']}
+            rows={people.map((u) => {
+              const a = att(u);
+              return [
+                u.name,
+                a.in || '—',
+                <StatusPill status={label(a)} />,
+                a.note || '',
+                a.mark === 'leave' ? svc.standIns(u.id).map((x) => first(x.u.id)).join(', ') || '—' : '',
+              ];
+            })}
+          />
+        </Card>
+        <Card title="Partners">
+          {people.filter((u) => u.role === 'partner').map((u) => {
+            const bk = state.db.BOOKINGS.filter((b) => b.date === TODAY && (b.attendees || []).includes(u.id)).sort((x, y) => x.start - y.start);
+            return (
+              <div key={u.id} className="border-t border-line py-2.5 first:border-t-0 first:pt-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <b>{u.name}</b>
+                  <span className="text-xs font-semibold text-accent-text">{bk.length ? `Free from ${hh(Math.max(...bk.map((b) => b.end)))}` : 'Free now'}</span>
+                </div>
+                <small className="block text-ink-3">{bk.length ? bk.map((b) => `${hh(b.start)} ${b.title}`).join(' · ') : 'No meetings today'}</small>
+              </div>
+            );
+          })}
+        </Card>
+      </div>
+    </>
   );
 }
 
@@ -319,11 +406,29 @@ export function LoadGrid({ reassign = false }) {
 }
 
 function Resource() {
+  const tot = (r, wi) => Object.values(r.weeks[wi] || {}).reduce((n, h) => n + h, 0);
+  const cells = RESOURCE.flatMap((r) => WEEKS.map((_, wi) => tot(r, wi)));
+  const over = cells.filter((t) => t > 40).length;
+  const under = cells.filter((t) => t < 24).length;
+  const avg = cells.length ? Math.round(cells.reduce((n, t) => n + t, 0) / cells.length) : 0;
   return (
-    <Card title="Resource plan, next 4 weeks">
-      <SubText>Hours per person per project. Over 40 is red, under 24 is grey.</SubText>
-      <LoadGrid />
-    </Card>
+    <>
+      <SecHead title="Resource plan, next 4 weeks" sub="Hours per person per project, week by week." />
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="People planned" value={RESOURCE.length} sub={`${WEEKS.length} weeks`} />
+        <Stat label="Average load" value={`${avg} h`} sub="per person per week" />
+        <Stat label="Over 40 h" value={over} sub="person-weeks overloaded" tone={over ? 'text-crit' : 'text-ok'} />
+        <Stat label="Under 24 h" value={under} sub="person-weeks with room" />
+      </div>
+      <Card>
+        <p className="mb-3 mt-0 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+          <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-crit-soft ring-1 ring-crit" />Over 40 h</span>
+          <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-surface-2 ring-1 ring-line-2" />Under 24 h</span>
+          <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-surface ring-1 ring-line-2" />Balanced</span>
+        </p>
+        <LoadGrid />
+      </Card>
+    </>
   );
 }
 
@@ -498,35 +603,56 @@ function Reminders() {
     const p = Object.fromEntries(new FormData(e.currentTarget));
     state.desk.reminders.push({ id: uid(), text: p.text, when: p.when, who: state.userId, ref: '' });
     persist();
+    e.currentTarget.reset();
     toast('Reminder set.');
+    render();
+  };
+  const list = state.desk.reminders.slice().sort((a, b) => String(a.when).localeCompare(String(b.when)));
+  const due = (r) => {
+    const d = String(r.when).slice(0, 10);
+    return d < TODAY ? ['Overdue', 'crit'] : d === TODAY ? ['Today', 'warn'] : ['Upcoming', 'soft'];
   };
   return (
-    <Card>
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-lg font-semibold">Reminders</h2>
-        <form onSubmit={add} className="flex flex-wrap items-center gap-2">
-          <Input name="text" placeholder="Remind me to…" required />
+    <>
+      <SecHead title="Reminders" sub={`${list.length} open · tied to you, with a link back to the record where there is one.`} />
+      <Card title="New reminder" className="mb-3.5">
+        <form onSubmit={add} className="flex flex-wrap items-center gap-2.5">
+          <Input name="text" placeholder="Remind me to…" required className="min-w-[240px] flex-1" />
           <Input type="datetime-local" name="when" defaultValue="2026-09-10T10:00" aria-label="When" />
-          <Btn type="submit">Add</Btn>
+          <Btn kind="primary" type="submit">Add reminder</Btn>
         </form>
-      </div>
-      <DataTable
-        cols={['Reminder', 'When', 'For', '', '']}
-        rows={state.desk.reminders.map((r) => [
-          r.text,
-          fmtDT(r.when),
-          first(r.who),
-          r.ref ? <TextLink to={r.ref}>Open</TextLink> : '',
-          <Btn sm onClick={() => { state.desk.reminders = state.desk.reminders.filter((x) => x.id !== r.id); persist(); render(); }}>Done</Btn>,
-        ])}
-      />
-    </Card>
+      </Card>
+      {list.length === 0 ? (
+        <Card><div className="rounded-r2 bg-surface-2 px-4 py-8 text-center"><b className="block">No reminders</b><span className="text-[13px] text-ink-3">Add one above and it will show here with its due date.</span></div></Card>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {list.map((r) => {
+            const [lbl, kind] = due(r);
+            return (
+              <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-r3 border border-line bg-surface px-4 py-3">
+                <span className="min-w-0 flex-1">
+                  <b className="block">{r.text}</b>
+                  <small className="text-ink-3">{fmtDT(r.when)} · {first(r.who)}</small>
+                </span>
+                <Pill kind={kind}>{lbl}</Pill>
+                {r.ref ? <TextLink to={r.ref}>Open</TextLink> : null}
+                <Btn sm onClick={() => { state.desk.reminders = state.desk.reminders.filter((x) => x.id !== r.id); persist(); render(); }}>Done</Btn>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
 
 export default function Schedule({ q }) {
   const tab = q.tab || 'rooms';
   const pend = svc.pendingBookings().length;
+  const today = state.db.BOOKINGS.filter((b) => b.date === TODAY && b.status !== 'declined');
+  const away = state.db.ATTENDANCE_TODAY.filter((a) => a.mark === 'leave').length;
+  const next = state.db.HOLIDAYS.filter((h) => h.date >= TODAY).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const daysTo = next ? Math.round((new Date(next.date) - new Date(TODAY)) / 864e5) : null;
   const list = [
     ['rooms', 'Calendar'],
     ...(can('booking', 'a') ? [['approvals', `Approvals${pend ? ' · ' + pend : ''}`]] : []),
@@ -547,7 +673,17 @@ export default function Schedule({ q }) {
   }[tab] || <Rooms q={q} />;
   return (
     <>
-      <PageHeader title="Schedule" sub="Meetings, approvals, who is where and the resource plan." />
+      <PageHeader title="Schedule" sub="Meetings, approvals, who is where and the resource plan.">
+        {can('booking', 'w') && (
+          <Btn kind="primary" icon="plus" className="!min-h-12 !px-6 !text-base" onClick={() => openDialog({ kind: 'book-slot', date: q.date || TODAY })}>Book a slot</Btn>
+        )}
+      </PageHeader>
+      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Meetings today" value={today.length} sub={`${fmtD(TODAY)}`} />
+        <Stat label="Awaiting approval" value={pend} sub={pend ? 'client requests' : 'all clear'} tone={pend ? 'text-warn' : 'text-ok'} />
+        <Stat label="Away today" value={away} sub="on leave" />
+        <Stat label="Next holiday" value={next ? fmtD(next.date) : '—'} sub={next ? `${next.name} · in ${daysTo} day${daysTo === 1 ? '' : 's'}` : 'none scheduled'} />
+      </div>
       <Tabs base={tabBase('schedule')} list={list} current={tab} />
       {body}
     </>

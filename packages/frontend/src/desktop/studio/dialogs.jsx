@@ -7,14 +7,6 @@ import { name } from '../helpers';
 import { SRC } from './common';
 import { createHoliday, updateHoliday } from '../../api/leaveClient';
 
-const KV = ({ k, children }) =>
-  children ? (
-    <tr>
-      <th scope="row" className="w-24 py-1 pr-3 text-left align-top text-[13px] font-semibold text-ink-2">{k}</th>
-      <td className="py-1">{children}</td>
-    </tr>
-  ) : null;
-const linkCls = 'text-accent-text underline';
 
 export function EnquiryDialog({ d }) {
   const e = state.db.ENQUIRIES.find((x) => x.id === d.id);
@@ -26,57 +18,61 @@ export function EnquiryDialog({ d }) {
     toast(x.status === 'accepted' ? `${x.name} can now book a meeting.` : `Marked ${x.status.replace('_', ' ')}.`);
     render();
   };
+  const wa = e.phone ? `https://wa.me/${e.phone.replace(/\D/g, '')}` : '';
+  const facts = [
+    ['Wants', svc.serviceType(e.typeId)], ['Came via', SRC[e.source] || e.source], ['City', e.city || '—'],
+    ['Received', fmtDT(e.at)], ['Owner', e.assignee ? name(e.assignee) : 'Unassigned'], ['Email', e.email || '—'],
+  ];
+  const act = 'inline-flex min-h-9 items-center rounded-r1 border px-3.5 font-semibold no-underline';
   return (
-    <Modal label={e.name} title={<span className="flex flex-wrap items-center gap-2">{e.name} · <StatusPill status={e.status === 'new' ? 'pending' : e.status} /></span>}>
-      <table className="mb-3 w-full">
-        <tbody>
-          <KV k="Wants">{svc.serviceType(e.typeId)}</KV>
-          <KV k="Came via">{SRC[e.source] || e.source}</KV>
-          <KV k="City">{e.city}</KV>
-          <KV k="Phone">{e.phone && <a className={linkCls} href={`https://wa.me/${e.phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">{e.phone}</a>}</KV>
-          <KV k="Email">{e.email && <a className={linkCls} href={`mailto:${e.email}`}>{e.email}</a>}</KV>
-          <KV k="When">{fmtDT(e.at)}</KV>
-          <KV k="Owner">{e.assignee ? name(e.assignee) : ''}</KV>
-          <KV k="Note">{e.note}</KV>
-        </tbody>
-      </table>
-      <p><b>Their message</b></p>
-      <p className="rounded-r1 border-l-4 border-line-2 bg-surface-2 px-3 py-2 italic">{e.msg || 'No message left.'}</p>
-      {own && can('enquiry', 'a') && (
-        <Field label="Assign enquiry">
-          <Select
-            name="assignee"
-            defaultValue={e.assignee}
-            onChange={(ev) => { svc.decideEnquiry(e.id, 'new', ev.target.value); toast('Reassigned.'); render(); }}
-          >
-            {svc.people().filter((u) => u.role === 'partner').map((u) => <option key={u.id} value={u.id}>{name(u.id)}</option>)}
-          </Select>
-        </Field>
-      )}
+    <Modal wide label={e.name} title={<span className="flex flex-wrap items-center gap-2">{e.name} <StatusPill status={e.status === 'new' ? 'pending' : e.status} /></span>}>
+      <dl className="mb-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+        {facts.map(([k, v]) => (
+          <div key={k} className="min-w-0"><dt className="text-xs text-ink-3">{k}</dt><dd className="m-0 truncate font-medium">{v}</dd></div>
+        ))}
+      </dl>
+      <p className="mb-1.5 mt-0 text-xs font-semibold uppercase tracking-[0.1em] text-accent-text">Their message</p>
+      <p className="mb-4 mt-0 rounded-r2 border-l-4 border-accent bg-surface-2 px-3.5 py-2.5">{e.msg || 'No message left.'}</p>
+      {e.note && <p className="mb-4 mt-0 text-[13px] text-ink-2"><b>Note:</b> {e.note}</p>}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        {own && can('enquiry', 'a') && (
+          <div className="min-w-[200px] flex-1">
+            <Field label="Assign enquiry">
+              <Select
+                name="assignee"
+                defaultValue={e.assignee}
+                onChange={(ev) => { svc.decideEnquiry(e.id, 'new', ev.target.value); toast('Reassigned.'); render(); }}
+              >
+                {svc.people().filter((u) => u.role === 'partner').map((u) => <option key={u.id} value={u.id}>{name(u.id)}</option>)}
+              </Select>
+            </Field>
+          </div>
+        )}
+        {wa && <a className={`${act} mb-2.5 border-line-2 bg-surface text-accent-text hover:border-accent hover:bg-accent-soft`} href={wa} target="_blank" rel="noopener noreferrer">WhatsApp {e.phone}</a>}
+      </div>
       {e.status === 'accepted' && (
-        <div className="mb-2 flex items-center gap-2">
-          {e.proposalId
-            ? <DLink className={linkCls} to="#/money?tab=proposals" onClick={closeDialog}>View proposal</DLink>
-            : <Btn onClick={() => openDialog({ kind: 'proposal', enquiryId: e.id })}>Make proposal</Btn>}
+        <div className="mb-2 rounded-r2 bg-accent-soft px-3.5 py-3">
+          <b className="block text-accent-text">Accepted</b>
+          <span className="text-[13px] text-ink-2">Next: send a proposal and book a first meeting.</span>
         </div>
       )}
       <ModalActions>
         <Btn onClick={closeDialog}>Close</Btn>
-        {own ? (
+        {own && (
           <>
             <Btn onClick={() => decide('rejected')}>Reject</Btn>
             <Btn onClick={() => decide('not_eligible')}>Not eligible</Btn>
             <Btn kind="primary" onClick={() => decide('accepted')}>Accept</Btn>
           </>
-        ) : e.status === 'accepted' ? (
-          <DLink
-            to={`#/schedule?tab=rooms&client=${e.clientId}`}
-            onClick={closeDialog}
-            className="inline-flex min-h-9 items-center rounded-r1 border border-accent bg-accent px-3.5 font-semibold text-accent-ink no-underline"
-          >
-            Book meeting
-          </DLink>
-        ) : null}
+        )}
+        {e.status === 'accepted' && (
+          <>
+            {e.proposalId
+              ? <DLink className={`${act} border-line-2 bg-surface text-accent-text`} to="#/money?tab=proposals" onClick={closeDialog}>View proposal</DLink>
+              : <Btn onClick={() => openDialog({ kind: 'proposal', enquiryId: e.id })}>Make proposal</Btn>}
+            <DLink to={`#/schedule?tab=rooms&client=${e.clientId}`} onClick={closeDialog} className={`${act} border-accent bg-accent text-accent-ink`}>Book meeting</DLink>
+          </>
+        )}
       </ModalActions>
     </Modal>
   );

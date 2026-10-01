@@ -175,9 +175,9 @@ export function Tabs({ base, list, current }) {
 
 // ---------- Form fields ----------
 const control = 'min-h-9 rounded-r1 border border-line-2 bg-surface px-2.5 py-1.5 text-ink focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent-soft';
-export function Field({ label, hint, error, children }) {
+export function Field({ label, hint, error, children, className = '' }) {
   return (
-    <div className="mb-2.5 flex flex-col gap-1">
+    <div className={`mb-2.5 flex flex-col gap-1 ${className}`}>
       <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-2">
         {label}
         {hint && <small className="font-normal">{hint}</small>}

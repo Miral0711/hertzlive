@@ -1,5 +1,5 @@
 // Feature module: studio (schedule, enquiries, people). Exports page components and dialog components.
-import Schedule from '../studio/Schedule';
+import Schedule, { BookSlotDialog } from '../studio/Schedule';
 import Enquiries from '../studio/Enquiries';
 import People from '../studio/People';
 import { EnquiryDialog, LeaveApproveDialog, ImportContactsDialog, HolidayDialog } from '../studio/dialogs';
@@ -16,4 +16,5 @@ export const dialogs = {
   'leave-approve': LeaveApproveDialog,
   'import-contacts': ImportContactsDialog,
   'holiday-edit': HolidayDialog,
+  'book-slot': BookSlotDialog,
 };
