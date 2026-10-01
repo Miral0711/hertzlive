@@ -258,13 +258,17 @@ export function PortfolioPage() {
   const list = svc.portfolio();
   return (
     <>
-      <PageHeader title="Studio portfolio" />
+      <PageHeader title="Studio portfolio" sub="A selection of the studio's completed work." />
       {list.length ? (
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))' }}>
           {list.map((p) => (
-            <figure key={p.id} className="m-0 overflow-hidden rounded-r2 border border-line bg-surface">
-              <Ph hue={p.hue} seed={p.id} />
-              <figcaption className="px-2.5 py-2 text-xs"><b>{p.name}</b><br /><small>{p.type} · {p.year} · {p.city}</small><br />{p.blurb}</figcaption>
+            <figure key={p.id} className="m-0 overflow-hidden rounded-r3 border border-line bg-surface">
+              <div className="h-44 overflow-hidden bg-surface-2"><Ph hue={p.hue} seed={p.id} ar={1.6} className="h-full" /></div>
+              <figcaption className="p-4">
+                <b className="block text-base">{p.name}</b>
+                <small className="text-ink-3">{p.type} · {p.year} · {p.city}</small>
+                {p.blurb && <p className="mb-0 mt-2 text-[13px] text-ink-2">{p.blurb}</p>}
+              </figcaption>
             </figure>
           ))}
         </div>

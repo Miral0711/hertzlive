@@ -1,11 +1,14 @@
+import { useEffect, useState } from 'react';
 import { state, svc, can, fmtDT, render, toast } from '../../shared/core.js';
 import { Btn, Field, Input, Select, StatusPill, Textarea } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { DLink } from '../nav';
 import { closeDialog, openDialog } from '../session';
 import { name } from '../helpers';
-import { SRC } from './common';
+import { SRC, leaveClashes } from './common';
 import { createHoliday, updateHoliday } from '../../api/leaveClient';
+import { approveLeaveRequest, listLeaveRequests } from '../../api/leaveClient';
+import { fmtD } from '../../shared/core.js';
 
 
 export function EnquiryDialog({ d }) {
@@ -186,6 +189,64 @@ export function ImportContactsDialog({ d }) {
         <ModalActions>
           <Btn onClick={closeDialog}>Cancel</Btn>
           <Btn kind="primary" type="submit">Import selected</Btn>
+        </ModalActions>
+      </form>
+    </Modal>
+  );
+}
+
+// Approve an org leave request with an emergency stand-in: clash warnings, suggested replacements and task handover.
+export function OrgLeaveApproveDialog({ d }) {
+  const [state_, setReq] = useState(undefined);
+  useEffect(() => { listLeaveRequests({}).then((rows) => setReq(rows.find((r) => r.id === d.id) || null)).catch(() => setReq(null)); }, [d.id]);
+  if (state_ === undefined) return <Modal title="Approve leave"><p className="text-ink-3">Loading…</p></Modal>;
+  const r = state_;
+  if (!r) return <Modal title="Leave unavailable"><ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions></Modal>;
+  const uid_ = r.employeeId;
+  const from = r.startDate.slice(0, 10), to = r.endDate.slice(0, 10);
+  const { visits, sites } = leaveClashes(uid_, from, to);
+  const stand = svc.standIns(uid_);
+  const tasks = state.db.TASKS.filter((t) => t.owner === uid_ && t.status === 'open' && t.due && t.due >= from && t.due <= to);
+  const save = (e) => {
+    e.preventDefault();
+    const p = Object.fromEntries(new FormData(e.currentTarget));
+    approveLeaveRequest(r.id)
+      .then(() => {
+        const moved = p.to ? svc.reassignTasks(uid_, p.to, from, to, p.note) : [];
+        state.desk.leaveRev = (state.desk.leaveRev || 0) + 1;
+        state.desk.dialog = null;
+        toast(moved.length ? `Leave approved. ${moved.length} task${moved.length === 1 ? '' : 's'} moved to ${first_(p.to)}.` : 'Leave approved.');
+        render();
+      })
+      .catch((err) => toast(err.message));
+  };
+  const first_ = (id) => name(id).split(' ')[0];
+  return (
+    <Modal wide title={`Approve leave · ${name(uid_)}`}>
+      <p className="mt-0 text-ink-2">{r.leaveType?.name} · {fmtD(from)}{to !== from ? ` to ${fmtD(to)}` : ''} · {r.totalDays} day{r.totalDays === 1 ? '' : 's'}{r.reason ? ` · ${r.reason}` : ''}</p>
+      {(visits.length > 0 || sites.length > 0) ? (
+        <div className="mb-4 rounded-r2 bg-warn-soft px-3.5 py-3 text-warn">
+          <b className="block">Clashes with site work</b>
+          <ul className="m-0 mt-1 list-disc pl-5 text-[13px]">
+            {visits.map((b) => <li key={b.id}>{fmtD(b.date)} · {b.title}</li>)}
+            {sites.map((s) => <li key={s.id}>Site manager for {s.name}</li>)}
+          </ul>
+        </div>
+      ) : <p className="mb-4 rounded-r2 bg-ok-soft px-3.5 py-3 text-ok">No site visits clash with these dates.</p>}
+      <form onSubmit={save}>
+        <fieldset className="mb-3 rounded-r2 border border-line px-3.5 py-3">
+          <legend className="px-1 text-[13px] font-semibold text-ink-2">Emergency replacement</legend>
+          <p className="mb-2 mt-0 text-[13px] text-ink-3">Suggested stand-ins share a skill, are in today and have the fewest open tasks. {tasks.length ? `${tasks.length} open task${tasks.length === 1 ? '' : 's'} fall due while ${first_(uid_)} is away.` : 'No open tasks fall due in these dates.'}</p>
+          <label className="flex min-h-9 items-center gap-2"><input type="radio" name="to" value="" defaultChecked /> Don&apos;t reassign</label>
+          {stand.map((x) => (
+            <label key={x.u.id} className="flex min-h-9 items-center gap-2"><input type="radio" name="to" value={x.u.id} /> <b>{x.u.name}</b> <span className="text-ink-3">· {x.load} open · shares {x.overlap.join(', ')}</span></label>
+          ))}
+          {stand.length === 0 && <p className="m-0 text-ink-3">No qualified stand-in is in today.</p>}
+        </fieldset>
+        <Field label="Handover note"><Textarea name="note" rows={3} /></Field>
+        <ModalActions>
+          <Btn onClick={closeDialog}>Cancel</Btn>
+          <Btn kind="primary" type="submit">Approve leave</Btn>
         </ModalActions>
       </form>
     </Modal>

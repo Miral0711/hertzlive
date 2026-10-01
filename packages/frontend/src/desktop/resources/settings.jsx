@@ -8,6 +8,8 @@ import {
 } from '../../ui/ui';
 import { DLink } from '../nav';
 import { staff } from '../helpers';
+import Icon from '../../ui/Icon';
+import { SecHead, Stat } from '../studio/common';
 import { cycleTheme, togglePreviewAsClient, resetSampleData, formData } from '../session';
 
 const hours = (from, to) => {
@@ -33,9 +35,10 @@ export const motionToggle = () => { state.motion = !state.motion; persist(); ren
 export const quietToggle = () => { state.gamify.optOut = !state.gamify.optOut; persist(); render(); };
 export const previewToggle = () => togglePreviewAsClient();
 
+const DEFAULT_BG = '#f2f3f5';
 function agencySave(p) {
   Object.assign(state.db.AGENCY, {
-    name: p.name, short: p.short, accent: p.accent, wa: p.wa, address: p.address, hours: { start: +p.hstart, end: +p.hend },
+    name: p.name, short: p.short, accent: p.accent, background: p.background && p.background.toLowerCase() !== DEFAULT_BG ? p.background : '', wa: p.wa, address: p.address, hours: { start: +p.hstart, end: +p.hend },
   });
   if (persist()) toast('Agency settings saved.');
   else state.toast = '';
@@ -226,34 +229,53 @@ const AddRow = ({ onSubmit, children, btn = 'Add', className = '' }) => (
   <form className={`${inline} ${className}`} onSubmit={onSubmit}>{children}<Btn type="submit">{btn}</Btn></form>
 );
 const Sub = ({ children }) => <p className={sub}>{children}</p>;
+// Visual switch. Works as a plain checkbox inside a form (name/defaultChecked) or controlled via onChange.
+const Switch = ({ label, sub: hint, ...rest }) => (
+  <label className="flex cursor-pointer items-center justify-between gap-4 rounded-r2 border border-line bg-surface px-4 py-3 hover:border-accent">
+    <span className="min-w-0"><b className="block">{label}</b>{hint && <small className="text-ink-3">{hint}</small>}</span>
+    <span className="relative inline-flex flex-none">
+      <input type="checkbox" className="peer sr-only" {...rest} />
+      <span className="h-6 w-11 rounded-full bg-surface-3 transition peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-surface after:shadow-s1 after:transition peer-checked:after:translate-x-5" />
+    </span>
+  </label>
+);
 
 // ---------- sections ----------
 function Prefs() {
+  const themes = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
+  const setTheme = (t) => { for (let i = 0; i < 3 && state.theme !== t; i += 1) themeToggle(); };
   return (
     <>
-      <Card>
-        <h2 className="mb-2.5 mt-0 text-lg font-semibold">Appearance</h2>
-        <List>
-          <Item><span className="flex-1">Theme</span><Btn sm onClick={themeToggle}>{state.theme}, click to change</Btn></Item>
-          <Item><span className="flex-1">Reduce motion</span><Btn sm onClick={motionToggle}>{state.motion ? 'On' : 'Off'}</Btn></Item>
-          <Item><span className="flex-1">Quiet mode (no points or badges)</span><Btn sm onClick={quietToggle}>{state.gamify.optOut ? 'On' : 'Off'}</Btn></Item>
-          {staff() && <Item><span className="flex-1">Preview as client</span><Btn sm onClick={previewToggle}>{state.previewAsClient ? 'On' : 'Off'}</Btn></Item>}
-        </List>
-        <h2 className={h2}>AI</h2>
-        <List>
-          <Item><span className="flex-1">Provider</span><span className="font-mono text-[13px]">{AIProvider.name}</span></Item>
-          <Item><span className="flex-1">Files chat messages automatically, drafts replies, summarises meetings. Swap provider later without changing screens.</span></Item>
-        </List>
-      </Card>
-      <Card className="mt-3.5">
-        <h2 className="mb-2.5 mt-0 text-lg font-semibold">Data</h2>
-        <List>
-          <Item><span className="flex-1">Everything here is sample data saved in this browser.</span><Btn sm kind="danger" onClick={resetSampleData}>Reset data</Btn></Item>
-        </List>
-        <h2 className={h2}>Deferred</h2>
-        <Sub>Listed so nobody looks for them. Not built in this prototype.</Sub>
-        <List>{DEFERRED.map((d) => <Item key={d}><span className="flex-1">{d}</span><small>later</small></Item>)}</List>
-      </Card>
+      <SecHead title="Preferences" sub="How the app looks and behaves for you. These are saved in this browser." />
+      <div className="grid items-start gap-3.5 xl:grid-cols-2 [&>*]:min-w-0">
+        <Card title="Appearance">
+          <p className="mb-1.5 mt-0 text-[13px] font-semibold text-ink-2">Theme</p>
+          <div className="mb-3 inline-flex overflow-hidden rounded-r1 border border-line-2" role="group" aria-label="Theme">
+            {themes.map(([k, l]) => (
+              <button key={k} type="button" aria-pressed={state.theme === k} onClick={() => setTheme(k)} className={`min-h-9 px-4 text-[13px] font-semibold ${state.theme === k ? 'bg-accent text-accent-ink' : 'bg-surface text-ink-2 hover:bg-surface-2'}`}>{l}</button>
+            ))}
+          </div>
+          <div className="flex flex-col gap-2.5">
+            <Switch label="Reduce motion" sub="Fewer animations and transitions." checked={!!state.motion} onChange={motionToggle} />
+            <Switch label="Quiet mode" sub="No points or badges." checked={!!state.gamify.optOut} onChange={quietToggle} />
+            {staff() && <Switch label="Preview as client" sub="See the app the way a client sees it." checked={!!state.previewAsClient} onChange={previewToggle} />}
+          </div>
+        </Card>
+        <div className="flex flex-col gap-3.5">
+          <Card title="AI">
+            <div className="flex items-center justify-between gap-3 rounded-r2 bg-surface-2 px-3.5 py-2.5"><span className="text-ink-2">Provider</span><span className="font-mono text-[13px]">{AIProvider.name}</span></div>
+            <p className="mb-0 mt-2.5 text-[13px] text-ink-3">Files chat messages automatically, drafts replies and summarises meetings. Swap the provider later without changing screens.</p>
+          </Card>
+          <Card title="Data">
+            <p className="mt-0 text-[13px] text-ink-3">Everything here is sample data saved in this browser. Resetting brings back the original sample records.</p>
+            <Btn kind="danger" onClick={resetSampleData}>Reset sample data</Btn>
+          </Card>
+          <Card title="Not built yet">
+            <p className="mb-2.5 mt-0 text-[13px] text-ink-3">Listed so nobody looks for them.</p>
+            <div className="flex flex-wrap gap-1.5">{DEFERRED.map((d) => <span key={d} className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs text-ink-2">{d}</span>)}</div>
+          </Card>
+        </div>
+      </div>
     </>
   );
 }
@@ -261,23 +283,48 @@ function Prefs() {
 function Agency({ A }) {
   const sel = (from, to) => hours(from, to).filter((h) => h % 1 === 0).map((h) => <option key={h} value={h}>{hh(h)}</option>);
   return (
-    <Card className="max-w-[640px]">
-      <h2 className="mb-2.5 mt-0 text-lg font-semibold">Agency</h2>
-      <Sub>Your name and colour show on every screen, the web form and WhatsApp messages.</Sub>
-      <form className="max-w-[520px]" onSubmit={submit(agencySave)}>
-        <TF label="Agency name" name="name" value={A.name} />
-        <TF label="Short name" name="short" value={A.short} />
-        <Grid3>
-          <TF label="Accent colour" name="accent" value={A.accent} type="color" />
-          <Field label="Office opens"><Select name="hstart" defaultValue={A.hours.start}>{sel(6, 12)}</Select></Field>
-          <Field label="Office closes"><Select name="hend" defaultValue={A.hours.end}>{sel(15, 22)}</Select></Field>
-        </Grid3>
-        <TF label="WhatsApp number" name="wa" value={A.wa} />
-        <TF label="Address" name="address" value={A.address} />
-        <Field label="Logo" hint="Upload comes with the real build."><Input type="file" disabled /></Field>
-        <Btn kind="primary" type="submit">Save</Btn>
-      </form>
-    </Card>
+    <>
+      <SecHead title="Agency" sub="Your name and colour show on every screen, the web form and WhatsApp messages." />
+      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] [&>*]:min-w-0">
+        <Card title="Studio details">
+          <form onSubmit={submit(agencySave)}>
+            <div className="grid gap-x-3 sm:grid-cols-2">
+              <TF label="Agency name" name="name" value={A.name} />
+              <TF label="Short name" name="short" value={A.short} />
+              <TF label="WhatsApp number" name="wa" value={A.wa} />
+              <TF label="Address" name="address" value={A.address} />
+              <TF label="Accent colour" name="accent" value={A.accent} type="color" />
+              <Field label="Background colour" hint="Adjusts itself in the dark theme. Pick the default grey to reset.">
+                <Input name="background" type="color" defaultValue={A.background || DEFAULT_BG} />
+              </Field>
+              <div className="grid grid-cols-2 gap-x-3">
+                <Field label="Office opens"><Select name="hstart" defaultValue={A.hours.start}>{sel(6, 12)}</Select></Field>
+                <Field label="Office closes"><Select name="hend" defaultValue={A.hours.end}>{sel(15, 22)}</Select></Field>
+              </div>
+            </div>
+            <Field label="Logo" hint="Upload comes with the real build."><Input type="file" disabled /></Field>
+            <Btn kind="primary" type="submit">Save changes</Btn>
+          </form>
+        </Card>
+        <Card title="How it looks">
+          <div className="overflow-hidden rounded-r3 border border-line" style={{ background: 'var(--ground)' }}>
+            <div className="flex items-center gap-3 bg-accent px-4 py-3 text-accent-ink">
+              <b className="font-serif text-lg uppercase tracking-[0.14em]">{A.short}</b>
+              <span className="text-xs uppercase tracking-[0.1em] opacity-70">Studio</span>
+            </div>
+            <div className="p-4">
+              <p className="m-0 text-xs font-semibold uppercase tracking-[0.1em] text-accent-text">{A.name}</p>
+              <p className="mb-3 mt-1 text-[13px] text-ink-3">{A.address}</p>
+              <span className="inline-flex min-h-9 items-center rounded-r1 bg-accent px-3.5 font-semibold text-accent-ink">Primary button</span>
+            </div>
+          </div>
+          <dl className="mb-0 mt-3 grid grid-cols-2 gap-3 text-[13px]">
+            <div><dt className="text-xs text-ink-3">Office hours</dt><dd className="m-0 font-medium">{hh(A.hours.start)}–{hh(A.hours.end)}</dd></div>
+            <div><dt className="text-xs text-ink-3">WhatsApp</dt><dd className="m-0 font-medium">{A.wa}</dd></div>
+          </dl>
+        </Card>
+      </div>
+    </>
   );
 }
 
@@ -499,82 +546,133 @@ function Approvals() {
   );
 }
 
+const CONN_ICON = { google: 'caleandar', nas: 'folder', whatsapp: 'chat', canva: 'drawing', autocad: 'drawing' };
 function Connections() {
+  const list = svc.connections();
   return (
-    <Card title="Connections">
-      <Sub>Tools the studio already uses. Switching one on shows its actions where the work happens: Meet and Calendar on meetings, Drive and NAS on project Files, WhatsApp on share links and client updates, Canva on the project overview, AutoCAD Web on the drawing index.</Sub>
+    <>
+      <SecHead title="Connections" sub="Tools the studio already uses. Switch one on and its actions show up where the work happens." />
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Connected" value={list.filter((c) => c.on).length} sub={`of ${list.length} tools`} tone="text-ok" />
+        <Stat label="Off" value={list.filter((c) => !c.on).length} sub="not shown in the app" />
+      </div>
       <form onSubmit={connectionsSave}>
-        <div className="flex flex-col gap-1.5">
-          {svc.connections().map((c) => (
-            <div key={c.key} className="flex flex-wrap items-center gap-2.5">
-              <label className="flex items-center gap-1.5"><input type="checkbox" name={'on-' + c.key} defaultChecked={!!c.on} /> <b>{c.name}</b></label>
-              <Input name={'url-' + c.key} placeholder="https://..." defaultValue={c.url || ''} />
-              <span className="text-ink-3">{c.note}</span>
+        <div className="flex flex-col gap-3">
+          {list.map((c) => (
+            <div key={c.key} className="grid items-center gap-x-4 gap-y-2 rounded-r3 border border-line bg-surface px-4 py-3.5 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.5fr)_auto]">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="grid h-10 w-10 flex-none place-items-center rounded-r2 bg-accent-soft text-accent-text"><Icon name={CONN_ICON[c.key] === 'caleandar' ? 'schedule' : CONN_ICON[c.key] || 'folder'} small /></span>
+                <span className="min-w-0"><b className="block">{c.name}</b><small className="text-ink-3">{c.note}</small></span>
+              </div>
+              <Input name={'url-' + c.key} placeholder="https://..." defaultValue={c.url || ''} aria-label={`${c.name} address`} />
+              <label className="flex items-center gap-2.5 text-[13px] font-semibold">
+                <span className="relative inline-flex">
+                  <input type="checkbox" name={'on-' + c.key} defaultChecked={!!c.on} className="peer sr-only" />
+                  <span className="h-6 w-11 rounded-full bg-surface-3 transition peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-surface after:shadow-s1 after:transition peer-checked:after:translate-x-5" />
+                </span>
+                {c.on ? 'On' : 'Off'}
+              </label>
             </div>
           ))}
         </div>
-        <Btn kind="primary" type="submit" className="mt-3">Save</Btn>
+        <Btn kind="primary" type="submit" className="mt-3.5">Save connections</Btn>
       </form>
-    </Card>
+    </>
   );
 }
 
 function Portfolio() {
+  const list = state.db.PORTFOLIO;
+  const pub = list.filter((p) => p.public !== false).length;
   return (
-    <Card title="Portfolio">
-      <Sub>Completed projects shown in the client app&apos;s Studio portfolio.</Sub>
-      <List empty="No portfolio projects yet.">
-        {state.db.PORTFOLIO.map((p) => (
-          <Item key={p.id}>
-            <span className="min-w-0 flex-1"><b>{p.name}</b><br /><small className="text-ink-3">{p.type} · {p.year} · {p.city}</small></span>
-            <Btn sm onClick={() => { svc.togglePortfolio(p.id); render(); }}>{p.public === false ? 'Show in client app' : 'Hide from client app'}</Btn>
-          </Item>
-        ))}
-      </List>
-    </Card>
+    <>
+      <SecHead title="Portfolio" sub="Choose which completed projects clients see in the Studio portfolio.">
+        <DLink to="#/portfolio" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">View client page</DLink>
+      </SecHead>
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Projects" value={list.length} sub="in the portfolio" />
+        <Stat label="Public" value={pub} sub="visible to clients" tone="text-ok" />
+        <Stat label="Hidden" value={list.length - pub} sub="internal only" />
+      </div>
+      {list.length === 0 ? <Empty>No portfolio projects yet.</Empty> : (
+        <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+          {list.map((p) => {
+            const on = p.public !== false;
+            return (
+              <article key={p.id} className="flex flex-col rounded-r3 border border-line bg-surface p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <b className="text-base">{p.name}</b>
+                  <span className={`rounded-full px-2 text-xs font-semibold leading-6 ${on ? 'bg-ok-soft text-ok' : 'bg-surface-2 text-ink-3'}`}>{on ? 'Public' : 'Hidden'}</span>
+                </div>
+                <small className="mt-1 text-ink-3">{p.type} · {p.year} · {p.city}</small>
+                {p.blurb && <p className="mb-0 mt-2 text-[13px] text-ink-2">{p.blurb}</p>}
+                <Btn sm className="mt-3 self-start" onClick={() => { svc.togglePortfolio(p.id); render(); }}>{on ? 'Hide from client app' : 'Show in client app'}</Btn>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }
 
-const SECTIONS = [
-  ['agency', 'Agency'], ['people', 'People and roles'], ['services', 'Service types and routing'], ['resources', 'Rooms'],
-  ['booking', 'Booking'], ['holidays', 'Holidays and trades'], ['gst', 'GST and invoices'], ['approvals', 'Approvals checklist'],
-  ['connections', 'Connections'], ['portfolio', 'Portfolio'], ['prefs', 'Preferences'],
+const GROUPS = [
+  ['Studio', [['agency', 'Agency'], ['people', 'People and roles'], ['services', 'Service types and routing'], ['resources', 'Rooms'], ['booking', 'Booking'], ['holidays', 'Holidays and trades']]],
+  ['Money and approvals', [['gst', 'GST and invoices'], ['approvals', 'Approvals checklist']]],
+  ['Integrations', [['connections', 'Connections'], ['portfolio', 'Portfolio']]],
+  ['You', [['prefs', 'Preferences']]],
 ];
+const SECTIONS = GROUPS.flatMap(([, list]) => list);
+const INTRO = {
+  people: 'Who is on the team and what each role is called.',
+  services: 'What the studio sells and who receives each kind of enquiry.',
+  resources: 'Meeting rooms and the people or equipment you can book.',
+  booking: 'Meeting lengths, buffers and whether clients need approval.',
+  holidays: 'Studio holidays, site shutdowns and trade names used on sites.',
+  gst: 'Tax details printed on every invoice.',
+  approvals: 'What must be checked before each approval is recorded.',
+};
 
 export function SettingsPage({ q }) {
   if (!can('agency', 'w')) {
-    return (<><PageHeader title="Settings" /><Grid2><Prefs /></Grid2></>);
+    return (<><PageHeader title="Settings" sub="Your preferences." /><Prefs /></>);
   }
   const tab = SECTIONS.some(([key]) => key === q.tab) ? q.tab : 'agency';
   const A = svc.cfg();
+  const wrap = (node) => (INTRO[tab] ? <><SecHead title={SECTIONS.find(([k]) => k === tab)[1]} sub={INTRO[tab]} />{node}</> : node);
   const T = {
     agency: <Agency A={A} />,
-    people: <People />,
-    services: <Services />,
-    resources: <Rooms A={A} />,
-    booking: <Booking A={A} />,
-    holidays: <Holidays />,
-    gst: <Gst A={A} />,
-    approvals: <Approvals />,
+    people: wrap(<People />),
+    services: wrap(<Services />),
+    resources: wrap(<Rooms A={A} />),
+    booking: wrap(<Booking A={A} />),
+    holidays: wrap(<Holidays />),
+    gst: wrap(<Gst A={A} />),
+    approvals: wrap(<Approvals />),
     connections: <Connections />,
     portfolio: <Portfolio />,
-    prefs: <Grid2><Prefs /></Grid2>,
+    prefs: <Prefs />,
   };
   return (
     <>
-      <PageHeader title="Settings" sub="Manage your studio and your preferences." />
-      <div className="grid items-start gap-6 max-[620px]:grid-cols-1 min-[621px]:grid-cols-[minmax(150px,210px)_minmax(0,1fr)]">
-        <nav aria-label="Settings sections" className="grid gap-1 max-[620px]:flex max-[620px]:overflow-x-auto min-[621px]:sticky min-[621px]:top-0">
-          {SECTIONS.map(([key, label]) => (
-            <DLink
-              key={key}
-              to={`#/settings?tab=${key}`}
-              aria-current={key === tab ? 'page' : undefined}
-              className={`min-h-10 rounded-md px-3 py-2.5 leading-snug no-underline hover:bg-surface-2 ${key === tab ? 'bg-accent-soft font-semibold text-accent-text' : 'text-ink-2'}`}
-              style={key === tab ? { color: 'var(--accent-text)' } : undefined}
-            >
-              {label}
-            </DLink>
+      <PageHeader title="Settings" sub="Manage your studio, your tools and your preferences." />
+      <div className="grid items-start gap-6 max-[820px]:grid-cols-1 min-[821px]:grid-cols-[230px_minmax(0,1fr)]">
+        <nav aria-label="Settings sections" className="rounded-r3 border border-line bg-surface p-2.5 min-[821px]:sticky min-[821px]:top-0">
+          {GROUPS.map(([group, items]) => (
+            <div key={group} className="mb-2 last:mb-0">
+              <p className="m-0 px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{group}</p>
+              {items.map(([key, label]) => (
+                <DLink
+                  key={key}
+                  to={`#/settings?tab=${key}`}
+                  aria-current={key === tab ? 'page' : undefined}
+                  className={`block min-h-9 rounded-r1 px-2.5 py-2 text-[13.5px] leading-snug no-underline ${key === tab ? 'bg-accent font-semibold' : 'text-ink-2 hover:bg-surface-2'}`}
+                  style={key === tab ? { color: 'var(--accent-ink)' } : undefined}
+                >
+                  {label}
+                </DLink>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="min-w-0">

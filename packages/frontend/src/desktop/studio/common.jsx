@@ -153,3 +153,12 @@ export const SecHead = ({ title, sub, children }) => (
     {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
   </div>
 );
+
+// What a leave window collides with: site-visit bookings and sites the person manages.
+export function leaveClashes(userId, fromISO, toISO) {
+  const from = String(fromISO).slice(0, 10), to = String(toISO).slice(0, 10);
+  const visits = state.db.BOOKINGS.filter((b) => b.status !== 'declined' && (b.attendees || []).includes(userId) && b.date >= from && b.date <= to
+    && (b.purpose === 'site' || /site visit/i.test(b.title || '')));
+  const sites = state.db.SITES.filter((s) => s.managerId === userId);
+  return { visits, sites };
+}

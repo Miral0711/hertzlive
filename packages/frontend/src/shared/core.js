@@ -67,6 +67,26 @@ export function applyAgencyTheme() {
   const t = agencyTheme(state.db?.AGENCY?.accent || AGENCY.accent, dark);
   const tokens = {accent:t.accent, "accent-ink":t.ink, "on-accent":t.ink, "accent-text":t.text, "accent-soft":t.soft, client:t.text, "client-soft":t.soft, sel:t.accent, "sel-ink":t.ink};
   for (const [key, value] of Object.entries(tokens)) document.documentElement.style.setProperty("--" + key, value);
+  // One background colour chosen in Settings; the dark theme gets an automatically darkened version of it.
+  const bg = state.db?.AGENCY?.background;
+  const shown = bg && /^#[0-9a-f]{6}$/i.test(bg) ? (dark ? darkenBackground(bg) : bg) : "";
+  for (const k of ["ground", "chat"]) {
+    if (shown) document.documentElement.style.setProperty("--" + k, shown);
+    else document.documentElement.style.removeProperty("--" + k);
+  }
+}
+// Keep the hue of the chosen colour, but make it a deep, low-saturation ground that suits dark surfaces.
+export function darkenBackground(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = Math.round(((h * 60) + 360) % 360);
+  const l0 = (max + min) / 2;
+  const s0 = d ? d / (1 - Math.abs(2 * l0 - 1)) : 0;
+  const s = Math.min(s0, 0.4), l = 0.11;
+  const f = (n) => { const k = (n + h / 30) % 12; const a = s * Math.min(l, 1 - l); return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+  return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
 }
 
 export const inr = (n) =>
@@ -1546,6 +1566,20 @@ export const svc = {
     return hol ? [...leave, { userId: null, why: hol.name }] : leave;
   },
   // Leave approval hands open tasks in the window to a stand-in. Audit row per task; nothing silent.
+  // Move a person's open tasks that fall due inside a leave window to a stand-in (emergency replacement).
+  reassignTasks(fromId, toId, from, to, note = "") {
+    if (!can("leave", "a")) throw new Error("forbidden");
+    if (!user(toId)) throw new Error("not found");
+    const moved = state.db.TASKS.filter((t) => t.owner === fromId && t.status === "open" && t.due && t.due >= from && t.due <= to);
+    moved.forEach((t) => {
+      t.prevOwner = t.owner;
+      t.owner = toId;
+      t.handover = note;
+    });
+    this.log(`${moved.length} task${moved.length === 1 ? "" : "s"} reassigned · ${user(fromId).name} → ${user(toId).name} while on leave`, "Leave " + from);
+    persist();
+    return moved;
+  },
   reassignForLeave(leaveId, toUserId, note = "") {
     if (!can("leave", "a")) throw new Error("forbidden");
     const l = state.db.LEAVES.find((x) => x.id === leaveId);

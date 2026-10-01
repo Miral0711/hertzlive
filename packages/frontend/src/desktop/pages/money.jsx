@@ -6,7 +6,7 @@ import { TODAY } from '../../shared/data.js';
 import { FEES, FEE_STAGES, HOURLY } from '../../shared/data2.js';
 import { seedFilings } from '../../shared/filing.js';
 import {
-  Btn, Card, Grid2, Row, Kpi, Kpis, PageHeader, Empty, Tabs, Field, Input, Select, Textarea,
+  Btn, Card, Grid2, Row, PageHeader, Empty, Tabs, Field, Input, Select, Textarea,
   DataTable, StatusPill, Pill, Item,
 } from '../../ui/ui';
 import { DLink, href } from '../nav';
@@ -14,6 +14,8 @@ import { P, V, days, first, role } from '../helpers';
 import { PROPOSALS, msFor, INVOICE_MS } from '../data';
 import Modal, { ModalActions } from '../Modal';
 import { openDialog, closeDialog, formData } from '../session';
+import { Stat, SecHead } from '../studio/common';
+import { useState } from 'react';
 
 const mono = (s) => <span className="font-mono">{s}</span>;
 
@@ -41,23 +43,29 @@ function deliveryFacts(g) {
 function CashChart() {
   const rows = monthsBack(6).map(cashRow);
   const max = Math.max(1, ...rows.flatMap((r) => [r.planned, r.got]));
-  const h = (v) => Math.round((v / max) * 100);
+  const h = (v) => Math.max(2, Math.round((v / max) * 100));
+  const totalGot = rows.reduce((a, r) => a + r.got, 0);
+  const totalDue = rows.reduce((a, r) => a + r.planned, 0);
   return (
     <Card title="Cash in vs due, last 6 months">
-      <div role="img" aria-label="Cash received against invoices due, by month" className="flex h-40 items-end gap-3">
+      <div className="mb-3 flex flex-wrap gap-6 text-[13px]">
+        <span><b className="block text-xl font-semibold text-accent-text">{inr(totalGot)}</b><span className="text-ink-3">received</span></span>
+        <span><b className="block text-xl font-semibold">{inr(totalDue)}</b><span className="text-ink-3">due by invoice date</span></span>
+      </div>
+      <div role="img" aria-label="Cash received against invoices due, by month" className="flex h-44 items-end gap-3 border-b border-line">
         {rows.map((r) => (
-          <div key={r.mo} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-            <div className="flex h-full w-full items-end justify-center gap-1">
-              <i className="block w-3 rounded-t bg-secondary-soft" style={{ height: `${h(r.planned)}%` }} title={`Due ${inr(r.planned)}`} />
-              <i className="block w-3 rounded-t bg-accent" style={{ height: `${h(r.got)}%` }} title={`Received ${inr(r.got)}`} />
+          <div key={r.mo} className="flex h-full flex-1 flex-col items-center justify-end">
+            <div className="flex h-full w-full items-end justify-center gap-1.5">
+              <i className="block w-4 rounded-t bg-surface-3" style={{ height: `${r.planned ? h(r.planned) : 0}%` }} title={`Due ${inr(r.planned)}`} />
+              <i className="block w-4 rounded-t bg-accent" style={{ height: `${r.got ? h(r.got) : 0}%` }} title={`Received ${inr(r.got)}`} />
             </div>
-            <span className="text-xs text-ink-3">{r.label}</span>
           </div>
         ))}
       </div>
-      <p className="mb-0 mt-2 text-[13px] text-ink-3">
-        <i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-secondary-soft" /> Due by invoice date{' '}
-        <i className="ml-2 mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-accent" /> Received
+      <div className="mt-1.5 flex gap-3">{rows.map((r) => <span key={r.mo} className="flex-1 text-center text-xs text-ink-3">{r.label}</span>)}</div>
+      <p className="mb-0 mt-3 text-[13px] text-ink-3">
+        <i className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-surface-3" /> Due by invoice date{' '}
+        <i className="ml-3 mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-accent" /> Received
       </p>
     </Card>
   );
@@ -107,18 +115,28 @@ async function nudgeLang(d, lang) {
 // ---------- money page ----------
 function ClientMoney() {
   const inv = state.db.INVOICES.filter((i) => svc.myProjectIds().includes(i.projectId));
+  const open = inv.filter((i) => i.status !== 'paid');
+  const next = open.slice().sort((a, b) => a.due.localeCompare(b.due))[0];
   return (
     <>
-      <PageHeader title="Invoices" />
+      <PageHeader title="Invoices" sub="Your invoices for this project. Mark one as paid once you have paid it." />
+      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="To pay" value={inr(open.reduce((a, i) => a + i.amount, 0))} sub={`${open.length} invoice${open.length === 1 ? '' : 's'}`} tone={open.length ? 'text-warn' : 'text-ok'} />
+        <Stat label="Paid" value={inr(inv.filter((i) => i.status === 'paid').reduce((a, i) => a + i.amount, 0))} sub="so far" tone="text-ok" />
+        <Stat label="Next due" value={next ? fmtD(next.due) : '—'} sub={next ? next.no : 'nothing outstanding'} />
+        <Stat label="All invoices" value={inv.length} sub="on your projects" />
+      </div>
       <Card>
-        <DataTable
-          cols={['Invoice', 'Stage', '₹Amount', 'Issued', 'Due', 'Status', '']}
-          rows={inv.map((i) => [
-            mono(i.no), FEE_STAGES[i.stage].name, inr(i.amount), fmtD(i.issued), fmtD(i.due),
-            <StatusPill key="s" status={i.status} />,
-            i.status !== 'paid' ? <Btn key="b" sm kind="primary" onClick={() => pay(i.id)}>Mark as paid</Btn> : '',
-          ])}
-        />
+        {inv.length === 0 ? <div className="rounded-r2 bg-surface-2 px-4 py-9 text-center"><b className="block">No invoices yet</b><span className="text-[13px] text-ink-3">Invoices appear here when the studio raises them.</span></div> : (
+          <DataTable
+            cols={['Invoice', 'Stage', '₹Amount', 'Issued', 'Due', 'Status', '']}
+            rows={inv.map((i) => [
+              mono(i.no), FEE_STAGES[i.stage].name, inr(i.amount), fmtD(i.issued), fmtD(i.due),
+              <StatusPill key="s" status={i.status} />,
+              i.status !== 'paid' ? <Btn key="b" sm kind="primary" onClick={() => pay(i.id)}>Mark as paid</Btn> : '',
+            ])}
+          />
+        )}
       </Card>
     </>
   );
@@ -127,41 +145,39 @@ function ClientMoney() {
 function Dashboard({ unpaid, wip }) {
   const age = (i) => days(i.due, TODAY);
   const buckets = [
-    ['Not due', (i) => age(i) <= 0],
-    ['1 to 30 days', (i) => age(i) > 0 && age(i) <= 30],
-    ['31 to 60 days', (i) => age(i) > 30 && age(i) <= 60],
-    ['Over 60 days', (i) => age(i) > 60],
+    ['Not due', (i) => age(i) <= 0, 'bg-secondary'],
+    ['1 to 30 days', (i) => age(i) > 0 && age(i) <= 30, 'bg-warn'],
+    ['31 to 60 days', (i) => age(i) > 30 && age(i) <= 60, 'bg-warn'],
+    ['Over 60 days', (i) => age(i) > 60, 'bg-crit'],
   ];
   const late = unpaid.filter((i) => age(i) > 0);
   const receivable = unpaid.reduce((a, i) => a + i.amount, 0);
   const overdueAmt = late.reduce((a, i) => a + i.amount, 0);
-  const notDueAmt = receivable - overdueAmt;
-  const overduePct = receivable ? Math.round((overdueAmt / receivable) * 100) : 0;
+  const fees = Object.values(FEES).reduce((a, b) => a + b, 0);
+  const wipTotal = wip.reduce((a, w) => a + w.wip, 0);
+  const margin = wip.length ? Math.round(wip.reduce((a, w) => a + w.margin, 0) / wip.length) : 0;
+  const bucketRows = buckets.map(([l, f, c]) => { const rows = unpaid.filter(f); return { l, c, n: rows.length, amt: rows.reduce((a, i) => a + i.amount, 0) }; });
+  const maxAmt = Math.max(1, ...bucketRows.map((b) => b.amt));
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-6 border-b border-line pb-6">
-        <div>
-          <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-ink-3">Receivable</p>
-          <p className="m-0 text-[42px] font-semibold leading-none tracking-tight">{inr(receivable)}</p>
-        </div>
-        <div className="min-w-[240px] max-w-[420px] flex-1">
-          <div className="flex h-2.5 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${overduePct}% of the receivable is overdue`}>
-            {overdueAmt > 0 && <span className="h-full bg-crit" style={{ width: `${overduePct}%` }} />}
-            {notDueAmt > 0 && <span className="h-full bg-secondary" style={{ width: `${100 - overduePct}%` }} />}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-3">
-            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-crit align-middle" />Overdue · {inr(overdueAmt)}</span>
-            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-secondary align-middle" />Not yet due · {inr(notDueAmt)}</span>
-          </div>
-        </div>
+      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Fees under contract" value={inr(fees)} sub={`${wip.length} projects`} />
+        <Stat label="Receivable" value={inr(receivable)} sub={overdueAmt ? `${inr(overdueAmt)} overdue` : 'nothing overdue'} tone={overdueAmt ? 'text-crit' : 'text-ok'} />
+        <Stat label="Work in progress" value={inr(wipTotal)} sub="earned, not yet billed" />
+        <Stat label="Studio margin" value={`${margin}%`} sub="average across projects" tone={margin < 40 ? 'text-warn' : 'text-ok'} />
       </div>
-      <Kpis>
-        <Kpi label="Fees under contract" value={inr(Object.values(FEES).reduce((a, b) => a + b, 0))} />
-        <Kpi label="Work in progress" value={inr(wip.reduce((a, w) => a + w.wip, 0))} />
-        <Kpi label="Studio margin" value={Math.round(wip.reduce((a, w) => a + w.margin, 0) / wip.length) + '%'} />
-        <Kpi label="Invoices outstanding" value={unpaid.length} />
-      </Kpis>
-      <Grid2>
+      <div className="mb-3.5 grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
+        <CashChart />
+        <Card title="Receivables ageing">
+          {bucketRows.map((b) => (
+            <div key={b.l} className="border-t border-line py-2.5 first:border-t-0 first:pt-0">
+              <div className="flex items-baseline justify-between gap-2"><b>{b.l}</b><span className="text-[13px] text-ink-2">{inr(b.amt)} <span className="text-ink-3">· {b.n} invoice{b.n === 1 ? '' : 's'}</span></span></div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-2"><i className={`block h-full rounded-full ${b.c}`} style={{ width: `${b.amt ? Math.max(4, (b.amt / maxAmt) * 100) : 0}%` }} /></div>
+            </div>
+          ))}
+        </Card>
+      </div>
+      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title="Profitability by project">
           <DataTable
             cols={['Project', '₹Fee', '₹Team cost', 'Margin', '₹Unbilled work']}
@@ -173,144 +189,183 @@ function Dashboard({ unpaid, wip }) {
           />
           <p className="mb-0 mt-2 text-[13px] text-ink-3">Team cost is hours logged times hourly rate, scaled to the month.</p>
         </Card>
-        <CashChart />
-        <Card title="Receivables ageing">
-          <DataTable
-            cols={['Bucket', 'Invoices', '₹Amount']}
-            rows={buckets.map(([l, f]) => {
-              const rows = unpaid.filter(f);
-              return [l, rows.length, inr(rows.reduce((a, i) => a + i.amount, 0))];
-            })}
-          />
-          <h2 className="mb-2.5 mt-4 text-lg font-semibold">Chase list</h2>
+        <Card title={`Chase list${late.length ? ` · ${late.length}` : ''}`}>
           <div className="flex flex-col gap-1.5">
             {late.map((i) => (
               <Item key={i.id}>
-                <span className="grow"><b>{P(i.projectId).name}</b> {i.no} · {inr(i.amount)} · {age(i)} days late</span>
+                <span className="min-w-0 grow"><b className="block truncate">{P(i.projectId).name}</b><small className="text-ink-3">{i.no} · {inr(i.amount)} · {age(i)} days late</small></span>
                 <Btn sm onClick={() => chase(i.id)}>Send reminder</Btn>
               </Item>
             ))}
             {!late.length && <Empty>Nothing overdue.</Empty>}
           </div>
         </Card>
-      </Grid2>
+      </div>
     </>
   );
 }
 
 function Invoices({ inv }) {
   const A = state.db.AGENCY;
+  const [f, setF] = useState('all');
+  const isLate = (i) => i.status === 'overdue' || (i.status === 'sent' && i.due < TODAY);
+  const shown = inv.filter((i) => f === 'all' || (f === 'overdue' && isLate(i)) || (f === 'unpaid' && i.status !== 'paid') || (f === 'paid' && i.status === 'paid'));
+  const unpaidAmt = inv.filter((i) => i.status !== 'paid').reduce((a, i) => a + i.amount, 0);
+  const lateAmt = inv.filter(isLate).reduce((a, i) => a + i.amount, 0);
+  const paidAmt = inv.filter((i) => i.status === 'paid').reduce((a, i) => a + i.amount, 0);
+  const chip = (on) => `inline-flex min-h-8 items-center rounded-full border px-3 text-[13px] font-semibold ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`;
   return (
-    <Card>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-lg font-semibold">Invoices</h2>
-        <Btn sm onClick={() => tallyCopy()}>Copy all for Tally</Btn>
+    <>
+      <SecHead title="Invoices" sub={`GST 18% on ${svc.cfg().name} fees, SAC ${A.sac || '9983'}. Same state bills CGST + SGST, other states IGST. Open an invoice for the split.`}>
+        <Btn onClick={() => tallyCopy()}>Copy all for Tally</Btn>
+        <Btn kind="primary" icon="plus" onClick={() => openDialog({ kind: 'raise-invoice' })}>Raise invoice</Btn>
+      </SecHead>
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Outstanding" value={inr(unpaidAmt)} sub={`${inv.filter((i) => i.status !== 'paid').length} invoices`} />
+        <Stat label="Overdue" value={inr(lateAmt)} sub={`${inv.filter(isLate).length} to nudge`} tone={lateAmt ? 'text-crit' : 'text-ok'} />
+        <Stat label="Paid" value={inr(paidAmt)} sub="received" tone="text-ok" />
+        <Stat label="All invoices" value={inv.length} sub="raised so far" />
       </div>
-      <p className="mb-3 mt-0 text-ink-3">
-        GST 18% on {svc.cfg().name} fees, SAC {A.sac || '9983'}. Same state as the studio bills CGST + SGST, other states IGST. Open an invoice for the split.
-      </p>
-      <DataTable
-        cols={['Invoice', 'Project', 'Stage', '₹Amount', 'Issued', 'Due', 'Paid', 'Status', 'Milestone', '']}
-        rows={inv.map((i) => {
-          const ms = msFor(i);
-          const mss = P(i.projectId).milestones || [];
-          const overdue = state.role === 'partner' && (i.status === 'overdue' || (i.status === 'sent' && i.due < TODAY));
-          return [
-            mono(i.no), P(i.projectId).name, FEE_STAGES[i.stage].name, inr(i.amount), fmtD(i.issued), fmtD(i.due),
-            i.paid ? fmtD(i.paid) : '—',
-            <StatusPill key="s" status={i.status} />,
-            mss.length ? (
-              <Select
-                key="m"
-                aria-label={`Milestone for ${i.no}`}
-                value={ms ? ms.id : ''}
-                onChange={(e) => { INVOICE_MS[i.id] = e.target.value; toast('Linked to milestone.'); }}
-              >
-                {mss.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </Select>
-            ) : '—',
-            <Row key="a" className="!gap-1.5">
-              <Btn sm onClick={() => openDialog({ kind: 'invoice', invId: i.id })}>Open</Btn>
-              {i.status !== 'paid' && <Btn sm onClick={() => pay(i.id)}>Record payment</Btn>}
-              {i.status !== 'paid' && overdue && <Btn sm onClick={() => invoiceNudge(i.id)}>Draft nudge</Btn>}
-            </Row>,
-          ];
-        })}
-      />
-    </Card>
+      <Card>
+        <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter invoices">
+          {[['all', 'All'], ['unpaid', 'Unpaid'], ['overdue', 'Overdue'], ['paid', 'Paid']].map(([k, l]) => <button key={k} type="button" aria-pressed={f === k} className={chip(f === k)} onClick={() => setF(k)}>{l}</button>)}
+        </div>
+        <DataTable
+          cols={['Invoice', 'Project', '₹Amount', 'Due', 'Status', 'Milestone', '']}
+          rows={shown.map((i) => {
+            const ms = msFor(i);
+            const mss = P(i.projectId).milestones || [];
+            const overdue = state.role === 'partner' && isLate(i);
+            return [
+              mono(i.no),
+              <span key="p"><b className="block font-medium">{P(i.projectId).name}</b><small className="text-ink-3">{FEE_STAGES[i.stage].name} · issued {fmtD(i.issued)}</small></span>,
+              inr(i.amount),
+              <span key="d">{fmtD(i.due)}{i.paid && <small className="block text-ink-3">paid {fmtD(i.paid)}</small>}</span>,
+              <StatusPill key="s" status={i.status} />,
+              mss.length ? (
+                <Select
+                  key="m"
+                  aria-label={`Milestone for ${i.no}`}
+                  value={ms ? ms.id : ''}
+                  onChange={(e) => { INVOICE_MS[i.id] = e.target.value; toast('Linked to milestone.'); }}
+                >
+                  {mss.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </Select>
+              ) : '—',
+              <Row key="a" className="!flex-wrap !gap-1.5">
+                <Btn sm onClick={() => openDialog({ kind: 'invoice', invId: i.id })}>GST split</Btn>
+                {i.status !== 'paid' && <Btn sm onClick={() => pay(i.id)}>Record payment</Btn>}
+                {i.status !== 'paid' && overdue && <Btn sm onClick={() => invoiceNudge(i.id)}>Draft nudge</Btn>}
+              </Row>,
+            ];
+          })}
+        />
+      </Card>
+    </>
   );
 }
 
 function Changes() {
+  const cs = state.db.CHANGES;
+  const total = cs.reduce((a, c) => a + c.cost, 0);
+  const signed = cs.filter((c) => c.signedAt);
   return (
-    <Card title="Change orders, all projects">
-      <DataTable
-        cols={['Project', 'No', 'Change', '₹Cost', 'Days', 'Status', 'Signed']}
-        rows={state.db.CHANGES.map((c) => [
-          P(c.projectId).name, c.no, c.title, inr(c.cost), c.days,
-          <StatusPill key="s" status={c.status} />, c.signedAt ? fmtD(c.signedAt) : '—',
-        ])}
-      />
-    </Card>
+    <>
+      <SecHead title="Change orders" sub="Scope changes across all projects, with cost, time and signature status." />
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Change orders" value={cs.length} sub="all projects" />
+        <Stat label="Total value" value={inr(total)} sub="added to fees" />
+        <Stat label="Signed" value={signed.length} sub={inr(signed.reduce((a, c) => a + c.cost, 0))} tone="text-ok" />
+        <Stat label="Awaiting signature" value={cs.length - signed.length} sub="with the client" tone={cs.length - signed.length ? 'text-warn' : ''} />
+      </div>
+      <Card>
+        <DataTable
+          cols={['Project', 'No', 'Change', '₹Cost', 'Days', 'Status', 'Signed']}
+          rows={cs.map((c) => [
+            P(c.projectId).name, c.no, c.title, inr(c.cost), c.days,
+            <StatusPill key="s" status={c.status} />, c.signedAt ? fmtD(c.signedAt) : '—',
+          ])}
+        />
+      </Card>
+    </>
   );
 }
 
 function Proposals() {
   const decided = PROPOSALS.filter((p) => ['won', 'lost'].includes(p.status)).length;
   const won = PROPOSALS.filter((p) => p.status === 'won').length;
-  const send = (p) => { p.status = 'sent'; p.at = TODAY; persist(); toast('Sent for signature.'); };
+  const pipeline = PROPOSALS.filter((p) => ['draft', 'sent'].includes(p.status));
+  const send = (p) => { p.status = 'sent'; p.at = TODAY; persist(); toast('Sent for signature.'); render(); };
   return (
-    <Card>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-lg font-semibold">Proposals</h2>
-        <Btn kind="primary" onClick={() => openDialog({ kind: 'estimate' })}>Estimate a fee</Btn>
+    <>
+      <SecHead title="Proposals and fees" sub="Estimate a fee, send it for signature and turn a signed proposal into a project.">
+        <Btn kind="primary" icon="plus" onClick={() => openDialog({ kind: 'estimate' })}>Estimate a fee</Btn>
+      </SecHead>
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Pipeline" value={inr(pipeline.reduce((a, p) => a + p.fee, 0))} sub={`${pipeline.length} draft or sent`} />
+        <Stat label="Signed" value={PROPOSALS.filter((p) => p.status === 'signed').length} sub="ready for a project" tone="text-ok" />
+        <Stat label="Win rate" value={decided ? `${Math.round((won / decided) * 100)}%` : '—'} sub="this year" />
+        <Stat label="All proposals" value={PROPOSALS.length} sub="on record" />
       </div>
-      <DataTable
-        cols={['Client', 'Kind', 'Area', '₹Fee', 'Basis', 'Owner', 'Sent', 'Status', '']}
-        rows={PROPOSALS.map((p) => [
-          p.client, p.kind, p.area, inr(p.fee), p.basis, first(p.owner), fmtD(p.at),
-          <StatusPill key="s" status={p.status} />,
-          p.status === 'draft' ? (
-            <Btn key="a" sm kind="primary" onClick={() => send(p)}>Send for signature</Btn>
-          ) : p.status === 'sent' ? (
-            <DLink key="a" to={`#/sign/proposal/${p.id}`}>Open to sign</DLink>
-          ) : p.status === 'signed' ? (
-            <Row key="a">
-              <DLink to={`#/sign/proposal/${p.id}`}>View signed</DLink>
-              {!p.projectId && (
-                <Btn sm onClick={() => openDialog({ kind: 'template', name: p.client, tkind: 'Project' })}>Create project</Btn>
-              )}
-            </Row>
-          ) : '',
-        ])}
-      />
       {state.desk.estimate && (
-        <div className="mt-3 whitespace-pre-line rounded-r1 bg-accent-soft px-3.5 py-2.5 text-accent-text">{state.desk.estimate}</div>
+        <div className="mb-3.5 whitespace-pre-line rounded-r3 bg-accent-soft px-4 py-3 text-accent-text">{state.desk.estimate}</div>
       )}
-      <p className="mb-0 mt-3 text-[13px] text-ink-3">Win rate this year: {Math.round((won / decided) * 100)}%.</p>
-    </Card>
+      <Card>
+        <DataTable
+          cols={['Client', 'Kind', 'Area', '₹Fee', 'Basis', 'Owner', 'Sent', 'Status', '']}
+          rows={PROPOSALS.map((p) => [
+            p.client, p.kind, p.area, inr(p.fee), p.basis, first(p.owner), fmtD(p.at),
+            <StatusPill key="s" status={p.status} />,
+            p.status === 'draft' ? (
+              <Btn key="a" sm kind="primary" onClick={() => send(p)}>Send for signature</Btn>
+            ) : p.status === 'sent' ? (
+              <DLink key="a" to={`#/sign/proposal/${p.id}`}>Open to sign</DLink>
+            ) : p.status === 'signed' ? (
+              <Row key="a">
+                <DLink to={`#/sign/proposal/${p.id}`}>View signed</DLink>
+                {!p.projectId && (
+                  <Btn sm onClick={() => openDialog({ kind: 'template', name: p.client, tkind: 'Project' })}>Create project</Btn>
+                )}
+              </Row>
+            ) : '',
+          ])}
+        />
+      </Card>
+    </>
   );
 }
 
 function Expenses() {
+  const es = state.db.EXPENSES;
+  const sum = (f) => es.filter(f).reduce((a, e) => a + e.amount, 0);
   return (
-    <Card title="Expenses by project">
-      <DataTable
-        cols={['Project', 'Claims', '₹Total', 'From site cash', 'Site cash left', 'Pending']}
-        rows={svc.projects().map((p) => {
-          const es = state.db.EXPENSES.filter((e) => e.projectId === p.id);
-          const site = state.db.SITES.find((x) => x.projectId === p.id);
-          const pc = site ? svc.pettyCash(site.id) : null;
-          return [
-            p.name, es.length, inr(es.reduce((a, e) => a + e.amount, 0)),
-            inr(es.filter((e) => e.paidBy === 'cash').reduce((a, e) => a + e.amount, 0)),
-            pc ? <span key="c">{inr(pc.left)} <small className="text-ink-3">of {inr(pc.float)}</small></span> : '—',
-            es.filter((e) => e.status === 'pending').length,
-          ];
-        })}
-      />
-      <p className="mb-0 mt-3"><DLink to="#/people?tab=expenses">Approve claims under People</DLink></p>
-    </Card>
+    <>
+      <SecHead title="Expenses by project" sub="Claims and site cash per project. Approving claims happens under People.">
+        <DLink to="#/people?tab=expenses" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">Approve claims</DLink>
+      </SecHead>
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <Stat label="Total claimed" value={inr(sum(() => true))} sub={`${es.length} claims`} />
+        <Stat label="Pending" value={inr(sum((e) => e.status === 'pending'))} sub={`${es.filter((e) => e.status === 'pending').length} to approve`} tone={es.some((e) => e.status === 'pending') ? 'text-warn' : ''} />
+        <Stat label="From site cash" value={inr(sum((e) => e.paidBy === 'cash'))} sub="paid in cash on site" />
+        <Stat label="Projects" value={svc.projects().length} sub="with claims" />
+      </div>
+      <Card>
+        <DataTable
+          cols={['Project', 'Claims', '₹Total', 'From site cash', 'Site cash left', 'Pending']}
+          rows={svc.projects().map((p) => {
+            const pe = es.filter((e) => e.projectId === p.id);
+            const site = state.db.SITES.find((x) => x.projectId === p.id);
+            const pc = site ? svc.pettyCash(site.id) : null;
+            return [
+              p.name, pe.length, inr(pe.reduce((a, e) => a + e.amount, 0)),
+              inr(pe.filter((e) => e.paidBy === 'cash').reduce((a, e) => a + e.amount, 0)),
+              pc ? <span key="c">{inr(pc.left)} <small className="text-ink-3">of {inr(pc.float)}</small></span> : '—',
+              pe.filter((e) => e.status === 'pending').length,
+            ];
+          })}
+        />
+      </Card>
+    </>
   );
 }
 
@@ -446,6 +501,7 @@ function Sign({ parts }) {
   if (kind !== 'proposal') return <Empty>Nothing here.</Empty>;
   const p = PROPOSALS.find((x) => x.id === id);
   if (!p) return <Empty>Proposal not found.</Empty>;
+  const A = state.db.AGENCY;
   const submit = (e) => {
     e.preventDefault();
     const f = formData(e.currentTarget);
@@ -456,17 +512,37 @@ function Sign({ parts }) {
     toast('Signed. The studio has been told.');
     go('#/money?tab=proposals');
   };
+  const gst = Math.round(p.fee * 0.18);
   return (
-    <>
-      <PageHeader title="Sign proposal" />
-      <Card className="max-w-[640px]" title={`${p.client} · ${p.kind}`}>
-        <Grid2>
-          <div className="rounded-r2 bg-surface-2 p-3"><div className="text-xl font-bold">{p.area}</div><div className="text-[13px] text-ink-3">Built-up area</div></div>
-          <div className="rounded-r2 bg-surface-2 p-3"><div className="text-xl font-bold">{inr(p.fee)}</div><div className="text-[13px] text-ink-3">Fee, {p.basis}</div></div>
-        </Grid2>
-        <p className="my-3 rounded-r1 bg-accent-soft px-3.5 py-2.5 text-accent-text">
-          Fee by stage: {FEE_STAGES.map((s) => `${s.name} ${inr(Math.round((p.fee * s.pct) / 100))}`).join(', ')}.
-        </p>
+    <div className="mx-auto max-w-[760px]">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-accent-text">{A.name}</p>
+          <h1 className="m-0 mt-1 text-[30px] font-semibold leading-tight tracking-tight">Proposal for {p.client}</h1>
+          <p className="m-0 mt-1 text-[13px] text-ink-3">{p.kind} · prepared by {first(p.owner)} · {fmtD(p.at)}</p>
+        </div>
+        <StatusPill status={p.status} />
+      </div>
+      <div className="mb-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+        <Stat label="Built-up area" value={p.area} sub="as discussed" />
+        <Stat label="Professional fee" value={inr(p.fee)} sub={p.basis} />
+        <Stat label="GST 18%" value={inr(gst)} sub={`Total ${inr(p.fee + gst)}`} />
+      </div>
+      <Card title="Fee by stage" className="mb-3.5">
+        <DataTable
+          cols={['Stage', 'Share', '₹Amount']}
+          rows={FEE_STAGES.map((st) => [st.name, `${st.pct}%`, inr(Math.round((p.fee * st.pct) / 100))])}
+        />
+        <p className="mb-0 mt-3 text-[13px] text-ink-3">Each stage is invoiced when its milestone is reached. Invoices are due 15 days from issue.</p>
+      </Card>
+      <Card title="Terms" className="mb-3.5">
+        <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-ink-2">
+          <li>Fee covers design, drawings and site coordination as listed for {p.kind.toLowerCase()}.</li>
+          <li>Changes to scope are raised as change orders and signed before work starts.</li>
+          <li>GST at 18% is added to every invoice.</li>
+        </ul>
+      </Card>
+      <Card title="Accept and sign">
         {p.status === 'signed' ? (
           <Pill kind="ok">Signed by {p.signedBy} · {fmtDT(p.signedAt)}</Pill>
         ) : (
@@ -474,11 +550,12 @@ function Sign({ parts }) {
             <Field label="Type your full name to sign">
               <Input name="name" required placeholder={p.client} />
             </Field>
-            <div className="flex justify-end"><Btn kind="primary" type="submit">Sign and accept</Btn></div>
+            <p className="mb-3 mt-0 text-[13px] text-ink-3">By signing you accept this proposal and the fee schedule above.</p>
+            <Btn kind="primary" type="submit" className="!min-h-11 !px-6">Sign and accept</Btn>
           </form>
         )}
       </Card>
-    </>
+    </div>
   );
 }
 
@@ -633,6 +710,45 @@ function InvoiceDialog({ d }) {
   );
 }
 
+function RaiseInvoiceDialog() {
+  const projects = svc.projects().filter((p) => FEES[p.id]);
+  const save = (e) => {
+    e.preventDefault();
+    const p = formData(e.currentTarget);
+    const pr = P(p.projectId);
+    const st = +p.stage;
+    state.db.INVOICES.push({
+      id: uid(), projectId: pr.id, no: 'HA/26-27/0' + (34 + state.db.INVOICES.length - 6), stage: st,
+      amount: Math.round((FEES[pr.id] * FEE_STAGES[st].pct) / 100), status: 'sent', issued: TODAY, due: p.due || '2026-09-24', paid: null,
+    });
+    svc.log('Invoice raised · ' + pr.name, 'Project ' + pr.id);
+    persist();
+    state.desk.dialog = null;
+    toast('Invoice raised.');
+    render();
+  };
+  return (
+    <Modal title="Raise invoice">
+      <form onSubmit={save}>
+        <Field label="Project">
+          <Select name="projectId" required defaultValue="">
+            <option value="" disabled>Choose a project</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Fee stage">
+          <Select name="stage" defaultValue="0">
+            {FEE_STAGES.map((st, i) => <option key={st.name} value={i}>{st.name} · {st.pct}%</option>)}
+          </Select>
+        </Field>
+        <Field label="Due date"><Input type="date" name="due" defaultValue="2026-09-24" /></Field>
+        <p className="mt-0 text-[13px] text-ink-3">The amount is the stage share of the project fee. GST is split on the invoice.</p>
+        <ModalActions><Btn onClick={closeDialog}>Cancel</Btn><Btn kind="primary" type="submit">Raise invoice</Btn></ModalActions>
+      </form>
+    </Modal>
+  );
+}
+
 function NudgeDialog({ d }) {
   const inv = state.db.INVOICES.find((x) => x.id === d.invId);
   const send = (e) => {
@@ -681,4 +797,5 @@ export const dialogs = {
   'raise-vendor': RaiseVendorDialog,
   invoice: InvoiceDialog,
   'invoice-nudge': NudgeDialog,
+  'raise-invoice': RaiseInvoiceDialog,
 };
