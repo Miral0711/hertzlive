@@ -96,7 +96,7 @@ export function DeliveryWorkspace({ s: site, q }) {
   return (
     <>
       <section className="mb-3.5">
-        <SectionHead title="Deliveries" sub={`${shortN} short deliveries · select a record to review its evidence.`}>
+        <SectionHead title="Deliveries" sub={`${shortN} short deliver${shortN === 1 ? 'y' : 'ies'} · select a record to review its evidence.`}>
           <FilterLink to={workHref(site, 'deliveries', 'all')} on={filter === 'all'}>All ({all.length})</FilterLink>
           <FilterLink to={workHref(site, 'deliveries', 'short')} on={filter === 'short'}>Short ({shortN})</FilterLink>
         </SectionHead>

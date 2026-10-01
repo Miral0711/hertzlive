@@ -52,7 +52,7 @@ export default function Enquiries({ q }) {
   const open = (id) => openDialog({ kind: 'enquiry', id });
   return (
     <>
-      <PageHeader title="Enquiries">
+      <PageHeader title="Enquiries" sub="New leads from every channel, ready to review, assign or decide.">
         {can('enquiry', 'w') && <Btn onClick={() => { state.desk.enqForm = !state.desk.enqForm; render(); }}>Add phone enquiry</Btn>}
         <DLink to="#/settings?tab=services" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-ink no-underline hover:bg-surface-2">Routing rules</DLink>
       </PageHeader>

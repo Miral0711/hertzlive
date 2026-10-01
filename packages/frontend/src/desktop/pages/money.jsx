@@ -319,7 +319,7 @@ function Money({ q }) {
   if (!can('budget', 'r', role())) {
     return (
       <>
-        <PageHeader title="Money" />
+        <PageHeader title="Money" sub="Receivables, invoices, change orders, fees and expenses." />
         <Empty>Money figures are for partners. Your expense claims are under People.</Empty>
       </>
     );
@@ -346,7 +346,7 @@ function Money({ q }) {
   };
   return (
     <>
-      <PageHeader title="Money" />
+      <PageHeader title="Money" sub="Receivables, invoices, change orders, fees and expenses." />
       <Tabs
         base={href('#/money')}
         current={tab}

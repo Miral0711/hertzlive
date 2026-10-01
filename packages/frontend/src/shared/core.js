@@ -571,6 +571,36 @@ export const svc = {
     if (!outsider) return true;
     return (new Date(TODAY) - new Date(p.finishedAt || TODAY)) / 864e5 > 30;
   },
+  addSite(s) {
+    if (!can("site", "w") || ["contractor", "client"].includes(effectiveRole())) throw new Error("forbidden");
+    const nm = (s.name || "").trim();
+    if (!nm) throw new Error("Give the site a name.");
+    const p = state.db.PROJECTS.find((x) => x.id === s.projectId);
+    if (!p) throw new Error("Choose a project for this site.");
+    if (state.db.SITES.some((x) => x.name.toLowerCase() === nm.toLowerCase()))
+      throw new Error("A site with that name already exists.");
+    const progress = Math.max(0, Math.min(100, Number(s.progress) || 0));
+    const site = {
+      id: "s" + (Math.max(0, ...state.db.SITES.map((x) => parseInt(String(x.id).slice(1), 10) || 0)) + 1),
+      projectId: p.id,
+      name: nm,
+      managerId: s.managerId || null,
+      contractorIds: s.contractorIds || [],
+      progress,
+      hue: p.hue ?? 200,
+      stage: (s.stage || "").trim() || "Mobilisation",
+      lastVisit: TODAY,
+    };
+    if (Number(s.pettyCash) > 0) { site.pettyCash = Number(s.pettyCash); site.ownCash = true; }
+    state.db.SITES.push(site);
+    // Contractors only see the sites they are assigned to.
+    state.db.USERS.forEach((u) => {
+      if (site.contractorIds.includes(u.id)) u.siteIds = [...(u.siteIds || []), site.id];
+    });
+    this.log("Site added · " + nm, "Site " + site.id);
+    persist();
+    return site;
+  },
   finishProject(id) {
     if (state.role !== "partner") throw new Error("forbidden");
     const p = state.db.PROJECTS.find((x) => x.id === id);
@@ -1221,8 +1251,9 @@ export const svc = {
   pettyCash(siteId) {
     const site = state.db.SITES.find((x) => x.id === siteId);
     if (!site || site.pettyCash == null) return null;
+    // Sites added in the app track their own cash by site; seeded sites keep drawing on their project's cash bills.
     const spent = state.db.EXPENSES.filter(
-      (e) => e.projectId === site.projectId && e.paidBy === "cash" && e.status !== "rejected",
+      (e) => (site.ownCash ? e.siteId === site.id : e.projectId === site.projectId) && e.paidBy === "cash" && e.status !== "rejected",
     ).reduce((a, e) => a + e.amount, 0);
     return { float: site.pettyCash, spent, left: site.pettyCash - spent };
   },
@@ -1299,12 +1330,15 @@ export const svc = {
       (a) => a.userId === state.userId,
     );
     const late = t > "09:30";
+    // First check-in of the day sets the mark; checking in again after a check-out just reopens the day.
+    const firstIn = !rec?.in;
     if (rec) {
       rec.in = rec.in || t;
-      rec.mark = late ? "late" : "ontime";
+      delete rec.out;
+      if (firstIn) rec.mark = late ? "late" : "ontime";
     }
     state.db.checkedIn[state.userId] = t;
-    if (!late) award(state.userId, 5, "On-time check-in");
+    if (!late && firstIn) award(state.userId, 5, "On-time check-in");
     persist();
     return { t, late };
   },

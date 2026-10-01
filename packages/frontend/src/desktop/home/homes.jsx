@@ -7,7 +7,7 @@ import { P, name, first, days } from '../helpers';
 import { SiteLink } from '../parts';
 import { openDialog } from '../session';
 import { SiteReviewQueue, openDesktopAssist } from '../chat/assist';
-import { Mono, Grow, Small, Dot, LinkRow, ListCard, Grid, PhCanvas, NeedList } from './bits';
+import { Mono, Grow, Small, Dot, LinkRow, ListCard, Grid, PhCanvas, NeedList, SectionTitle } from './bits';
 import MeetingsCard from './MeetingsCard';
 import { fileKind, winPath } from './files';
 
@@ -123,10 +123,10 @@ const siteOnTrack = (s) => {
   return plan === null || s.progress >= plan - 10;
 };
 
-const pulseTone = { warn: 'border-warn-soft bg-warn-soft', crit: 'border-crit-soft bg-crit-soft' };
+const pulseTone = { warn: 'border-warn bg-surface', crit: 'border-crit bg-surface' };
 const Pulse = ({ to, v, l, d, cls = '' }) => (
   <DLink to={to} className={`flex flex-col gap-0.5 rounded-r3 border px-4 py-3 no-underline ${pulseTone[cls] || 'border-line bg-surface'}`} style={{ color: 'inherit' }}>
-    <b className="text-2xl leading-tight">{v}</b>
+    <b className="text-2xl leading-tight text-accent-text">{v}</b>
     <span className="text-[13px] font-medium">{l}</span>
     <small className="text-ink-3">{d}</small>
   </DLink>
@@ -197,17 +197,24 @@ export function PartnerHome() {
   ));
   return (
     <>
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-2 [&>*]:min-w-0 [&>*]:h-full">
+      <PulseStrip />
+      <SectionTitle>Needs attention</SectionTitle>
+      <div className="grid items-start gap-3.5 lg:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
         <NeedList need={needsYou()} />
         <SiteReviewQueue />
+      </div>
+      <SectionTitle>Follow through</SectionTitle>
+      <div className="grid gap-3.5 md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
         <ListCard title="Money this week" rows={money} empty="Nothing overdue, nothing to raise." />
         <ListCard title="Sites to check" rows={risk} empty="No site flags in recorded data." />
       </div>
-      <details className="mb-2.5 rounded-r3 border border-line bg-surface px-[18px] py-3">
-        <summary className="cursor-pointer font-semibold">Studio snapshot &amp; approval follow-ups</summary>
-        <div className="mt-3"><PulseStrip /></div>
-        <ListCard title="Approvals to follow up" rows={approvalsDue()} empty="No approvals waiting on a follow-up." />
-      </details>
+      <div className="mt-3.5">
+        {approvalsDue().length ? (
+          <ListCard title="Approvals to follow up" rows={approvalsDue()} />
+        ) : (
+          <div className="rounded-r3 border border-line bg-surface px-[18px] py-3 text-ink-3"><b className="mr-2 text-ink">Approvals to follow up</b>No approvals waiting on a follow-up.</div>
+        )}
+      </div>
     </>
   );
 }
@@ -220,7 +227,7 @@ export function DesignerHome() {
     ...state.db.RFIS.filter((x) => x.status === 'open' && mine.includes(x.projectId)).map((x) => ({ k: `r${x.id || x.no}`, due: x.due, text: `${x.no} · ${x.title}`, href: `#/projects/${x.projectId}?tab=changes` })),
     ...state.desk.reminders.filter((x) => x.who === state.userId).map((x, i) => ({ k: `m${i}`, due: x.when, text: `Reminder · ${x.text}`, href: x.ref })),
   ].sort((a, b) => (a.due || '').localeCompare(b.due || '')).map((t) => (
-    <Item key={t.k} to={href(t.href || '#/dashboard')}>
+    <Item key={t.k} to={href(t.href || '#/today')}>
       {t.crit && <Dot />}<Grow>{t.text}</Grow><Small>{t.due ? fmtD(t.due) : ''}</Small>
     </Item>
   ));

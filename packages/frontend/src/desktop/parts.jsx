@@ -11,8 +11,10 @@ export const FromChat = ({ msgId, children = 'From chat' }) => <Btn kind="link" 
 export const SiteLink = ({ id, children }) =>
   navFor().some(([k]) => k === 'sites') ? <DLink to={`#/sites/${id}`}>{children}</DLink> : <>{children}</>;
 
-export const ChatLink = ({ thread, children }) =>
-  thread ? <DLink to={`#/chats?thread=${thread.id}`}>{children}</DLink> : null;
+export const ChatLink = ({ thread, children, button = false }) =>
+  thread ? (
+    <DLink to={`#/chats?thread=${thread.id}`} className={button ? 'inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft' : ''}>{children}</DLink>
+  ) : null;
 
 // Filing chip shown under chat messages (AI filed / needs check / ask).
 export function FilingChip({ m }) {

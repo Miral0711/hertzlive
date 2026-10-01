@@ -24,8 +24,8 @@ export default function Ph({ hue, seed, ar = 1.333, thumb = false, className = '
     );
   }
   return (
-    <div className={`overflow-hidden rounded-r2 bg-surface-2 ${className}`} style={{ aspectRatio: `${ar} / 1` }}>
-      <canvas ref={ref} data-hue={hue} data-seed={seed} data-ar={ar} aria-hidden="true" className="block h-full w-full" />
+    <div className={`w-full overflow-hidden rounded-r2 bg-surface-2 ${className}`} style={{ aspectRatio: `${ar} / 1` }}>
+      <canvas ref={ref} data-hue={hue} data-seed={seed} data-ar={ar} aria-hidden="true" className="block h-full w-full object-cover" />
     </div>
   );
 }

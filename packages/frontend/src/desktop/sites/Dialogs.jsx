@@ -3,7 +3,7 @@ import { TODAY } from '../../shared/data.js';
 import { DAILYLOG, STAGE_TEMPLATE } from '../data';
 import Modal, { ModalActions } from '../Modal';
 import { Btn, Field, Input, Select, Textarea } from '../../ui/ui';
-import { P, V, role } from '../helpers';
+import { P, V, role, name } from '../helpers';
 import { closeDialog, formData } from '../session';
 import { deliveryFacts } from './Work';
 
@@ -154,6 +154,65 @@ export function RaiseVendorDialog({ d }) {
         <Field label="Message"><Textarea name="text" rows={5} required defaultValue={initial} /></Field>
         {d.error && <p role="alert" className="text-crit">{d.error}</p>}
         <ModalActions><Cancel /><Btn kind="primary" type="submit">Send to site thread</Btn></ModalActions>
+      </form>
+    </Modal>
+  );
+}
+
+export function AddSiteDialog({ d }) {
+  const projects = svc.projects().filter((p) => (p.status || 'active') === 'active');
+  const managers = state.db.USERS.filter((u) => u.role === 'site_manager');
+  const contractors = state.db.USERS.filter((u) => u.role === 'contractor');
+  const save = (e) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const p = formData(e.currentTarget);
+    try {
+      const site = svc.addSite({
+        name: p.name, projectId: p.projectId, stage: p.stage, managerId: p.managerId,
+        progress: p.progress, pettyCash: p.pettyCash, contractorIds: f.getAll('contractor'),
+      });
+      state.desk.dialog = null;
+      toast(`${site.name} added.`);
+      go(`#/sites/${site.id}`);
+    } catch (err) {
+      d.error = err.message;
+      render();
+    }
+  };
+  return (
+    <Modal title="Add site">
+      <form onSubmit={save}>
+        {d.error && <div role="alert" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{d.error}</div>}
+        <Field label="Site name"><Input name="name" required placeholder="e.g. Shah Bungalow site" /></Field>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <Field label="Project">
+            <Select name="projectId" required defaultValue="">
+              <option value="" disabled>Choose a project</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Current stage"><Input name="stage" placeholder="Mobilisation" /></Field>
+          <Field label="Site manager">
+            <Select name="managerId" defaultValue="">
+              <option value="">Not assigned yet</option>
+              {managers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Progress so far (%)"><Input name="progress" type="number" min="0" max="100" defaultValue="0" /></Field>
+        </div>
+        <Field label="Site cash float (₹, optional)"><Input name="pettyCash" type="number" min="0" step="500" placeholder="e.g. 25000" /></Field>
+        {contractors.length > 0 && (
+          <fieldset className="mb-3 rounded-r2 border border-line px-3.5 py-2.5">
+            <legend className="px-1 text-[13px] font-semibold text-ink-2">Contractors on this site</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-1.5">
+              {contractors.map((u) => (
+                <label key={u.id} className="flex min-h-8 items-center gap-2"><input type="checkbox" name="contractor" value={u.id} /> {name(u.id)}</label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        <ModalActions><Cancel /><Btn kind="primary" type="submit">Add site</Btn></ModalActions>
       </form>
     </Modal>
   );

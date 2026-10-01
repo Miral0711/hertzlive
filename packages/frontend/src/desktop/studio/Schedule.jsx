@@ -547,7 +547,7 @@ export default function Schedule({ q }) {
   }[tab] || <Rooms q={q} />;
   return (
     <>
-      <PageHeader title="Schedule" />
+      <PageHeader title="Schedule" sub="Meetings, approvals, who is where and the resource plan." />
       <Tabs base={tabBase('schedule')} list={list} current={tab} />
       {body}
     </>

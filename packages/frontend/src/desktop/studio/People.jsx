@@ -441,7 +441,7 @@ export default function People({ q }) {
   };
   return (
     <>
-      <PageHeader title="People" />
+      <PageHeader title="People" sub="Your team, attendance, leave, workload and pay." />
       <Tabs base={tabBase('people')} list={list} current={list.some(([k]) => k === tab) ? tab : 'directory'} />
       {T[tab] || T.directory}
     </>

@@ -71,7 +71,7 @@ export function switchPersona(id) {
   const u = user(id);
   actAsPersona(id, u.role);
   persist();
-  go('#/dashboard');
+  go('#/today');
 }
 
 export function cycleTheme() {
@@ -83,7 +83,7 @@ export function cycleTheme() {
 export function togglePreviewAsClient() {
   state.previewAsClient = !state.previewAsClient;
   persist();
-  go('#/dashboard');
+  go('#/today');
 }
 
 // Chat reset hooks: the chat module registers callbacks so reset can clear its private storage.

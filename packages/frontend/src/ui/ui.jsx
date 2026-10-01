@@ -7,7 +7,7 @@ import { TONE_FILL, TONE_SOFT } from './tones';
 const btnBase =
   'inline-flex items-center gap-1.5 whitespace-nowrap rounded-r1 border font-semibold no-underline transition active:scale-[.98] disabled:opacity-50';
 const btnKinds = {
-  default: 'border-accent bg-surface text-accent-text hover:bg-accent-soft',
+  default: 'border-line-2 bg-surface text-accent-text hover:border-accent hover:bg-accent-soft',
   primary: 'border-accent bg-accent text-accent-ink hover:brightness-105',
   danger: 'border-crit bg-surface text-crit hover:bg-surface-2',
   link: 'min-h-0 border-0 bg-transparent p-0 font-medium text-accent-text underline',
@@ -100,7 +100,7 @@ export function Kpi({ label, value, crit = false }) {
   return (
     <div className="rounded-r3 border border-line bg-surface px-4 py-3">
       <div className="text-[13px] text-ink-2">{label}</div>
-      <div className={`mt-1 text-2xl font-bold leading-tight ${crit ? 'text-crit' : ''}`}>{value}</div>
+      <div className={`mt-1 text-2xl font-semibold leading-tight tracking-tight ${crit ? 'text-crit' : 'text-accent-text'}`}>{value}</div>
     </div>
   );
 }

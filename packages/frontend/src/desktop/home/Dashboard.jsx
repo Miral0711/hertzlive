@@ -8,9 +8,6 @@ import { DLink, href } from '../nav';
 import { P, first, role } from '../helpers';
 import { formData } from '../session';
 import { trackFill } from '../../ui/tones';
-import { ANNOUNCEMENTS } from '../data';
-import { ProjectUpdates, SiteReviewQueue } from '../chat/assist';
-import { PartnerHome, DesignerHome, SiteManagerHome, HrHome, ClientHome, ContractorHome } from './homes';
 
 const ym = (d) => (d || '').slice(0, 7);
 const monthsBack = (n) => {
@@ -109,33 +106,6 @@ function Donut({ pct }) {
 const Dot = ({ cls = 'bg-accent' }) => <span className={`mt-1.5 h-2 w-2 flex-none rounded-full ${cls}`} />;
 const dotCls = ['bg-accent', 'bg-secondary', 'bg-ok', 'bg-warn'];
 
-// The former Today page: the role's own home (attention queue, follow-ups), site review queue,
-// project updates and the pinned studio notice. Rendered under the dashboard overview.
-function TodayContent({ r }) {
-  if (r === 'client') return <><ClientHome /><ProjectUpdates /></>;
-  if (r === 'contractor') return <><ContractorHome /><ProjectUpdates /></>;
-  const ann = ANNOUNCEMENTS.find((a) => a.pinned) || ANNOUNCEMENTS[0];
-  const Home = { designer: DesignerHome, site_manager: SiteManagerHome, hr: HrHome }[r] || PartnerHome;
-  return (
-    <>
-      <Home />
-      {r !== 'partner' && <div className="mb-3.5"><SiteReviewQueue /></div>}
-      <div className="flex flex-col gap-2.5 [&>*]:!m-0">
-      <ProjectUpdates />
-      {ann && (
-        <details className="rounded-r3 border border-line bg-surface-2 px-4 py-3">
-          <summary className="cursor-pointer font-semibold">
-            Studio notice <span className="ml-2 font-normal text-ink-3">{ann.text.slice(0, 90)}{ann.text.length > 90 ? '…' : ''}</span>
-          </summary>
-          <p>{ann.text}</p>
-          <small className="text-ink-3">{first(ann.by)} · {fmtD(ann.at)}</small>
-        </details>
-      )}
-      </div>
-    </>
-  );
-}
-
 export default function Dashboard() {
   // Prototype refreshed the dashboard every 30 s while it was showing.
   useEffect(() => {
@@ -171,7 +141,7 @@ export default function Dashboard() {
     render();
   };
   const noteLink = (n, i) => (
-    <Item key={n.id || i} to={href(n.ref || '#/dashboard')}>
+    <Item key={n.id || i} to={href(n.ref || '#/today')}>
       <ItemBody title={n.text} sub={fmtDT(n.at)} />
     </Item>
   );
@@ -278,8 +248,6 @@ export default function Dashboard() {
         </Panel>
       </div>
 
-      <SectionTitle>Today</SectionTitle>
-      <TodayContent r={r} />
     </>
   );
 }

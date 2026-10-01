@@ -22,7 +22,7 @@ const groupLabel = 'm-0 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tra
 function SideNav({ page }) {
   const allowed = navFor();
   return NAV_GROUPS.map(([label, keys]) => {
-    const rows = keys.map((k) => allowed.find(([id]) => id === k)).filter(Boolean);
+    const rows = keys.filter((k) => k !== 'settings').map((k) => allowed.find(([id]) => id === k)).filter(Boolean);
     if (!rows.length) return null;
     const links = rows.map(([k, l]) => (
       <SideLink key={k} to={`#/${k}`} icon={ICON[k]} current={page === k}>{l}</SideLink>
@@ -64,9 +64,9 @@ export default function Shell() {
   const searchRef = useRef(null);
 
   // Keep the legacy route string in step with the URL for code that calls parseRoute().
-  state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/dashboard') + location.search;
+  state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/today') + location.search;
   const { parts, q } = parseRoute();
-  const page = parts[0] || 'dashboard';
+  const page = parts[0] || 'today';
 
   useEffect(() => {
     window.__navigate = (route) => navigate(href(route));
@@ -95,7 +95,7 @@ export default function Shell() {
   const focusedWork = page === 'review';
   const noChat = workspace || focusedWork || state.desk.chatHidden;
   const u = me();
-  const Page = PAGES[page] || PAGES.dashboard;
+  const Page = PAGES[page] || PAGES.today;
   const brand = tenantBrand();
 
   return (
@@ -108,7 +108,7 @@ export default function Shell() {
         Skip to workspace
       </a>
       <header className="flex items-center gap-4 bg-surface pr-5">
-        <DLink to="#/dashboard" className="flex h-full w-[188px] flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline">
+        <DLink to="#/today" className="flex h-full w-[188px] flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline">
           <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
           <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
         </DLink>

@@ -11,6 +11,7 @@ export const days = (a, b) => Math.round((new Date(b) - new Date(a)) / 864e5);
 
 export const NAV = [
   ["dashboard", "Dashboard", "bell"],
+  ["today", "Today", "today"],
   ["chats", "Chats", "chat"],
   ["tasks", "All tasks", "check"],
   ["enquiries", "Enquiries", "enquiries"],
@@ -27,7 +28,7 @@ export const NAV = [
   ["settings", "Settings", "settings"],
 ];
 export const NAV_GROUPS = [
-  ["Workspace", ["dashboard", "tasks", "projects", "sites", "chats", "schedule"]],
+  ["Workspace", ["dashboard", "today", "tasks", "projects", "sites", "chats", "schedule"]],
   ["Studio", ["enquiries", "people", "money"]],
   ["Resources", ["files", "vendors", "samples", "templates", "import", "settings"]],
 ];
@@ -36,11 +37,11 @@ export const navFor = () => {
   if (r === "client")
     return NAV.filter(
       ([k]) =>
-        ["dashboard", "chats", "projects", "money", "samples", "settings"].includes(k) &&
+        ["dashboard", "today", "chats", "projects", "money", "samples", "settings"].includes(k) &&
         (k !== "money" || can("budget", "r", role())),
     );
   if (r === "contractor")
-    return NAV.filter(([k]) => ["dashboard", "chats", "sites", "settings"].includes(k));
+    return NAV.filter(([k]) => ["dashboard", "today", "chats", "sites", "settings"].includes(k));
   return NAV.filter(
     ([k]) =>
       (k !== "enquiries" || can("enquiry", "r")) &&

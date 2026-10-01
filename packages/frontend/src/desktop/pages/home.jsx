@@ -1,11 +1,18 @@
-// Feature module: home (tasks, dashboard). Exports page components and dialogs (see registry.js).
-import { state, svc, fmtD, go, toast, render } from '../../shared/core.js';
+// Feature module: home (tasks, dashboard, today). Exports page components and dialogs (see registry.js).
+import { state, svc, fmtD, go, toast, render, me } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
-import { Btn, Card, List, PageHeader, DataTable, Field, Input, Select } from '../../ui/ui';
-import { P, name } from '../helpers';
+import { Btn, Card, List, Pill, PageHeader, DataTable, Field, Input, Select } from '../../ui/ui';
+import { P, name, first, role } from '../helpers';
 import Modal, { ModalActions } from '../Modal';
 import { closeDialog, formData } from '../session';
 import Dashboard from '../home/Dashboard';
+import { ANNOUNCEMENTS } from '../data';
+import { ProjectUpdates, SiteReviewQueue } from '../chat/assist';
+import {
+  PartnerHome, DesignerHome, SiteManagerHome, HrHome, ClientHome, ContractorHome, needsYou,
+} from '../home/homes';
+import { SectionTitle } from '../home/bits';
+import { TodayBanner, ScheduleCard, TasksCard } from '../home/YourDay';
 
 // ---------- All tasks ----------
 function Tasks({ q }) {
@@ -34,7 +41,7 @@ function Tasks({ q }) {
   const owners = Object.keys(byPerson);
   return (
     <>
-      <PageHeader title="All tasks">
+      <PageHeader title="All tasks" sub="Open work across the studio, grouped by person.">
         <Btn kind="primary" onClick={() => openAddTask('')}>Add task</Btn>
       </PageHeader>
       <form
@@ -60,10 +67,10 @@ function Tasks({ q }) {
       </form>
       <List empty="No open tasks match these filters.">
         {owners.map((owner) => (
-          <Card key={owner} title={name(owner)}>
+          <Card key={owner} title={`${name(owner)} · ${byPerson[owner].length} open`}>
             <DataTable
               cols={['Project', 'Task', 'Due', 'Critical']}
-              rows={byPerson[owner].map((t) => [P(t.projectId)?.name || '', t.title, t.due ? fmtD(t.due) : 'Not set', t.critical ? 'Yes' : 'No'])}
+              rows={byPerson[owner].map((t) => [P(t.projectId)?.name || '', t.title, t.due ? fmtD(t.due) : 'Not set', t.critical ? <Pill kind="crit">Critical</Pill> : '—'])}
             />
           </Card>
         ))}
@@ -74,6 +81,56 @@ function Tasks({ q }) {
 function openAddTask(projectId) {
   state.desk.dialog = { kind: 'add-task-all', projectId: projectId || '' };
   render();
+}
+
+// ---------- Today ----------
+function Today() {
+  const r = role();
+  const u = me();
+  if (r === 'client' || r === 'contractor') {
+    const Home = r === 'client' ? ClientHome : ContractorHome;
+    return (
+      <>
+        <PageHeader title="Today" sub={`${fmtD(TODAY)} · ${u.title || u.role}`} />
+        <Home />
+        <SectionTitle>Updates</SectionTitle>
+        <ProjectUpdates />
+      </>
+    );
+  }
+  const ann = ANNOUNCEMENTS.find((a) => a.pinned) || ANNOUNCEMENTS[0];
+  const Home = { designer: DesignerHome, site_manager: SiteManagerHome, hr: HrHome }[r] || PartnerHome;
+  const attention = r === 'partner'
+    ? { n: needsYou().length, label: 'Need your attention' }
+    : { n: svc.notifications().length, label: 'Notifications' };
+  return (
+    <>
+      <TodayBanner role={u.title || u.role} attention={attention} />
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px] [&>*]:min-w-0">
+        <div>
+          <Home />
+          {r !== 'partner' && <><SectionTitle>Site review</SectionTitle><SiteReviewQueue /></>}
+        </div>
+        <aside className="flex flex-col gap-3.5">
+          <ScheduleCard />
+          <TasksCard />
+        </aside>
+      </div>
+      <SectionTitle>Updates</SectionTitle>
+      <div className="flex flex-col gap-2.5">
+        <ProjectUpdates />
+        {ann && (
+          <details className="rounded-r3 border border-line bg-accent-soft px-4 py-3">
+            <summary className="cursor-pointer font-semibold">
+              Studio notice <span className="ml-2 font-normal text-ink-2">{ann.text.slice(0, 90)}{ann.text.length > 90 ? '…' : ''}</span>
+            </summary>
+            <p>{ann.text}</p>
+            <small className="text-ink-3">{first(ann.by)} · {fmtD(ann.at)}</small>
+          </details>
+        )}
+      </div>
+    </>
+  );
 }
 
 // ---------- Dialog: add-task-all ----------
@@ -121,6 +178,6 @@ function AddTaskAll({ d }) {
 export const pages = {
   tasks: ({ q }) => <Tasks q={q || {}} />,
   dashboard: () => <Dashboard />,
-  today: () => <Dashboard />, // legacy route: Today now lives on the Dashboard
+  today: () => <Today />,
 };
 export const dialogs = { 'add-task-all': AddTaskAll };

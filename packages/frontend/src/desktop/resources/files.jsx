@@ -245,7 +245,7 @@ export function ShareLinksCard() {
 export function FilesPage({ q }) {
   return (
     <>
-      <PageHeader title="Files">{role() === 'partner' && <Btn onClick={() => { nasDry(); }}>Dry run import</Btn>}</PageHeader>
+      <PageHeader title="Files" sub="Browse project and employee folders, and share files with clients.">{role() === 'partner' && <Btn onClick={() => { nasDry(); }}>Dry run import</Btn>}</PageHeader>
       <FilesView base="#/files" path={q.path} />
       {state.desk.nasMsg && <div className="mt-3.5 whitespace-pre-wrap rounded-r2 bg-accent-soft px-3.5 py-3">{state.desk.nasMsg}</div>}
       <MyLinks />

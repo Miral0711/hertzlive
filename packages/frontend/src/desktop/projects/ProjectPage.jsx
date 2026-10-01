@@ -96,7 +96,7 @@ function ProjectList({ status }) {
   const budget = can('budget', 'r', role());
   return (
     <>
-      <PageHeader title="Projects">
+      <PageHeader title="Projects" sub="Every job in the studio, with its next milestone and budget status.">
         {chip('active', 'Active')}{chip('finished', 'Finished')}{chip('all', 'All')}
         {can('project', 'w', role()) && (
           <Btn kind="primary" onClick={() => openDesktopTemplate()}>New from template</Btn>
