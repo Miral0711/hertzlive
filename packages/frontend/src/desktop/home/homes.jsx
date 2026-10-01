@@ -199,12 +199,12 @@ export function PartnerHome() {
     <>
       <PulseStrip />
       <SectionTitle>Needs attention</SectionTitle>
-      <div className="grid items-start gap-3.5 lg:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
+      <div className="grid items-start gap-gap lg:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
         <NeedList need={needsYou()} />
         <SiteReviewQueue />
       </div>
       <SectionTitle>Follow through</SectionTitle>
-      <div className="grid gap-3.5 md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
+      <div className="grid gap-gap md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0">
         <ListCard title="Money this week" rows={money} empty="Nothing overdue, nothing to raise." />
         <ListCard title="Sites to check" rows={risk} empty="No site flags in recorded data." />
       </div>

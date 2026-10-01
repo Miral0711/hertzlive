@@ -6,6 +6,13 @@ module.exports = {
   darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
+      spacing: {
+        gap: v('gap'), 'gap-lg': v('gap-lg'), card: v('card-pad'), 'page-x': v('page-x'), 'page-y': v('page-y'),
+        nav: v('nav-w'), header: v('header-h'), chat: v('chat-w'),
+      },
+      fontSize: { title: v('text-title'), stat: v('text-stat'), hero: v('text-hero') },
+      gridTemplateColumns: { shell: 'var(--nav-w) minmax(0,1fr)', 'shell-chat': 'var(--nav-w) minmax(0,1fr) var(--chat-w)' },
+      gridTemplateRows: { shell: 'var(--header-h) minmax(0,1fr)' },
       colors: {
         ground: v('ground'),
         surface: { DEFAULT: v('surface'), 2: v('surface-2'), 3: v('surface-3') },

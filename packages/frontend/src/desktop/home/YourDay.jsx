@@ -64,7 +64,7 @@ export function TodayBanner({ role, attention }) {
       <div className="flex min-w-0 flex-col justify-between gap-5">
         <div>
           <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] opacity-75">{d.toLocaleDateString('en-IN', { weekday: 'long' })} · {role}</p>
-          <h1 className="m-0 mt-1 text-[34px] font-semibold leading-tight tracking-tight">{d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</h1>
+          <h1 className="m-0 mt-1 text-hero font-semibold leading-tight tracking-tight">{d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</h1>
         </div>
         <div className="flex flex-wrap gap-2.5">
           {stats.map(([n, l]) => (

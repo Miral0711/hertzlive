@@ -72,7 +72,7 @@ function ProjectCards({ projects }) {
                   </small>
                 )}
               </div>
-              <div className="mt-3.5 flex justify-between gap-3.5 border-t border-line pt-3 text-[13px]">
+              <div className="mt-3.5 flex justify-between gap-gap border-t border-line pt-3 text-[13px]">
                 <span>
                   {can('issue', 'r', role())
                     ? (issues.length ? `${issues.length} open issue${issues.length === 1 ? '' : 's'}` : 'No open issues')
@@ -249,7 +249,7 @@ function ProjectPage({ id, tab: wanted }) {
               {finished && <> · <Pill kind="soft">Finished {fmtD(p.finishedAt)}</Pill> hidden from phones</>}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3.5 text-[13px]">
+          <div className="flex flex-wrap items-center gap-gap text-[13px]">
             {site && <SiteLink id={site.id}>Open site</SiteLink>}
             <ChatLink thread={thread}>Open chat</ChatLink>
             {role() === 'partner' && (

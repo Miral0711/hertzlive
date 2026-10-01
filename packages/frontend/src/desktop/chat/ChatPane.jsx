@@ -289,7 +289,7 @@ function Messages({ threadId, ms }) {
     else if (prev.thread !== threadId || ms.length > prev.n) el.scrollTop = el.scrollHeight;
   }, [threadId, ms.length, hi]);
   return (
-    <div ref={ref} className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto bg-chat px-3.5 py-4">
+    <div ref={ref} className="flex min-h-0 flex-1 flex-col gap-gap overflow-auto bg-chat px-3.5 py-4">
       {ms.map((m) => <Message key={m.id} m={m} />)}
     </div>
   );

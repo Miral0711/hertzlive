@@ -45,7 +45,7 @@ function WorkSplit({ record, hasSelected, list, detail }) {
   }, [record]);
   const remember = () => { scroll.current = main()?.scrollTop || 0; };
   return (
-    <div className={`grid items-start gap-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(0,1.4fr)] ${record && hasSelected ? '' : ''}`} onClickCapture={(e) => { if (e.target.closest?.('a')) remember(); }}>
+    <div className={`grid items-start gap-gap md:grid-cols-[minmax(240px,1fr)_minmax(0,1.4fr)] ${record && hasSelected ? '' : ''}`} onClickCapture={(e) => { if (e.target.closest?.('a')) remember(); }}>
       <div ref={listRef} aria-label="Records" className={`flex flex-col gap-1.5 ${record && hasSelected ? 'max-md:hidden' : ''}`}>{list}</div>
       {detail && (
         <section ref={detailRef} tabIndex={-1} className="rounded-r3 border border-line bg-surface p-4 outline-none" aria-label="Selected record">

@@ -85,7 +85,7 @@ const Stat = ({ label, value, sub, tone = '', to }) => {
   const body = (
     <>
       <div className="text-xs text-ink-3">{label}</div>
-      <div className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
+      <div className="mt-1 text-stat font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
       <div className={`text-xs font-semibold ${tone || 'text-ink-3'}`}>{sub}</div>
     </>
   );
@@ -122,8 +122,8 @@ function SitesOverview({ sites }) {
   );
   const Empty2 = ({ children }) => <p className="m-0 rounded-r2 bg-surface-2 px-3.5 py-4 text-center text-ink-3">{children}</p>;
   return (
-    <div className="mt-5 grid items-start gap-3.5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
-      <div className="flex flex-col gap-3.5">
+    <div className="mt-5 grid items-start gap-gap lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="flex flex-col gap-gap">
         <Card title="Needs a response">
           {issues.length === 0 && shorts.length === 0 ? <Empty2>No open issues or short deliveries.</Empty2> : (
             <>
@@ -149,7 +149,7 @@ function SitesOverview({ sites }) {
           ))}
         </Card>
       </div>
-      <div className="flex flex-col gap-3.5">
+      <div className="flex flex-col gap-gap">
         <Card title="On site today">
           {sites.map((x) => {
             const here = svc.checkins(x.id);
@@ -198,7 +198,7 @@ export function SitesIndex() {
       </PageHeader>
       {sites.length ? (
         <>
-          <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+          <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
             <Stat label="Sites on track" value={`${onTrack} / ${sites.length}`} sub={`${sites.length - onTrack} behind plan`} tone={sites.length - onTrack ? 'text-warn' : 'text-ok'} />
             <Stat label="Open issues" value={issues} sub="across all sites" tone={issues ? 'text-warn' : 'text-ok'} />
             <Stat label="Short deliveries" value={shorts} sub="to chase" tone={shorts ? 'text-crit' : 'text-ok'} />
@@ -348,7 +348,7 @@ function Feed({ s }) {
             {fmtD(day)}{day === TODAY ? ' · Today' : ''}
             <i className="h-px flex-1 bg-line" />
           </h3>
-          <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
+          <div className="grid gap-gap [grid-template-columns:repeat(auto-fill,minmax(250px,1fr))]">
             {items.filter((f) => f.at.slice(0, 10) === day).map((f, i) => {
               const note = f.transcript || f.text || f.aiSummary || '';
               const caption = f.type === 'photo' ? (f.text || f.aiSummary) : (f.transcript ? f.text : '');
@@ -402,7 +402,7 @@ function DailyLog({ s }) {
           className="min-h-9 rounded-r1 border border-line-2 bg-surface px-2.5 text-ink"
         />
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-5">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-5">
         <Tile label="Photos" value={dl.photos} />
         <Tile label="Voice notes" value={dl.voice} />
         <Tile label="Labour on site" value={dl.labour} sub={dl.who.join(', ') || 'none checked in'} />
@@ -460,7 +460,7 @@ function Headcount({ s }) {
   return (
     <>
       <SecHead title="Headcount" sub="Per-trade hajri reported by each contractor, with a site photo." />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-3">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-3">
         <Tile label="People recorded today" value={today.reduce((n, h) => n + h.count, 0)} />
         <Tile label="Contractors reporting today" value={new Set(today.map((h) => h.contractorId)).size} />
         <Tile label="Trades today" value={<span className="text-base leading-snug">{svc.tradesLine(today) || '—'}</span>} />
@@ -541,7 +541,7 @@ function Visit({ s }) {
         <div><h2 className="m-0 text-xl font-semibold">Visit report</h2><p className="m-0 text-[13px] text-ink-3">Draft the day's progress report from site records, then edit before sending.</p></div>
         <AssistButton kind="daily" siteId={s.id} date={TODAY}>Draft daily report</AssistButton>
       </div>
-      <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="grid items-start gap-gap lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card title={`What the ${fmtD(TODAY)} report will draw on`}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {facts.map(([k, v]) => (
@@ -597,14 +597,14 @@ export function SitePage({ id, q }) {
         </div>
         <PlanBar s={s} />
       </section>
-      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="People recorded today" value={peopleToday(s.id)} sub="per-trade hajri" to={`#/sites/${s.id}?tab=headcount`} />
         {has('issues') && <Stat label="Open issues" value={issuesN} sub={issuesN ? 'need a response' : 'all clear'} tone={issuesN ? 'text-warn' : 'text-ok'} to={`#/sites/${s.id}?tab=issues`} />}
         <Stat label="Short deliveries" value={short} sub={short ? 'to chase' : 'none flagged'} tone={short ? 'text-crit' : 'text-ok'} to={`#/sites/${s.id}?tab=deliveries`} />
         {cash ? (
           <div className="rounded-r3 border border-line bg-surface px-4 py-3.5">
             <div className="text-xs text-ink-3">Site cash (petty cash)</div>
-            <div className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-accent-text">{inr(cash.left)}</div>
+            <div className="mt-1 text-stat font-semibold leading-tight tracking-tight text-accent-text">{inr(cash.left)}</div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2"><i className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, (cash.left / cash.float) * 100))}%` }} /></div>
             <div className="mt-1 text-xs text-ink-3">left of {inr(cash.float)} · {inr(cash.spent)} spent</div>
           </div>

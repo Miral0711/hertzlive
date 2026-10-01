@@ -4,6 +4,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------------------------
+   LAYOUT TOKENS: the single source for spacing, type scale and shell sizes. Every value is fluid
+   (clamp) so the UI scales smoothly from phone to desktop without per-screen overrides. Change a
+   value here and it updates everywhere. Tailwind maps these in tailwind.config.js (gap-gap, p-card,
+   px-page-x, text-title, w-nav, h-header ...). Breakpoints are the Tailwind defaults (sm 640, md 768,
+   lg 1024, xl 1280, 2xl 1536); the sidebar becomes a drawer below lg.
+   --------------------------------------------------------------------------------------------- */
+:root {
+  --gap: clamp(0.75rem, 0.62rem + 0.55vw, 1.125rem);       /* gap between cards, tiles, grid cells */
+  --gap-lg: clamp(1rem, 0.8rem + 0.9vw, 1.5rem);           /* gap between page sections and columns */
+  --card-pad: clamp(0.875rem, 0.7rem + 0.7vw, 1.125rem);   /* padding inside a card */
+  --page-x: clamp(1rem, 0.4rem + 2.6vw, 2.25rem);          /* page side padding */
+  --page-y: clamp(1rem, 0.5rem + 2vw, 2rem);               /* page top padding */
+  --text-title: clamp(1.5rem, 1.25rem + 1.1vw, 1.875rem);  /* page title */
+  --text-stat: clamp(1.375rem, 1.2rem + 0.7vw, 1.625rem);  /* big number on a tile */
+  --text-hero: clamp(1.625rem, 1.2rem + 1.6vw, 2.125rem);  /* banner headline */
+  --nav-w: 188px;                                          /* desktop sidebar width */
+  --header-h: 60px;                                        /* top bar height */
+  --chat-w: 360px;                                         /* chat pane width */
+  --control-h: 2.25rem;                                    /* buttons and inputs */
+}
+@media (pointer: coarse) { :root { --control-h: 2.75rem; } }
+
 /* Theme tokens. Agency accent colours (accent/accent-ink/on-accent/accent-soft/accent-text/
    client/client-soft/sel/sel-ink) are written over these at runtime by applyAgencyTheme() —
    variable NAMES here are a contract with shared/core.js; only their values change. */
@@ -70,6 +93,11 @@
   ::selection { background: var(--sel); color: var(--sel-ink); }
   * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
   button { @apply cursor-pointer; }
+  /* Comfortable tap targets on touch screens, driven by --control-h. */
+  @media (pointer: coarse) {
+    button, select, input:not([type='checkbox']):not([type='radio']):not([type='color']), summary { min-height: var(--control-h); }
+  }
+  img, svg, video, canvas { max-width: 100%; }
   a { color: var(--accent-text); text-underline-offset: 3px; }
   /* Native <progress> (Sites' daily-progress bars) otherwise renders with the browser's own
      default green — the one place a color could leak in outside the token system. */

@@ -123,13 +123,13 @@ function Leaves() {
     <>
       <SecHead title="Leave requests" sub={approver ? 'Approve or decline requests. Approving suggests a stand-in and checks site visits.' : 'Request leave and track your balance.'} />
       {balances.length > 0 && (
-        <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
           {balances.slice(0, 4).map((b) => (
             <Stat key={b.leaveTypeId} label={b.leaveType?.name || 'Leave'} value={`${b.remaining} left`} sub={`${b.used} used · ${b.pending} pending of ${b.allocated}`} />
           ))}
         </div>
       )}
-      <div className="mb-3.5 grid items-start gap-3.5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="mb-3.5 grid items-start gap-gap lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title={`Who is away${awayRows.length ? ` · ${awayRows.length}` : ''}`}>
           {awayRows.length === 0 ? <p className="m-0 rounded-r2 bg-surface-2 px-3.5 py-5 text-center text-ink-3">Nobody is away in the next 30 days.</p> : awayRows.map((x, i) => {
             const { visits, sites } = leaveClashes(x.userId, x.from, x.to);
@@ -228,20 +228,20 @@ function Attendance({ q }) {
           <Btn onClick={() => { const r = svc.checkIn(); toast(`Checked in again at ${r.t}.`); render(); }}>Check in again</Btn>
         ) : null}
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="In" value={n((a) => a.in && a.mark !== 'late')} sub="on time" tone="text-ok" />
         <Stat label="Late" value={n((a) => a.mark === 'late')} sub="after 09:30" tone={n((a) => a.mark === 'late') ? 'text-warn' : ''} />
         <Stat label="Half day" value={n((a) => a.mark === 'half')} sub="checked in after 13:00" />
         <Stat label="On leave" value={n((a) => a.mark === 'leave')} sub="away today" />
       </div>
-      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="grid items-start gap-gap xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title="Today">
           <DataTable
             cols={['Person', 'In', 'Out', 'Mark', 'Note']}
             rows={all.map((a) => [name(a.userId), a.in || '—', a.out || '—', <StatusPill status={a.mark} />, a.note || ''])}
           />
         </Card>
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-gap">
           <Card title="Away today">
             {away.length === 0 ? <p className="m-0 text-ink-3">Everyone is available.</p> : away.map((x, i) => (
               <div key={i} className="border-t border-line py-2 first:border-t-0 first:pt-0"><b>{x.userId ? name(x.userId) : 'Unassigned'}</b><small className="block text-ink-3">{x.why}</small></div>
@@ -317,7 +317,7 @@ function Salary({ q }) {
         <Input type="month" value={q.month || TODAY.slice(0, 7)} onChange={(e) => go(`#/people?tab=salary&month=${encodeURIComponent(e.target.value)}`)} aria-label="Month" />
         <Btn kind="primary" onClick={copy}>Copy for Tally</Btn>
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-3">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-3">
         <Stat label="People on payroll" value={calc.length} sub="this month" />
         <Stat label="Total net" value={inr(Math.round(net))} sub="after deductions and PF" />
         <Stat label="Deductions" value={inr(Math.round(ded))} sub="half days, late marks, unpaid leave" tone={ded ? 'text-warn' : ''} />
@@ -353,7 +353,7 @@ function Expenses() {
   return (
     <>
       <SecHead title="Expense claims" sub="Raise a claim, then partners approve and HR marks it paid." />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Pending" value={inr(sum('pending'))} sub={`${claims.filter((e) => e.status === 'pending').length} claims`} tone={sum('pending') ? 'text-warn' : ''} />
         <Stat label="Approved" value={inr(sum('approved'))} sub="to be paid" />
         <Stat label="Paid" value={inr(sum('paid'))} sub="settled" tone="text-ok" />
@@ -420,7 +420,7 @@ function Points() {
         <Bar value={Math.round((pct / target) * 100)} />
         <p className="mb-0 mt-2 text-[13px] text-ink-3"><b className="text-ink">{pct}%</b> reached · target {target}%</p>
       </Card>
-      <div className="mb-3.5 grid gap-3.5 md:grid-cols-3">
+      <div className="mb-3.5 grid gap-gap md:grid-cols-3">
         {top.map((x, i) => (
           <div key={x.id} className="rounded-r3 border border-line bg-surface px-4 py-3.5">
             <div className="flex items-center gap-3">
@@ -469,7 +469,7 @@ function Reviews() {
       <SecHead title="Reviews" sub="Each review has 3 strengths, 1 growth point, a score from 1 to 5 and a written reason. Scores stay private between you and the partners.">
         {partner && <Btn kind="primary" onClick={() => openDialog({ kind: 'review', userId: '' })}>Add review</Btn>}
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-3">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-3">
         <Stat label="Team average" value={avg == null ? '—' : avg} sub="this month, out of 5" />
         <Stat label="Reviews" value={rows.length} sub={partner ? 'across the team' : 'about you'} />
         <Stat label="Scale" value="1 to 5" sub="reason required for every score" />
@@ -529,7 +529,7 @@ function Audit() {
   return (
     <>
       <SecHead title="Audit trail" sub="Every change to money, approvals, leave and people, newest first." />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Changes logged" value={all.length} sub="all time" />
         <Stat label="Today" value={all.filter((a) => String(a.at).slice(0, 10) === TODAY).length} sub="changes" />
         <Stat label="People involved" value={who} sub="made changes" />
@@ -594,7 +594,7 @@ export default function People({ q }) {
   return (
     <>
       <PageHeader title="People" sub="Your team, attendance, leave, workload and pay." />
-      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Team" value={people.length} sub="people" />
         <Stat label="In today" value={inToday} sub={`of ${people.length}`} tone="text-ok" />
         <Stat label="On leave" value={onLeave} sub="away today" />

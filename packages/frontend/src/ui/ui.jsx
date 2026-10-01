@@ -79,7 +79,7 @@ export function Chip({ status = '', children, ...rest }) {
 // ---------- Layout blocks ----------
 export function Card({ title, children, className = '', ...rest }) {
   return (
-    <section className={`rounded-r3 border border-line bg-surface px-[18px] py-4 ${className}`} {...rest}>
+    <section className={`rounded-r3 border border-line bg-surface p-card ${className}`} {...rest}>
       {title && <h2 className="mb-2.5 mt-0 text-lg font-semibold leading-snug">{title}</h2>}
       {children}
     </section>
@@ -89,10 +89,10 @@ export const Cards = ({ children, className = '' }) => (
   <div className={`grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))] ${className}`}>{children}</div>
 );
 export const Grid2 = ({ children, className = '' }) => (
-  <div className={`grid items-start gap-3.5 md:grid-cols-2 [&>*]:min-w-0 ${className}`}>{children}</div>
+  <div className={`grid items-start gap-gap md:grid-cols-2 [&>*]:min-w-0 ${className}`}>{children}</div>
 );
 export const Grid3 = ({ children, className = '' }) => (
-  <div className={`grid items-start gap-3.5 md:grid-cols-3 [&>*]:min-w-0 ${className}`}>{children}</div>
+  <div className={`grid items-start gap-gap md:grid-cols-3 [&>*]:min-w-0 ${className}`}>{children}</div>
 );
 export const Row = ({ children, className = '' }) => <div className={`flex items-center gap-2.5 ${className}`}>{children}</div>;
 export const Kpis = ({ children }) => <div className="my-[18px] grid grid-cols-2 gap-3 lg:grid-cols-4">{children}</div>;
@@ -108,7 +108,7 @@ export function PageHeader({ title, sub, children }) {
   return (
     <div className="mb-[18px] flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="m-0 mb-1 text-[30px] font-semibold leading-tight tracking-tight [text-wrap:balance]">{title}</h1>
+        <h1 className="m-0 mb-1 text-title font-semibold leading-tight tracking-tight [text-wrap:balance]">{title}</h1>
         {sub && <div className="text-[13px] text-ink-3">{sub}</div>}
       </div>
       {children && <div className="flex flex-wrap gap-2">{children}</div>}

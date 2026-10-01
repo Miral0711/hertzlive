@@ -86,7 +86,7 @@ export default function MeetingsCard({ p }) {
   const team = p.teamIds.map((id) => user(id));
   const wh = svc.cfg().hours;
   return (
-    <div className="mb-3.5 grid gap-3.5">
+    <div className="mb-3.5 grid gap-gap">
       <Card title="Your meetings">
         <DataTable
           cols={['When', 'What', 'With', 'Status', '']}

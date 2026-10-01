@@ -42,7 +42,7 @@ const greeting = () => {
 const Stat = ({ label, value, sub, tone = '' }) => (
   <div className="rounded-r3 bg-surface px-4 py-3.5 shadow-s1">
     <div className="text-xs text-ink-3">{label}</div>
-    <div className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
+    <div className="mt-1 text-stat font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
     <div className={`text-xs font-semibold ${tone || 'text-ink-3'}`}>{sub}</div>
   </div>
 );
@@ -52,7 +52,7 @@ const SectionTitle = ({ children }) => (
 );
 
 const Panel = ({ title, action, children, className = '' }) => (
-  <section className={`h-full rounded-r3 bg-surface px-[18px] py-4 shadow-s1 ${className}`}>
+  <section className={`h-full rounded-r3 bg-surface p-card shadow-s1 ${className}`}>
     <div className="mb-3 flex items-baseline justify-between gap-3">
       <h2 className="m-0 text-[15px] font-semibold">{title}</h2>
       {action}
@@ -157,7 +157,7 @@ export default function Dashboard() {
         <Btn onClick={() => { render(); toast('Dashboard refreshed.'); }}>Refresh</Btn>
       </div>
 
-      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Active projects" value={active.length} sub={`${projects.length} in total`} />
         {showMoney
           ? <Stat label="Cash in this month" value={inr(now.got)} sub={`of ${inr(now.planned)} due`} tone={now.got < now.planned ? 'text-warn' : 'text-ok'} />
@@ -169,7 +169,7 @@ export default function Dashboard() {
       </div>
 
       <SectionTitle>Overview</SectionTitle>
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-3 [&>*]:min-w-0">
+      <div className="mb-3.5 grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
         {showMoney && (
           <Panel className="lg:col-span-2" title="Cash in vs due" action={<span className="text-xs text-accent-text">Last 6 months{prev ? ` · ${inr(prev.got)} last month` : ''}</span>}>
             <CashChart rows={rows} />
@@ -216,7 +216,7 @@ export default function Dashboard() {
       </div>
 
       <SectionTitle>Your day</SectionTitle>
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-3 [&>*]:min-w-0">
+      <div className="mb-3.5 grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
         <Panel title="Today's schedule" action={<span className="text-xs text-accent-text">{fmtD(TODAY)}</span>}>
           {bookings.length === 0 && <p className="m-0 text-ink-3">No meetings today.</p>}
           {bookings.map((b, i) => (

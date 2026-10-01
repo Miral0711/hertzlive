@@ -247,7 +247,7 @@ function Prefs() {
   return (
     <>
       <SecHead title="Preferences" sub="How the app looks and behaves for you. These are saved in this browser." />
-      <div className="grid items-start gap-3.5 xl:grid-cols-2 [&>*]:min-w-0">
+      <div className="grid items-start gap-gap xl:grid-cols-2 [&>*]:min-w-0">
         <Card title="Appearance">
           <p className="mb-1.5 mt-0 text-[13px] font-semibold text-ink-2">Theme</p>
           <div className="mb-3 inline-flex overflow-hidden rounded-r1 border border-line-2" role="group" aria-label="Theme">
@@ -261,7 +261,7 @@ function Prefs() {
             {staff() && <Switch label="Preview as client" sub="See the app the way a client sees it." checked={!!state.previewAsClient} onChange={previewToggle} />}
           </div>
         </Card>
-        <div className="flex flex-col gap-3.5">
+        <div className="flex flex-col gap-gap">
           <Card title="AI">
             <div className="flex items-center justify-between gap-3 rounded-r2 bg-surface-2 px-3.5 py-2.5"><span className="text-ink-2">Provider</span><span className="font-mono text-[13px]">{AIProvider.name}</span></div>
             <p className="mb-0 mt-2.5 text-[13px] text-ink-3">Files chat messages automatically, drafts replies and summarises meetings. Swap the provider later without changing screens.</p>
@@ -285,7 +285,7 @@ function Agency({ A }) {
   return (
     <>
       <SecHead title="Agency" sub="Your name and colour show on every screen, the web form and WhatsApp messages." />
-      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="grid items-start gap-gap xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title="Studio details">
           <form onSubmit={submit(agencySave)}>
             <div className="grid gap-x-3 sm:grid-cols-2">
@@ -552,7 +552,7 @@ function Connections() {
   return (
     <>
       <SecHead title="Connections" sub="Tools the studio already uses. Switch one on and its actions show up where the work happens." />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Connected" value={list.filter((c) => c.on).length} sub={`of ${list.length} tools`} tone="text-ok" />
         <Stat label="Off" value={list.filter((c) => !c.on).length} sub="not shown in the app" />
       </div>
@@ -589,13 +589,13 @@ function Portfolio() {
       <SecHead title="Portfolio" sub="Choose which completed projects clients see in the Studio portfolio.">
         <DLink to="#/portfolio" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">View client page</DLink>
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Projects" value={list.length} sub="in the portfolio" />
         <Stat label="Public" value={pub} sub="visible to clients" tone="text-ok" />
         <Stat label="Hidden" value={list.length - pub} sub="internal only" />
       </div>
       {list.length === 0 ? <Empty>No portfolio projects yet.</Empty> : (
-        <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+        <div className="grid gap-gap [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
           {list.map((p) => {
             const on = p.public !== false;
             return (

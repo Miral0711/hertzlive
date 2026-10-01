@@ -58,7 +58,7 @@ export function ProjectUpdates({ projectId }) {
     );
   }
   return (
-    <details className="rounded-r3 border border-line bg-surface px-[18px] py-4">
+    <details className="rounded-r3 border border-line bg-surface p-card">
       <summary className="cursor-pointer font-semibold">Updates · {updates.length}</summary>
       <p className="my-2 text-ink-3">Recorded project changes. Routine messages stay in Chats; work needing action stays in Today.</p>
       {updates.length ? list(updates.slice(0, 5)) : <p className="text-ink-3">No recorded changes available to you.</p>}

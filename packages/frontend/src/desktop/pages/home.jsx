@@ -111,7 +111,7 @@ function Today() {
           <Home />
           {r !== 'partner' && <><SectionTitle>Site review</SectionTitle><SiteReviewQueue /></>}
         </div>
-        <aside className="flex flex-col gap-3.5">
+        <aside className="flex flex-col gap-gap">
           <ScheduleCard />
           <TasksCard />
         </aside>

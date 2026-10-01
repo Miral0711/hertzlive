@@ -204,7 +204,7 @@ export function FilesView({ base, path, scope }) {
       : <tr><td colSpan={3} className="p-7 text-center text-ink-3">Empty folder.</td></tr>);
   }
   return (
-    <div className="grid items-start gap-3.5 md:grid-cols-[200px_minmax(0,1fr)]">
+    <div className="grid items-start gap-gap md:grid-cols-[200px_minmax(0,1fr)]">
       <nav className="flex flex-col gap-0.5 md:sticky md:top-0 md:border-r md:border-line md:pr-2 max-md:flex-row max-md:flex-wrap"><Tree base={base} cur={r.path} scope={scope} /></nav>
       <div className="min-w-0">
         <div className="mb-2 text-[13px] text-ink-3">

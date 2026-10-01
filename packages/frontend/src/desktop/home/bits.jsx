@@ -28,7 +28,7 @@ export const SectionTitle = ({ children, first }) => (
 );
 
 export const Grid = ({ children, className = '' }) => (
-  <div className={`mb-3.5 grid items-stretch gap-3.5 md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0 ${className}`}>{children}</div>
+  <div className={`mb-3.5 grid items-stretch gap-gap md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0 ${className}`}>{children}</div>
 );
 
 // Deterministic placeholder photo (the prototype painted canvases after each render).
@@ -61,7 +61,7 @@ const NeedRow = ({ text, to }) => {
 
 export function NeedList({ need }) {
   return (
-    <section className="rounded-r3 border border-line bg-surface px-[18px] py-4">
+    <section className="rounded-r3 border border-line bg-surface p-card">
       <div className="mb-2.5 flex items-baseline justify-between gap-3">
         <h2 className="m-0 text-lg font-semibold">Needs your attention</h2>
         <span className="text-[13px] text-ink-3">{need.length} item{need.length === 1 ? '' : 's'}</span>

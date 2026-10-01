@@ -227,7 +227,7 @@ export function DrawingsTab({ p }) {
           <Sub>Check the stated revision and purpose before use.</Sub>
           <div className="grid gap-2.5">
             {drs.map((d) => (
-              <article key={d.no} className={`flex items-start gap-3.5 rounded-r2 border p-4 ${d.no === sel ? 'border-accent bg-accent-soft' : 'border-line'}`}>
+              <article key={d.no} className={`flex items-start gap-gap rounded-r2 border p-4 ${d.no === sel ? 'border-accent bg-accent-soft' : 'border-line'}`}>
                 <span className="mt-0.5 text-accent-text"><Icon name="drawing" /></span>
                 <div className="min-w-0 flex-1">
                   <h3 className="mb-1.5 mt-0 text-[17px] font-semibold">{d.name}</h3>

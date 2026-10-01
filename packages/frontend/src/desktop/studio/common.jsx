@@ -143,7 +143,7 @@ export { TODAY };
 export const Stat = ({ label, value, sub, tone = '' }) => (
   <div className="rounded-r3 border border-line bg-surface px-4 py-3.5">
     <div className="text-xs text-ink-3">{label}</div>
-    <div className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
+    <div className="mt-1 text-stat font-semibold leading-tight tracking-tight text-accent-text">{value}</div>
     <div className={`truncate text-xs font-semibold ${tone || 'text-ink-3'}`}>{sub}</div>
   </div>
 );

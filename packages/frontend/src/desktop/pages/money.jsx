@@ -120,7 +120,7 @@ function ClientMoney() {
   return (
     <>
       <PageHeader title="Invoices" sub="Your invoices for this project. Mark one as paid once you have paid it." />
-      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="To pay" value={inr(open.reduce((a, i) => a + i.amount, 0))} sub={`${open.length} invoice${open.length === 1 ? '' : 's'}`} tone={open.length ? 'text-warn' : 'text-ok'} />
         <Stat label="Paid" value={inr(inv.filter((i) => i.status === 'paid').reduce((a, i) => a + i.amount, 0))} sub="so far" tone="text-ok" />
         <Stat label="Next due" value={next ? fmtD(next.due) : '—'} sub={next ? next.no : 'nothing outstanding'} />
@@ -160,13 +160,13 @@ function Dashboard({ unpaid, wip }) {
   const maxAmt = Math.max(1, ...bucketRows.map((b) => b.amt));
   return (
     <>
-      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Fees under contract" value={inr(fees)} sub={`${wip.length} projects`} />
         <Stat label="Receivable" value={inr(receivable)} sub={overdueAmt ? `${inr(overdueAmt)} overdue` : 'nothing overdue'} tone={overdueAmt ? 'text-crit' : 'text-ok'} />
         <Stat label="Work in progress" value={inr(wipTotal)} sub="earned, not yet billed" />
         <Stat label="Studio margin" value={`${margin}%`} sub="average across projects" tone={margin < 40 ? 'text-warn' : 'text-ok'} />
       </div>
-      <div className="mb-3.5 grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="mb-3.5 grid items-start gap-gap xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <CashChart />
         <Card title="Receivables ageing">
           {bucketRows.map((b) => (
@@ -177,7 +177,7 @@ function Dashboard({ unpaid, wip }) {
           ))}
         </Card>
       </div>
-      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="grid items-start gap-gap xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title="Profitability by project">
           <DataTable
             cols={['Project', '₹Fee', '₹Team cost', 'Margin', '₹Unbilled work']}
@@ -220,7 +220,7 @@ function Invoices({ inv }) {
         <Btn onClick={() => tallyCopy()}>Copy all for Tally</Btn>
         <Btn kind="primary" icon="plus" onClick={() => openDialog({ kind: 'raise-invoice' })}>Raise invoice</Btn>
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Outstanding" value={inr(unpaidAmt)} sub={`${inv.filter((i) => i.status !== 'paid').length} invoices`} />
         <Stat label="Overdue" value={inr(lateAmt)} sub={`${inv.filter(isLate).length} to nudge`} tone={lateAmt ? 'text-crit' : 'text-ok'} />
         <Stat label="Paid" value={inr(paidAmt)} sub="received" tone="text-ok" />
@@ -272,7 +272,7 @@ function Changes() {
   return (
     <>
       <SecHead title="Change orders" sub="Scope changes across all projects, with cost, time and signature status." />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Change orders" value={cs.length} sub="all projects" />
         <Stat label="Total value" value={inr(total)} sub="added to fees" />
         <Stat label="Signed" value={signed.length} sub={inr(signed.reduce((a, c) => a + c.cost, 0))} tone="text-ok" />
@@ -301,7 +301,7 @@ function Proposals() {
       <SecHead title="Proposals and fees" sub="Estimate a fee, send it for signature and turn a signed proposal into a project.">
         <Btn kind="primary" icon="plus" onClick={() => openDialog({ kind: 'estimate' })}>Estimate a fee</Btn>
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Pipeline" value={inr(pipeline.reduce((a, p) => a + p.fee, 0))} sub={`${pipeline.length} draft or sent`} />
         <Stat label="Signed" value={PROPOSALS.filter((p) => p.status === 'signed').length} sub="ready for a project" tone="text-ok" />
         <Stat label="Win rate" value={decided ? `${Math.round((won / decided) * 100)}%` : '—'} sub="this year" />
@@ -343,7 +343,7 @@ function Expenses() {
       <SecHead title="Expenses by project" sub="Claims and site cash per project. Approving claims happens under People.">
         <DLink to="#/people?tab=expenses" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">Approve claims</DLink>
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Total claimed" value={inr(sum(() => true))} sub={`${es.length} claims`} />
         <Stat label="Pending" value={inr(sum((e) => e.status === 'pending'))} sub={`${es.filter((e) => e.status === 'pending').length} to approve`} tone={es.some((e) => e.status === 'pending') ? 'text-warn' : ''} />
         <Stat label="From site cash" value={inr(sum((e) => e.paidBy === 'cash'))} sub="paid in cash on site" />
@@ -523,7 +523,7 @@ function Sign({ parts }) {
         </div>
         <StatusPill status={p.status} />
       </div>
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap sm:grid-cols-3">
         <Stat label="Built-up area" value={p.area} sub="as discussed" />
         <Stat label="Professional fee" value={inr(p.fee)} sub={p.basis} />
         <Stat label="GST 18%" value={inr(gst)} sub={`Total ${inr(p.fee + gst)}`} />

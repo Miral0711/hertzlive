@@ -76,7 +76,7 @@ export default function Enquiries({ q }) {
     </PageHeader>
   );
   const stats = (
-    <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+    <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
       <Stat label="Awaiting review" value={E.filter((e) => e.status === 'new').length} sub="new enquiries" tone={E.some((e) => e.status === 'new') ? 'text-warn' : 'text-ok'} />
       <Stat label="Accepted" value={E.filter((e) => e.status === 'accepted').length} sub="can book a meeting" tone="text-ok" />
       <Stat label="Declined" value={E.filter((e) => ['rejected', 'not_eligible'].includes(e.status)).length} sub="rejected or not eligible" />

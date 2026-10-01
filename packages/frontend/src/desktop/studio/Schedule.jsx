@@ -274,7 +274,7 @@ function Records() {
         <Btn sm onClick={copy}>Copy CSV</Btn>
       </SecHead>
       {recs.length > 0 && (
-        <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
           <Stat label="Total records" value={recs.length} sub="all approvals" />
           {kinds.slice(0, 3).map((k) => <Stat key={k} label={k} value={recs.filter((r) => r.kind === k).length} sub="records" />)}
         </div>
@@ -299,13 +299,13 @@ function Who() {
   return (
     <>
       <SecHead title="Who is where today" sub={`${fmtD(TODAY)} · attendance, leave and who can stand in.`} />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="In" value={count('in')} sub="on time" tone="text-ok" />
         <Stat label="Late" value={count('late')} sub="after 09:30" tone={count('late') ? 'text-warn' : ''} />
         <Stat label="On leave" value={count('on leave')} sub="away today" />
         <Stat label="Not in yet" value={count('not in') + count('half day')} sub="no check-in" />
       </div>
-      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
+      <div className="grid items-start gap-gap xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Card title="Team">
           <DataTable
             cols={['Person', 'In', 'Status', 'Note', 'Stand-in if needed']}
@@ -414,7 +414,7 @@ function Resource() {
   return (
     <>
       <SecHead title="Resource plan, next 4 weeks" sub="Hours per person per project, week by week." />
-      <div className="mb-3.5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="People planned" value={RESOURCE.length} sub={`${WEEKS.length} weeks`} />
         <Stat label="Average load" value={`${avg} h`} sub="per person per week" />
         <Stat label="Over 40 h" value={over} sub="person-weeks overloaded" tone={over ? 'text-crit' : 'text-ok'} />
@@ -678,7 +678,7 @@ export default function Schedule({ q }) {
           <Btn kind="primary" icon="plus" className="!min-h-12 !px-6 !text-base" onClick={() => openDialog({ kind: 'book-slot', date: q.date || TODAY })}>Book a slot</Btn>
         )}
       </PageHeader>
-      <div className="mb-5 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Meetings today" value={today.length} sub={`${fmtD(TODAY)}`} />
         <Stat label="Awaiting approval" value={pend} sub={pend ? 'client requests' : 'all clear'} tone={pend ? 'text-warn' : 'text-ok'} />
         <Stat label="Away today" value={away} sub="on leave" />
