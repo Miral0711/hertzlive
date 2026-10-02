@@ -271,6 +271,41 @@ function Prefs() {
   );
 }
 
+// Reads the chosen image, scales it down (so it fits in browser storage) and keeps it as the studio logo.
+const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+function logoPick(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!LOGO_TYPES.includes(file.type)) { toast('Choose a PNG, JPG, WebP or SVG image.'); return; }
+  if (file.size > 3 * 1024 * 1024) { toast('That image is over 3 MB. Choose a smaller one.'); return; }
+  const reader = new FileReader();
+  reader.onerror = () => toast('Could not read that file.');
+  reader.onload = () => {
+    const img = new Image();
+    img.onerror = () => toast('That file is not a readable image.');
+    img.onload = () => {
+      const max = 360;
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      state.db.AGENCY.logo = c.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.9);
+      if (persist()) toast('Logo updated.'); else toast('Logo shown, but it is too large to save in this browser.');
+      render();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function logoRemove() {
+  delete state.db.AGENCY.logo;
+  persist();
+  toast('Logo removed.');
+  render();
+}
+
 function Agency({ A }) {
   const sel = (from, to) => hours(from, to).filter((h) => h % 1 === 0).map((h) => <option key={h} value={h}>{hh(h)}</option>);
   return (
@@ -293,14 +328,25 @@ function Agency({ A }) {
                 <Field label="Office closes"><Select name="hend" defaultValue={A.hours.end}>{sel(15, 22)}</Select></Field>
               </div>
             </div>
-            <Field label="Logo" hint="Upload comes with the real build."><Input type="file" disabled /></Field>
+            <Field label="Logo" hint="PNG, JPG, WebP or SVG. Shown in the top bar and the preview.">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="grid h-14 w-28 flex-none place-items-center overflow-hidden rounded-r2 border border-line bg-surface-2">
+                  {A.logo ? <img src={A.logo} alt={`${A.short} logo`} className="max-h-12 max-w-[96px] object-contain" /> : <small className="text-ink-3">No logo</small>}
+                </span>
+                <label className="inline-flex min-h-9 cursor-pointer items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text hover:border-accent hover:bg-accent-soft focus-within:ring-[3px] focus-within:ring-accent-soft">
+                  {A.logo ? 'Replace logo' : 'Choose file'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={logoPick} className="sr-only" />
+                </label>
+                {A.logo && <Btn sm onClick={logoRemove}>Remove</Btn>}
+              </div>
+            </Field>
             <Btn kind="primary" type="submit">Save changes</Btn>
           </form>
         </Card>
         <Card title="How it looks">
           <div className="overflow-hidden rounded-r3 border border-line" style={{ background: 'var(--ground)' }}>
             <div className="flex items-center gap-3 bg-accent px-4 py-3 text-accent-ink">
-              <b className="font-serif text-lg uppercase tracking-[0.14em]">{A.short}</b>
+              {A.logo ? <img src={A.logo} alt="" className="max-h-8 max-w-[140px] rounded-sm bg-white/95 p-1 object-contain" /> : <b className="font-serif text-lg uppercase tracking-[0.14em]">{A.short}</b>}
               <span className="text-xs uppercase tracking-[0.1em] opacity-70">Studio</span>
             </div>
             <div className="p-4">
