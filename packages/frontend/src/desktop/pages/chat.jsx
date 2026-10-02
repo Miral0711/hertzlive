@@ -17,6 +17,7 @@ import {
   IssueReview, ProjectUpdateDialog, SiteIssueDialog, SiteReviewDialog,
 } from '../chat/site';
 import { conversationThreads, markChatRead } from '../chat/store';
+import { Stat } from '../studio/common';
 
 const Unavailable = ({ title, children }) => (
   <Modal title={title}>
@@ -29,14 +30,30 @@ const Unavailable = ({ title, children }) => (
 // Compact single-line row used by the supporting sections below the chat panel
 // (not a DataTable - this area is secondary to the conversation and should read
 // like a short activity list, not a report).
-function FiledRow({ m }) {
+function FiledRow({ m, compact = false }) {
+  const text = m.text || m.transcript || m.link?.title || '';
+  if (compact) {
+    return (
+      <div className="border-t border-line py-2.5 first:border-t-0">
+        <div className="flex items-baseline gap-2 text-[13px]">
+          <small className="w-14 flex-none text-ink-3">{fmtT(m.at)}</small>
+          <b className="flex-none font-medium">{first(m.by)}</b>
+          <span className="min-w-0 flex-1 truncate text-ink-2" title={text}>{text}</span>
+        </div>
+        <div className="mt-1.5 flex items-center justify-between gap-3 pl-16">
+          <FilingChip m={m} /><FromChat msgId={m.id} />
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex items-center gap-3 border-t border-line py-2 first:border-t-0">
-      <small className="w-14 flex-none text-ink-3">{fmtT(m.at)}</small>
-      <span className="w-20 flex-none truncate text-[13px] font-medium">{first(m.by)}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{(m.text || m.transcript || m.link?.title || '').slice(0, 70)}</span>
-      <FilingChip m={m} />
-      <FromChat msgId={m.id} />
+    <div className="grid grid-cols-[3.5rem_5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-t border-line py-2.5 first:border-t-0 max-[1100px]:grid-cols-[3.5rem_minmax(0,1fr)_auto]">
+      <small className="text-ink-3">{fmtT(m.at)}</small>
+      <span className="truncate text-[13px] font-medium max-[1100px]:hidden">{first(m.by)}</span>
+      <span className="min-w-0 truncate text-[13px] text-ink-2" title={text}>
+        <b className="font-medium text-ink min-[1101px]:hidden">{first(m.by)}: </b>{text}
+      </span>
+      <span className="flex items-center gap-3 max-[1100px]:col-span-full max-[1100px]:col-start-2"><FilingChip m={m} /><FromChat msgId={m.id} /></span>
     </div>
   );
 }
@@ -72,19 +89,24 @@ function ChatsPage({ parts, q }) {
       {/* Supporting workspace information, not a second dashboard - a normal, always-visible
           section with a plain heading, kept visually secondary to the chat panel above. */}
       <section className="mt-gap-lg border-t border-line pt-gap">
-        <h2 className="text-[15px] font-semibold text-ink-2">AI filing review</h2>
-        <p className="mb-gap mt-1 text-[13px] text-ink-3">
-          {rows.length} messages · {rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} filed by AI · {check.length} need a check · {rows.filter((x) => x.f.by === 'user').length} corrected by people
-        </p>
+        <h2 className="m-0 text-[15px] font-semibold text-ink-2">AI filing review</h2>
+        <p className="mb-gap mt-1 text-[13px] text-ink-3">How the AI filed chat messages, and what still needs a person to check.</p>
+        <div className="mb-gap grid grid-cols-2 gap-gap lg:grid-cols-4">
+          <Stat label="Messages" value={rows.length} sub="looked at" />
+          <Stat label="Filed by AI" value={rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} sub="no action needed" tone="text-ok" />
+          <Stat label="Need a check" value={check.length} sub={check.length ? 'review below' : 'all clear'} tone={check.length ? 'text-warn' : 'text-ok'} />
+          <Stat label="Corrected" value={rows.filter((x) => x.f.by === 'user').length} sub="by people" />
+        </div>
         {check.length > 0 && (
           <Card title={`Please check these · ${check.length}`}>
-            <p className="mb-2 text-[13px] text-ink-3">The AI was not sure. Click the chip to file it in the right place.</p>
+            <p className="mb-2 mt-0 text-[13px] text-ink-3">The AI was not sure. Click the chip to file it in the right place.</p>
             <div className="flex flex-col">{check.map((x) => <FiledRow key={x.m.id} m={x.m} />)}</div>
           </Card>
         )}
       </section>
 
-      <div className="mt-gap grid grid-cols-2 items-start gap-gap max-[980px]:grid-cols-1">
+      <div className="mt-gap grid items-start gap-gap xl:grid-cols-2 [&>*]:min-w-0">
+        <div className="flex flex-col gap-gap">
         <Card title="Direct messages and groups">
           <List empty="No direct messages for this role.">
             {dms.map((t) => (
@@ -94,16 +116,6 @@ function ChatsPage({ parts, q }) {
               </Item>
             ))}
           </List>
-        </Card>
-        <Card title="Announcements">
-          <div className="flex flex-col">
-            {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => (
-              <div key={i} className="flex min-h-9 items-center gap-3 border-t border-line py-2 first:border-t-0">
-                <span className="min-w-0 flex-1 truncate text-[13px]">{a.text}</span>
-                <small className="flex-none text-ink-3">{first(a.by)} · {fmtD(a.at)}</small>
-              </div>
-            )) : <Empty>No announcements.</Empty>}
-          </div>
         </Card>
         <Card title="Rules the AI learned">
           {rules.length ? (
@@ -117,11 +129,24 @@ function ChatsPage({ parts, q }) {
             </div>
           ) : <Empty>Correct a filing and the AI remembers it for that sender and thread.</Empty>}
         </Card>
-        <Card title="Recently filed">
+        </div>
+        <div className="flex flex-col gap-gap">
+        <Card title="Announcements">
           <div className="flex flex-col">
-            {rows.filter((x) => x.f.status === 'filed').slice(-5).reverse().map((x) => <FiledRow key={x.m.id} m={x.m} />)}
+            {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => (
+              <div key={i} className="flex min-h-9 items-center gap-3 border-t border-line py-2 first:border-t-0">
+                <span className="min-w-0 flex-1 truncate text-[13px]">{a.text}</span>
+                <small className="flex-none text-ink-3">{first(a.by)} · {fmtD(a.at)}</small>
+              </div>
+            )) : <Empty>No announcements.</Empty>}
           </div>
         </Card>
+        <Card title="Recently filed">
+          <div className="flex flex-col">
+            {rows.filter((x) => x.f.status === 'filed').slice(-5).reverse().map((x) => <FiledRow key={x.m.id} m={x.m} compact />)}
+          </div>
+        </Card>
+        </div>
       </div>
     </>
   );
