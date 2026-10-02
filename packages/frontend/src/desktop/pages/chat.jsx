@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { state, svc, toast, render, accessibleMessage, messageAttachment, fmtT, fmtD } from '../../shared/core.js';
 import { filingRules, FILE_KINDS, ROOM_WORDS } from '../../shared/filing.js';
 import {
-  Btn, Card, Empty, Field, Input, PageHeader, Select,
+  Btn, Card, Empty, Field, Input, Item, List, PageHeader, Select, ToggleChip,
 } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { FilingChip, FromChat } from '../parts';
@@ -86,17 +86,14 @@ function ChatsPage({ parts, q }) {
 
       <div className="mt-gap grid grid-cols-2 items-start gap-gap max-[980px]:grid-cols-1">
         <Card title="Direct messages and groups">
-          <div className="flex flex-col">
-            {dms.length ? dms.map((t) => (
-              <button
-                key={t.id} type="button" onClick={() => openThreadFromList(t.id)}
-                className="flex min-h-9 w-full items-center gap-3 border-t border-line py-2 text-left first:border-t-0 hover:bg-surface-3"
-              >
+          <List empty="No direct messages for this role.">
+            {dms.map((t) => (
+              <Item key={t.id} onClick={() => openThreadFromList(t.id)}>
                 <span className="min-w-0 flex-1 truncate text-[13px]"><b>{t.name}</b> <small className="text-ink-3">{t.memberIds.map(first).join(', ')}</small></span>
                 <small className="flex-none text-ink-3">{t.kind}</small>
-              </button>
-            )) : <Empty>No direct messages for this role.</Empty>}
-          </div>
+              </Item>
+            ))}
+          </List>
         </Card>
         <Card title="Announcements">
           <div className="flex flex-col">
@@ -230,13 +227,12 @@ function MediaDialog({ d }) {
     <Modal title="Media" wide>
       <div className="mb-3 flex flex-wrap gap-2">
         {MEDIA_KINDS.map((k) => (
-          <Btn
-            key={k} sm aria-pressed={k === tab}
-            className={k === tab ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
+          <ToggleChip
+            key={k} on={k === tab}
             onClick={() => { if (state.desk.dialog?.kind === 'media') { state.desk.dialog.tab = k; render(); } }}
           >
             {k}
-          </Btn>
+          </ToggleChip>
         ))}
       </div>
       {entries.length ? entries.map(([month, msgs]) => (

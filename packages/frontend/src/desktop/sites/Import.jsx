@@ -1,7 +1,8 @@
 import { state, svc, fmtD, uid, persist, toast, render, go, parseWA, AIProvider } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
 import { IMPORT_GROUPS, IMPORT_SHEET, WA_SAMPLE } from '../../shared/data2.js';
-import { Btn, Card, DataTable, Kpi, Kpis, PageHeader, Pill, Select, Textarea, Input } from '../../ui/ui';
+import { Btn, Banner, Card, DataTable, Kpi, Kpis, PageHeader, Pill, Select, Tabs, Textarea, Input } from '../../ui/ui';
+import { SecHead } from '../studio/common';
 import { formData } from '../session';
 
 export function parseImportSheet(text) {
@@ -129,24 +130,27 @@ function Step2({ imp }) {
         </RowRight>
       </form>
       <ParsedCard imp={imp} />
-      <h3 className="mb-1 mt-4 text-base font-semibold">Files found on this Mac</h3>
-      {IMPORT_GROUPS.map((g) => {
-        const proj = imp.proj[g.file] || g.guess;
-        return (
-          <div key={g.file} className="border-b border-line py-2">
-            <b>{g.file}</b> — {g.msgs} messages, {g.photos} photos, {g.dup} duplicates to skip
-            <div className="mt-1.5 max-w-sm">
-              <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink-2">Project
+      <div className="mt-5"><SecHead title="Files found on this Mac" sub="One group per WhatsApp export, matched to a project." /></div>
+      <div className="flex flex-col gap-gap">
+        {IMPORT_GROUPS.map((g) => {
+          const proj = imp.proj[g.file] || g.guess;
+          return (
+            <Card key={g.file}>
+              <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+                <b>{g.file}</b>
+                <span className="text-[13px] text-ink-3">{g.msgs} messages · {g.photos} photos · {g.dup} duplicates to skip</span>
+              </div>
+              <label className="mb-2.5 flex max-w-sm flex-col gap-1 text-[13px] font-semibold text-ink-2">Project
                 <Select value={proj} onChange={(e) => setProj(imp, g.file, e.target.value)}>{projectOptions(imp, proj)}</Select>
               </label>
-            </div>
-            <DataTable
-              cols={['Phone', 'Name', 'Role']}
-              rows={g.numbers.map(([phone, nm, rg]) => [phone, nm, rg || <RoleSelect imp={imp} file={g.file} phone={phone} upper />])}
-            />
-          </div>
-        );
-      })}
+              <DataTable
+                cols={['Phone', 'Name', 'Role']}
+                rows={g.numbers.map(([phone, nm, rg]) => [phone, nm, rg || <RoleSelect imp={imp} file={g.file} phone={phone} upper />])}
+              />
+            </Card>
+          );
+        })}
+      </div>
       <RowRight><Btn onClick={() => setStep(1)}>Back</Btn><Btn kind="primary" onClick={() => setStep(3)}>Next</Btn></RowRight>
     </Card>
   );
@@ -163,7 +167,7 @@ async function getFacts(imp, file) {
 function Step3({ imp }) {
   return (
     <Card title="AI project facts">
-      <p className="rounded-r1 bg-accent-soft px-3 py-2 text-accent-text">AI suggestion, edit before confirming</p>
+      <Banner>AI suggestion, edit before confirming</Banner>
       {IMPORT_GROUPS.map((g) => {
         const f = imp.facts[g.file];
         if (!f) {
@@ -229,7 +233,7 @@ function Step4({ imp }) {
         <li>People to add: {people}</li>
       </ul>
       <p>Active projects will appear on phones immediately with all messages and photos. Finished ones stay on desktop.</p>
-      {imp.dry && <div role="status" className="rounded-r1 bg-accent-soft px-3 py-2 text-accent-text">{imp.dry}</div>}
+      {imp.dry && <Banner role="status">{imp.dry}</Banner>}
       <RowRight>
         <Btn onClick={() => setStep(3)}>Back</Btn>
         <Btn onClick={() => dryRun(imp)}>Dry run</Btn>
@@ -250,12 +254,8 @@ export default function ImportPage() {
   void svc;
   return (
     <>
-      <PageHeader title="Import from WhatsApp" />
-      <div className="mb-4 flex flex-wrap gap-2">
-        {LABELS.map((l, i) => (
-          <Btn key={l} sm kind={imp.step === i + 1 ? 'primary' : 'default'} aria-current={imp.step === i + 1 ? 'step' : undefined} onClick={() => setStep(i + 1)}>{i + 1}. {l}</Btn>
-        ))}
-      </div>
+      <PageHeader title="Import from WhatsApp" sub="Bring in projects and site conversations from an exported chat." />
+      <Tabs list={LABELS.map((l, i) => [i + 1, `${i + 1}. ${l}`])} current={imp.step} onSelect={setStep} />
       <Step key={imp.step} imp={imp} />
     </>
   );

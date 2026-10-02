@@ -27,6 +27,8 @@ export const SectionTitle = ({ children, first }) => (
   <h2 className={`mb-2.5 ${first ? 'mt-3' : 'mt-7'} font-ui text-xs font-semibold uppercase tracking-[0.1em] text-accent-text`}>{children}</h2>
 );
 
+// Deliberate variant of ui.jsx's Grid2 (items-start, no stretch): this is Grid2 + items-stretch/
+// h-full so the two cards in a row match height. Not an accidental duplicate - keep it.
 export const Grid = ({ children, className = '' }) => (
   <div className={`mb-3.5 grid items-stretch gap-gap md:grid-cols-2 [&>*]:h-full [&>*]:min-w-0 ${className}`}>{children}</div>
 );
@@ -61,11 +63,12 @@ const NeedRow = ({ text, to }) => {
 
 export function NeedList({ need }) {
   return (
-    <section className="rounded-r3 border border-line bg-surface p-card">
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <h2 className="m-0 text-lg font-semibold">Needs your attention</h2>
-        <span className="text-[13px] text-ink-3">{need.length} item{need.length === 1 ? '' : 's'}</span>
+    <Card title={
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-lg font-semibold leading-snug">Needs your attention</span>
+        <span className="text-[13px] font-normal text-ink-3">{need.length} item{need.length === 1 ? '' : 's'}</span>
       </div>
+    }>
       <List empty="No items in your current attention queue.">
         {need.slice(0, 4).map(([t, h], i) => <NeedRow key={i} text={t} to={h || '#/today'} />)}
       </List>
@@ -77,6 +80,6 @@ export function NeedList({ need }) {
           </div>
         </details>
       )}
-    </section>
+    </Card>
   );
 }

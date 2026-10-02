@@ -8,12 +8,13 @@ import {
 } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
 import {
-  Btn, Item, ItemBody, List, Input, Pill, Bar, Dropdown, DropdownItem, Select,
+  Btn, Card, Item, ItemBody, List, Input, Pill, Bar, Dropdown, DropdownItem, Select, PageHeader,
 } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink, href } from '../nav';
 import { P, first, role, staff } from '../helpers';
 import { formData, openDialog } from '../session';
+import { SectionTitle } from './bits';
 
 const ym = (d) => (d || '').slice(0, 7);
 function monthsBack(n) {
@@ -62,19 +63,12 @@ const Stat = ({ label, value, sub, tone = '', to }) => {
   return to ? <DLink to={to} className="block no-underline" style={{ color: 'inherit' }}>{body}</DLink> : body;
 };
 
-const SectionTitle = ({ children }) => (
-  <h2 className="mb-2.5 mt-6 font-ui text-xs font-semibold uppercase tracking-[0.1em] text-accent-text">{children}</h2>
-);
-
-const Panel = ({ title, action, children, className = '' }) => (
-  <section className={`h-full rounded-r3 bg-surface p-card shadow-s1 ${className}`}>
-    <div className="mb-3 flex items-baseline justify-between gap-3">
-      <h2 className="m-0 text-[15px] font-semibold">{title}</h2>
-      {action}
-    </div>
-    {children}
-  </section>
-);
+// Panel used to be its own local component (section + shadow + title/action row), re-implementing
+// Card. Now built on Card directly; `panelTitle` composes the title + header action the same way
+// Panel used to, since Card's `title` is just the h2 content.
+const panelTitle = (title, action) => (action ? (
+  <div className="flex items-center justify-between gap-3"><span>{title}</span>{action}</div>
+) : title);
 
 // Small toggle made of plain Btn's — same visual language as everywhere else, no new control.
 const ToggleGroup = ({ value, onChange, options }) => (
@@ -302,30 +296,25 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="m-0 text-[28px] font-semibold leading-tight tracking-tight">{greeting()}, {first(u.id)}</h1>
-          <p className="m-0 mt-1 text-[13px] text-ink-3">
-            {isClient
-              ? `${decisions.length} decision${decisions.length === 1 ? '' : 's'} waiting for you${nextMilestone ? ` · next milestone ${fmtD(nextMilestone.date)}` : ''}`
-              : isContractor
-                ? `${sites.map((x) => `${x.name} ${x.progress}%`).join(' · ') || 'No site assigned'}`
-                : `${sites.length - onTrack} site${sites.length - onTrack === 1 ? '' : 's'} behind plan · ${bookings.length} meeting${bookings.length === 1 ? '' : 's'} today`}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {isStaff && (can('task', 'w') || can('site', 'w') || can('booking', 'w') || showEnquiries || showMoney) && (
-            <Dropdown trigger={<><Icon name="plus" small /> Quick actions</>} panelClassName="!flex w-60 flex-col gap-0.5 !p-2">
-              {can('task', 'w') && <DropdownItem icon="check" onClick={() => openDialog({ kind: 'add-task-all', projectId: '' })}>Add task</DropdownItem>}
-              {can('site', 'w') && !isClient && r === 'partner' && <DropdownItem icon="sites" onClick={() => openDialog({ kind: 'add-site' })}>Add site</DropdownItem>}
-              {can('booking', 'w') && <DropdownItem icon="cal" onClick={() => openDialog({ kind: 'book-slot', date: TODAY })}>Book a meeting</DropdownItem>}
-              {showEnquiries && <DropdownItem icon="enquiries" onClick={() => go('#/enquiries')}>Review enquiries</DropdownItem>}
-              {showMoney && <DropdownItem icon="money" onClick={() => go('#/money?tab=invoices')}>Raise / chase invoices</DropdownItem>}
-            </Dropdown>
-          )}
-          <Btn onClick={() => { render(); toast('Dashboard refreshed.'); }}>Refresh</Btn>
-        </div>
-      </div>
+      <PageHeader
+        title={`${greeting()}, ${first(u.id)}`}
+        sub={isClient
+          ? `${decisions.length} decision${decisions.length === 1 ? '' : 's'} waiting for you${nextMilestone ? ` · next milestone ${fmtD(nextMilestone.date)}` : ''}`
+          : isContractor
+            ? `${sites.map((x) => `${x.name} ${x.progress}%`).join(' · ') || 'No site assigned'}`
+            : `${sites.length - onTrack} site${sites.length - onTrack === 1 ? '' : 's'} behind plan · ${bookings.length} meeting${bookings.length === 1 ? '' : 's'} today`}
+      >
+        {isStaff && (can('task', 'w') || can('site', 'w') || can('booking', 'w') || showEnquiries || showMoney) && (
+          <Dropdown trigger={<><Icon name="plus" small /> Quick actions</>} panelClassName="!flex w-60 flex-col gap-0.5 !p-2">
+            {can('task', 'w') && <DropdownItem icon="check" onClick={() => openDialog({ kind: 'add-task-all', projectId: '' })}>Add task</DropdownItem>}
+            {can('site', 'w') && !isClient && r === 'partner' && <DropdownItem icon="sites" onClick={() => openDialog({ kind: 'add-site' })}>Add site</DropdownItem>}
+            {can('booking', 'w') && <DropdownItem icon="cal" onClick={() => openDialog({ kind: 'book-slot', date: TODAY })}>Book a meeting</DropdownItem>}
+            {showEnquiries && <DropdownItem icon="enquiries" onClick={() => go('#/enquiries')}>Review enquiries</DropdownItem>}
+            {showMoney && <DropdownItem icon="money" onClick={() => go('#/money?tab=invoices')}>Raise / chase invoices</DropdownItem>}
+          </Dropdown>
+        )}
+        <Btn onClick={() => { render(); toast('Dashboard refreshed.'); }}>Refresh</Btn>
+      </PageHeader>
 
       <div className="grid gap-gap [grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))]">
         {isContractor ? (
@@ -360,20 +349,20 @@ export default function Dashboard() {
       <>
       <SectionTitle>Studio pulse</SectionTitle>
       <div className="grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        {showMoney && <Panel className="lg:col-span-2" title="Cash flow" action={
+        {showMoney && <Card className={`shadow-s1 lg:col-span-2`} title={panelTitle('Cash flow',
           <div className="flex items-center gap-2.5">
             <span className="text-xs text-accent-text">{prev ? `${inr(prev.received)} last month` : ''}</span>
             <ToggleGroup value={months} onChange={setMonths} options={[[6, '6M'], [12, '12M']]} />
           </div>
-        }>
+        )}>
           <div className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px]">
             <span><b className="block text-lg font-semibold text-ok">{inr(receivedTotal)}</b><span className="text-ink-3">received</span></span>
             <span><b className="block text-lg font-semibold">{inr(dueTotal)}</b><span className="text-ink-3">due</span></span>
             <span><b className="block text-lg font-semibold text-crit">{inr(overdueTotal)}</b><span className="text-ink-3">overdue</span></span>
           </div>
           <CashChart rows={rows} />
-        </Panel>}
-        <Panel className={showMoney ? '' : 'lg:col-span-3'} title="Studio health">
+        </Card>}
+        <Card className={`shadow-s1 ${showMoney ? '' : 'lg:col-span-3'}`} title="Studio health">
           <div className="mb-3 flex items-center gap-4">
             <span className={`text-[40px] font-semibold leading-none tracking-tight ${pulseTone(pulseOverall) === 'ok' ? 'text-ok' : pulseTone(pulseOverall) === 'warn' ? 'text-warn' : 'text-crit'}`}>{pulseOverall}</span>
             <span className="text-ink-3">/ 100<br />overall</span>
@@ -386,7 +375,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </Panel>
+        </Card>
       </div>
 
       </>
@@ -394,15 +383,14 @@ export default function Dashboard() {
 
       {(isStaff || isClient) && (
       <div className="mt-gap grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        <Panel
-          className={showMoney ? 'lg:col-span-2' : 'lg:col-span-3'}
-          title="Portfolio progress"
-          action={
+        <Card
+          className={`shadow-s1 ${showMoney ? 'lg:col-span-2' : 'lg:col-span-3'}`}
+          title={panelTitle('Portfolio progress',
             <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="!min-h-8 !py-1 text-xs">
               <option value="">All projects</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
-          }
+          )}
         >
           {shownProjects.length === 0 && <p className="m-0 text-ink-3">No projects yet.</p>}
           {shownProjects.map(({ p, pct, overall }) => (
@@ -416,10 +404,10 @@ export default function Dashboard() {
               <StatusDot status={overall} />
             </DLink>
           ))}
-        </Panel>
-        {showMoney && <Panel
-          title="Budget health"
-          action={<ToggleGroup value={budgetView} onChange={setBudgetView} options={[['overall', 'Overall'], ['project', 'By project']]} />}
+        </Card>
+        {showMoney && <Card
+          className="shadow-s1"
+          title={panelTitle('Budget health', <ToggleGroup value={budgetView} onChange={setBudgetView} options={[['overall', 'Overall'], ['project', 'By project']]} />)}
         >
           {budgetView === 'overall' ? (
             <>
@@ -444,13 +432,13 @@ export default function Dashboard() {
               })}
             </div>
           )}
-        </Panel>}
+        </Card>}
       </div>
       )}
 
       {(isStaff || isClient) && (
       <div className="mt-gap grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        <Panel className={isStaff && showTasks ? 'lg:col-span-2' : 'lg:col-span-3'} title="Project health">
+        <Card className={`shadow-s1 ${isStaff && showTasks ? 'lg:col-span-2' : 'lg:col-span-3'}`} title="Project health">
           <div className="flex flex-col divide-y divide-line">
             {projectHealth.map(({ p, schedule, budget: b, site, approvals }) => (
               <div key={p.id} className="flex flex-wrap items-center gap-2.5 py-2.5 first:pt-0 last:pb-0">
@@ -462,10 +450,10 @@ export default function Dashboard() {
             ))}
           </div>
           <p className="m-0 mt-2.5 text-xs text-ink-3">Schedule{showMoney ? ' · Budget' : ''}{showSites ? ' · Site' : ''} · Approvals</p>
-        </Panel>
-        {isStaff && showTasks && <Panel
-          title="Team workload"
-          action={<ToggleGroup value={teamMetric} onChange={setTeamMetric} options={[['tasks', 'Tasks'], ['hours', 'Hours'], ['projects', 'Projects']]} />}
+        </Card>
+        {isStaff && showTasks && <Card
+          className="shadow-s1"
+          title={panelTitle('Team workload', <ToggleGroup value={teamMetric} onChange={setTeamMetric} options={[['tasks', 'Tasks'], ['hours', 'Hours'], ['projects', 'Projects']]} />)}
         >
           {team.map(({ p, tasks, hours, projects: pc }) => {
             const v = { tasks, hours, projects: pc }[teamMetric];
@@ -480,13 +468,13 @@ export default function Dashboard() {
               </DLink>
             );
           })}
-        </Panel>}
+        </Card>}
       </div>
       )}
 
       {isContractor && (
       <div className="mt-gap grid gap-gap lg:grid-cols-2 [&>*]:min-w-0">
-        <Panel title="Your site" action={<DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">Open site</DLink>}>
+        <Card className="shadow-s1" title={panelTitle('Your site', <DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">Open site</DLink>)}>
           {sites.length === 0 && <p className="m-0 text-ink-3">No site assigned yet.</p>}
           {sites.map((x) => (
             <DLink key={x.id} to={`#/sites/${x.id}`} className="flex items-center gap-3 border-t border-line py-2.5 no-underline first:border-t-0" style={{ color: 'inherit' }}>
@@ -495,20 +483,20 @@ export default function Dashboard() {
               <small className="w-9 flex-none text-right text-ink-3">{x.progress}%</small>
             </DLink>
           ))}
-        </Panel>
-        <Panel title="Snags for you">
+        </Card>
+        <Card className="shadow-s1" title="Snags for you">
           <List empty="No open snags.">
             {sites.flatMap((x) => svc.snags(x.id)).filter((g) => g.status !== 'closed').map((g) => (
               <Item key={g.id} to={href(`#/sites/${g.siteId}?tab=snags`)}><ItemBody title={g.text} sub={g.status} /></Item>
             ))}
           </List>
-        </Panel>
+        </Card>
       </div>
       )}
 
       <div className="mt-gap grid gap-gap [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))] [&>*]:min-w-0">
         {isClient && (
-          <Panel title="Waiting for you">
+          <Card className="shadow-s1" title="Waiting for you">
             <List empty="Nothing waiting. You are all caught up.">
               {decisions.slice(0, 5).map((d) => (
                 <Item key={d.id} to={href(`#/projects/${d.projectId}?tab=decisions`)}>
@@ -516,9 +504,9 @@ export default function Dashboard() {
                 </Item>
               ))}
             </List>
-          </Panel>
+          </Card>
         )}
-        {!isContractor && <Panel title="Upcoming milestones">
+        {!isContractor && <Card className="shadow-s1" title="Upcoming milestones">
           <List empty="No milestones ahead.">
             {milestones.map((m) => (
               <Item key={m.id} to={href(`#/projects/${m.project.id}`)}>
@@ -527,8 +515,8 @@ export default function Dashboard() {
               </Item>
             ))}
           </List>
-        </Panel>}
-        {showIssues && <Panel title="Open site issues" action={<DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">View sites</DLink>}>
+        </Card>}
+        {showIssues && <Card className="shadow-s1" title={panelTitle('Open site issues', <DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">View sites</DLink>)}>
           {issues.length === 0 ? <p className="m-0 text-ink-3">No open issues.</p> : (
             <div className="flex flex-col gap-2.5">
               {[['critical', 'crit', 'Critical'], ['attention', 'warn', 'Attention'], ['waiting', '', 'Waiting']].map(([band, tone, label]) => (
@@ -543,9 +531,9 @@ export default function Dashboard() {
               ))}
             </div>
           )}
-        </Panel>}
+        </Card>}
         {showEnquiries && (
-          <Panel title="Enquiries" action={<DLink to="#/enquiries" className="text-xs text-accent-text no-underline hover:underline">View all</DLink>}>
+          <Card className="shadow-s1" title={panelTitle('Enquiries', <DLink to="#/enquiries" className="text-xs text-accent-text no-underline hover:underline">View all</DLink>)}>
             <p className="mb-2 mt-0 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">By status</p>
             <div className="mb-3 flex flex-col gap-1.5">
               {enquiryByStatus.map(([s, n]) => (
@@ -566,13 +554,13 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-          </Panel>
+          </Card>
         )}
       </div>
 
       <SectionTitle>Your day</SectionTitle>
       <div className="grid gap-gap [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))] [&>*]:min-w-0">
-        {showBookings && <Panel title="Today's schedule" action={<span className="text-xs text-accent-text">{fmtD(TODAY)}</span>}>
+        {showBookings && <Card className="shadow-s1" title={panelTitle("Today's schedule", <span className="text-xs text-accent-text">{fmtD(TODAY)}</span>)}>
           {bookings.length === 0 && <p className="m-0 text-ink-3">No meetings today.</p>}
           {bookings.map((b, i) => (
             <div key={b.id} className="flex gap-2.5 py-1.5">
@@ -585,24 +573,26 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
-        </Panel>}
-        <Panel title="Recent activity">
+        </Card>}
+        <Card className="shadow-s1" title="Recent activity">
           <List empty="Nothing new.">{notes.slice(0, 5).map(noteLink)}</List>
-        </Panel>
-        <Panel title="Your checklist">
+        </Card>
+        <Card className="shadow-s1" title="Your checklist">
           <form className="mb-2.5 flex gap-2" onSubmit={addCheck}>
             <Input name="text" placeholder="Add a to-do for today" required aria-label="Add a to-do for today" className="min-w-0 flex-1" />
             <Btn type="submit">Add</Btn>
           </form>
           <List empty="No items yet.">
             {checks.map((c) => (
-              <label key={c.id} className="flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
-                <input type="checkbox" checked={!!c.done} onChange={() => { svc.toggleCheck(c.id); render(); }} />
-                <span className={c.done ? 'text-ink-3 line-through' : ''}>{c.text}</span>
-              </label>
+              <Item key={c.id}>
+                <label className="flex min-w-0 flex-1 items-center gap-3">
+                  <input type="checkbox" checked={!!c.done} onChange={() => { svc.toggleCheck(c.id); render(); }} />
+                  <span className={c.done ? 'text-ink-3 line-through' : ''}>{c.text}</span>
+                </label>
+              </Item>
             ))}
           </List>
-        </Panel>
+        </Card>
       </div>
     </>
   );

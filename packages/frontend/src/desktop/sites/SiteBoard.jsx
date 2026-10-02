@@ -1,7 +1,7 @@
 import { state, svc, can, inr, fmtD, fmtT, fmtDT, toast, persist, render } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
 import { DAILYLOG } from '../data';
-import { Btn, Card, DataTable, Empty, PageHeader, Bar, StatusPill } from '../../ui/ui';
+import { Btn, Card, DataTable, Empty, PageHeader, Bar, StatusPill, Pill } from '../../ui/ui';
 import { DLink, href } from '../nav';
 import Icon from '../../ui/Icon';
 import { navFor, P, name, first, role, staff } from '../helpers';
@@ -11,6 +11,7 @@ import { AssistButton } from '../chat/assist';
 import Ph from '../../ui/Ph';
 import { IssueWorkspace, DeliveryWorkspace } from './Work';
 import { trackFill } from '../../ui/tones';
+import { SecHead } from '../studio/common';
 
 function sitePlan(s) {
   const p = P(s.projectId);
@@ -48,12 +49,6 @@ function SitesChart() {
 }
 
 
-const SecHead = ({ title, sub, children }) => (
-  <div className="mb-3.5 flex flex-wrap items-end justify-between gap-3">
-    <div><h2 className="m-0 text-xl font-semibold">{title}</h2>{sub && <p className="m-0 text-[13px] text-ink-3">{sub}</p>}</div>
-    {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
-  </div>
-);
 const Tile = ({ label, value, sub }) => (
   <div className="rounded-r3 border border-line bg-surface px-4 py-3">
     <div className="text-xs text-ink-3">{label}</div>
@@ -93,8 +88,11 @@ const Stat = ({ label, value, sub, tone = '', to }) => {
   const cls = 'block rounded-r3 border border-line bg-surface px-4 py-3.5 no-underline';
   return to ? <DLink to={to} className={`${cls} hover:border-accent`} style={{ color: 'inherit' }}>{body}</DLink> : <div className={cls}>{body}</div>;
 };
+// Composes the shared Pill (tone) inside the shared DLink (navigation), matching Pillink's old
+// hot/tone logic as closely as Pill's own kind values allow — the non-hot neutral state loses its
+// bg-surface-2 fill (Pill's '' kind is outline-only), a minor, accepted visual difference.
 const Pillink = ({ to, hot, tone = 'warn', children }) => (
-  <DLink to={to} className={`rounded-full border px-2.5 text-xs font-semibold leading-6 no-underline ${hot ? (tone === 'crit' ? 'border-crit-soft bg-crit-soft text-crit' : 'border-warn-soft bg-warn-soft text-warn') : 'border-line bg-surface-2 text-ink-2'}`}>{children}</DLink>
+  <DLink to={to} className="no-underline"><Pill kind={hot ? (tone === 'crit' ? 'crit' : 'warn') : ''}>{children}</Pill></DLink>
 );
 
 // Same deterministic placeholder convention as the rest of the app (Ph, keyed by real feed data) —

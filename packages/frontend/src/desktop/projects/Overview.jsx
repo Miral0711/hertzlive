@@ -1,6 +1,6 @@
 import { state, svc, can, toast, persist, render, uid, go, fmtD, tenantProjectImage, safeAssetUrl } from '../../shared/core.js';
 import { TODAY, PHASES } from '../../shared/data.js';
-import { Btn, Card, DataTable, Input, Pill, StatusPill } from '../../ui/ui';
+import { Btn, Card, DataTable, Input, Item, Pill, StatusPill } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
 import { filedRows } from '../parts';
@@ -63,11 +63,11 @@ function VastuCard({ p }) {
       {v.length ? (
         <div className="flex flex-col gap-1.5">
           {v.map((x, i) => (
-            <div key={i} className="flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
+            <Item key={i}>
               <b>{x.room}</b>
               <span className="min-w-0 flex-1">{x.note}</span>
               {staff() && <Btn sm onClick={() => vastuDel(p.id, i)}>Remove</Btn>}
-            </div>
+            </Item>
           ))}
         </div>
       ) : <p className="text-ink-3">No notes yet.</p>}
@@ -277,9 +277,9 @@ export function OverviewTab({ p }) {
               <H2>Brief</H2>
               <div className="flex flex-col gap-1.5">
                 {Object.entries(brief).filter(([key]) => key !== 'budget' || can('budget', 'r', role())).map(([k, v]) => (
-                  <div key={k} className="flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
+                  <Item key={k}>
                     <b>{k}</b><span className="min-w-0 flex-1">{Array.isArray(v) ? v.join(', ') : v}</span>
-                  </div>
+                  </Item>
                 ))}
               </div>
             </>

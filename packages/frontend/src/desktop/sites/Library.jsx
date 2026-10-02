@@ -6,6 +6,7 @@ import { P, V, first, role } from '../helpers';
 import { FromChat, filedRows } from '../parts';
 import { openDialog } from '../session';
 import { formData } from '../session';
+import { SecHead } from '../studio/common';
 import Ph from '../../ui/Ph';
 
 function choose(e, s) {
@@ -27,9 +28,8 @@ export function SamplesPage() {
     const mats = svc.materials().filter((m) => m.clientVisible);
     return (
       <>
-        <PageHeader title="Your selections" />
-        <Card>
-          <h2 className="mt-0 text-lg font-semibold">Choose</h2>
+        <PageHeader title="Your selections" sub="Material choices and approvals waiting on you." />
+        <Card title="Choose">
           <DataTable
             cols={['Item', 'Options', 'Your choice']}
             rows={sel.map((s) => [
@@ -44,7 +44,9 @@ export function SamplesPage() {
                 ),
             ])}
           />
-          <h2 className="text-lg font-semibold">Materials to approve</h2>
+        </Card>
+        <div className="mt-5"><SecHead title="Materials to approve" /></div>
+        <Card>
           <DataTable
             cols={['Material', 'Vendor', 'Status', '']}
             rows={mats.map((m) => [
@@ -78,7 +80,9 @@ export function SamplesPage() {
               : <Btn sm onClick={() => { s.out = `With ${first(state.userId)}`; render(); }}>Take out</Btn>,
           ])}
         />
-        <h2 className="text-lg font-semibold">Samples talked about in chat</h2>
+      </Card>
+      <div className="mt-5"><SecHead title="Samples talked about in chat" sub="Mentions picked up from project conversations." /></div>
+      <Card>
         <DataTable
           cols={['Project', 'Who', 'Message', '']}
           rows={filedRows({ kind: 'sample' }).map((x) => [P(x.projectId)?.name.split(' ')[0] || '?', first(x.m.by), x.m.text, <FromChat msgId={x.m.id} />])}
