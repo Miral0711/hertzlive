@@ -7,7 +7,7 @@ import { FEES, FEE_STAGES, HOURLY } from '../../shared/data2.js';
 import { seedFilings } from '../../shared/filing.js';
 import {
   Btn, Card, Grid2, Row, PageHeader, Empty, Tabs, Field, Input, Select, Textarea,
-  DataTable, StatusPill, Pill, Item,
+  DataTable, StatusPill, Pill, Item, ToggleChip,
 } from '../../ui/ui';
 import { DLink, href } from '../nav';
 import { P, V, days, first, role } from '../helpers';
@@ -213,7 +213,6 @@ function Invoices({ inv }) {
   const unpaidAmt = inv.filter((i) => i.status !== 'paid').reduce((a, i) => a + i.amount, 0);
   const lateAmt = inv.filter(isLate).reduce((a, i) => a + i.amount, 0);
   const paidAmt = inv.filter((i) => i.status === 'paid').reduce((a, i) => a + i.amount, 0);
-  const chip = (on) => `inline-flex min-h-8 items-center rounded-full border px-3 text-[13px] font-semibold ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text'}`;
   return (
     <>
       <SecHead title="Invoices" sub={`GST 18% on ${svc.cfg().name} fees, SAC ${A.sac || '9983'}. Same state bills CGST + SGST, other states IGST. Open an invoice for the split.`}>
@@ -228,7 +227,7 @@ function Invoices({ inv }) {
       </div>
       <Card>
         <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter invoices">
-          {[['all', 'All'], ['unpaid', 'Unpaid'], ['overdue', 'Overdue'], ['paid', 'Paid']].map(([k, l]) => <button key={k} type="button" aria-pressed={f === k} className={chip(f === k)} onClick={() => setF(k)}>{l}</button>)}
+          {[['all', 'All'], ['unpaid', 'Unpaid'], ['overdue', 'Overdue'], ['paid', 'Paid']].map(([k, l]) => <ToggleChip key={k} on={f === k} onClick={() => setF(k)}>{l}</ToggleChip>)}
         </div>
         <DataTable
           cols={['Invoice', 'Project', '₹Amount', 'Due', 'Status', 'Milestone', '']}
@@ -341,7 +340,7 @@ function Expenses() {
   return (
     <>
       <SecHead title="Expenses by project" sub="Claims and site cash per project. Approving claims happens under People.">
-        <DLink to="#/people?tab=expenses" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">Approve claims</DLink>
+        <Btn to={href('#/people?tab=expenses')}>Approve claims</Btn>
       </SecHead>
       <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Total claimed" value={inr(sum(() => true))} sub={`${es.length} claims`} />

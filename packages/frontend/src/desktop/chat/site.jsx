@@ -14,8 +14,12 @@ import { assistAllowed, openDesktopAssist, saveDesktopAssist } from './assistCor
 const focusMain = (opts) => document.getElementById('workspace')?.focus(opts);
 const later = (fn) => setTimeout(fn, 60);
 
+// Not Item/ItemBody: these rows carry a title + sub + a third freeform detail/snippet line, plus a
+// separate trailing action button - more than ItemBody's title/sub pair, and Item never combines a
+// nav `to` with a nested interactive child (see home/YourDay.jsx), which an action button would be.
+// Kept local, but using Item's own row gap (gap-3, not gap-4) so the two match everywhere else.
 const Row = ({ action, children }) => (
-  <div className="flex min-h-11 items-center gap-4 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
+  <div className="flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
     <span className="min-w-0 flex-1 [&>small]:mt-1 [&>small]:block [&>span]:mt-1 [&>span]:block">{children}</span>
     {action}
   </div>

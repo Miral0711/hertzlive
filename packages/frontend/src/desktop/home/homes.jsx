@@ -1,6 +1,6 @@
 import { state, svc, can, inr, fmtD, fmtDT, fmtT, hh, toast, render, AIProvider } from '../../shared/core.js';
 import { TODAY, NAS_TREE, PHASES } from '../../shared/data.js';
-import { Btn, Card, Item, Kpi, Kpis, Pill, StatusPill, DataTable, List, Banner } from '../../ui/ui';
+import { Btn, Card, Item, Kpi, Kpis, Pill, StatusPill, DataTable, List, Banner, PageHeader } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink, href } from '../nav';
 import { P, name, first, days } from '../helpers';
@@ -358,12 +358,6 @@ function ClientFilesCard({ p }) {
     </Card>
   );
 }
-const HdrRow = ({ title, children }) => (
-  <div className="mb-[18px] flex flex-wrap items-end justify-between gap-4">
-    <h1 className="m-0 text-[30px] font-semibold leading-tight tracking-tight">{title}</h1>
-    <div className="flex flex-wrap gap-2">{children}</div>
-  </div>
-);
 export function ClientHome() {
   const p = svc.projects()[0];
   const next = p.milestones.find((m) => !m.done && m.clientVisible);
@@ -376,7 +370,7 @@ export function ClientHome() {
   const photos = svc.feed(p.siteId).filter((f) => f.type === 'photo').slice(0, 4);
   return (
     <>
-      <HdrRow title={p.name}><DLink to="#/chats">Message the studio</DLink></HdrRow>
+      <PageHeader title={p.name}><DLink to="#/chats">Message the studio</DLink></PageHeader>
       <div className="mb-3.5 grid grid-cols-2 gap-1.5 md:grid-cols-4 lg:grid-cols-6">
         {PHASES.map((n, i) => (
           <div
@@ -433,7 +427,7 @@ export function ContractorHome() {
   const ck = state.desk.checklists.filter((c) => c.siteId === s.id);
   return (
     <>
-      <HdrRow title={s.name}><DLink to="#/chats">Site chat</DLink></HdrRow>
+      <PageHeader title={s.name}><DLink to="#/chats">Site chat</DLink></PageHeader>
       <Kpis>
         <Kpi label="Progress" value={`${s.progress}%`} />
         <Kpi label="Open issues" value={open.length} crit={!!open.length} />

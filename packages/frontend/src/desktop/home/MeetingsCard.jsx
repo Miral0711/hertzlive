@@ -53,7 +53,10 @@ function bookSlot(x) {
 function MeetLinks({ k }) {
   const m = svc.meetUrl(k);
   const c = svc.calendarUrl(k);
-  const cls = 'inline-flex min-h-8 items-center rounded-r1 border border-line-2 bg-surface px-2.5 text-[13px] font-semibold text-ink no-underline hover:bg-surface-2';
+  // Same class string as the studio/MeetingsCard.jsx counterpart (and the other external,
+  // target="_blank" button-styled links across the app) - these are real anchors, not Btn,
+  // because Btn only renders <Link>/<button>, never an external new-tab anchor.
+  const cls = 'inline-flex min-h-8 items-center rounded-r1 border border-line-2 px-2.5 text-[13px] font-semibold text-ink no-underline hover:bg-surface-2';
   return (
     <span className="inline-flex gap-1.5">
       {m && <a className={cls} href={m} target="_blank" rel="noopener noreferrer">Join Meet</a>}

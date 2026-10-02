@@ -4,15 +4,22 @@
 // answers "what needs my attention today", never the studio-wide numbers Dashboard already owns.
 import { state, svc, can, fmtD, fmtT, fmtDT, inr, render, toast } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
-import { Btn, Card, Pill, Item, ItemBody, List } from '../../ui/ui';
+import { Btn, Card, Pill, Item, ItemBody, List, Empty } from '../../ui/ui';
 import { DLink, href } from '../nav';
 import { P, name, first } from '../helpers';
 import { projectUpdateOpen } from '../chat/site';
 
 const hh = (h) => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`;
 const dots = ['bg-accent', 'bg-secondary', 'bg-ok', 'bg-warn'];
-const Empty = ({ children }) => <p className="m-0 rounded-r2 bg-surface-2 px-3.5 py-5 text-center text-ink-3">{children}</p>;
 const nowHours = () => { const d = new Date(); return d.getHours() + d.getMinutes() / 60; };
+// "Card with an item count badge on the right" header, used by the WaitingOnOthers and
+// DecisionsWaiting cards below, built on Card so both share one way of composing this.
+const cardHeader = (title, badge) => (
+  <div className="flex items-baseline justify-between gap-3">
+    <span className="text-lg font-semibold leading-snug">{title}</span>
+    {badge}
+  </div>
+);
 
 // Vertical timeline with a "now" rail — same data as before (svc.bookings(TODAY)), just a
 // stronger visual read of what's next vs. already past.
@@ -21,7 +28,7 @@ export function ScheduleCard() {
   const now = nowHours();
   return (
     <Card title="Today's schedule">
-      {rows.length === 0 ? <Empty>No meetings today.</Empty> : (
+      {rows.length === 0 ? <Empty compact>No meetings today.</Empty> : (
         <div className="relative flex flex-col">
           <div className="absolute bottom-2 left-[5px] top-2 w-px bg-line" aria-hidden="true" />
           {rows.map((b, i) => {
@@ -52,7 +59,7 @@ export function TasksCard() {
   const rows = svc.tasks({ mine: true }).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 4);
   return (
     <Card title="My next tasks">
-      {rows.length === 0 ? <Empty>Nothing assigned to you.</Empty> : rows.map((t) => (
+      {rows.length === 0 ? <Empty compact>Nothing assigned to you.</Empty> : rows.map((t) => (
         <div key={t.id} className="flex items-center gap-3 border-t border-line py-2.5 first:border-t-0 first:pt-0">
           <span className="min-w-0 flex-1">
             <b className="block truncate">{t.title}</b>
@@ -115,7 +122,7 @@ export function TodayPriorities() {
   ].slice(0, 5);
   return (
     <Card title="Today's priorities">
-      {rows.length === 0 ? <Empty>Nothing overdue or due today. Nice.</Empty> : (
+      {rows.length === 0 ? <Empty compact>Nothing overdue or due today. Nice.</Empty> : (
         <ol className="m-0 flex list-none flex-col gap-1.5 p-0">
           {rows.map((row, i) => (
             <li key={row.key}>
@@ -160,11 +167,7 @@ export function WaitingOnOthers() {
     </Item>
   );
   return (
-    <section className="rounded-r3 border border-line bg-surface p-card">
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <h2 className="m-0 text-lg font-semibold">Waiting on others</h2>
-        <span className="text-[13px] text-ink-3">{rows.length} item{rows.length === 1 ? '' : 's'}</span>
-      </div>
+    <Card title={cardHeader('Waiting on others', <span className="text-[13px] font-normal text-ink-3">{rows.length} item{rows.length === 1 ? '' : 's'}</span>)}>
       <List empty="Nothing waiting on anyone else right now.">{rows.slice(0, 4).map(WaitRow)}</List>
       {rows.length > 4 && (
         <details className="mt-2">
@@ -172,7 +175,7 @@ export function WaitingOnOthers() {
           <div className="mt-2 flex flex-col gap-1.5">{rows.slice(4).map(WaitRow)}</div>
         </details>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -188,11 +191,7 @@ export function DecisionsWaiting() {
     </Item>
   );
   return (
-    <section className="rounded-r3 border border-line bg-surface p-card">
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <h2 className="m-0 text-lg font-semibold">Decisions waiting</h2>
-        <span className="text-[13px] text-ink-3">{rows.length} item{rows.length === 1 ? '' : 's'}</span>
-      </div>
+    <Card title={cardHeader('Decisions waiting', <span className="text-[13px] font-normal text-ink-3">{rows.length} item{rows.length === 1 ? '' : 's'}</span>)}>
       <List empty="Nothing waiting on a client decision.">{rows.slice(0, 3).map(DecisionRow)}</List>
       {rows.length > 3 && (
         <details className="mt-2">
@@ -200,7 +199,7 @@ export function DecisionsWaiting() {
           <div className="mt-2 flex flex-col gap-1.5">{rows.slice(3).map(DecisionRow)}</div>
         </details>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -262,10 +261,10 @@ export function RecentUpdates() {
     </Item>
   );
   return (
-    <section className="rounded-r3 border border-line bg-surface p-card">
-      <div className="mb-2.5 flex items-baseline justify-between gap-3">
-        <h2 className="m-0 text-lg font-semibold">Recent updates <span className="font-normal text-ink-3">· {updates.length}</span></h2>
-      </div>
+    // Same card-with-count-badge family as WaitingOnOthers/DecisionsWaiting above, but this one's
+    // count has always read "Recent updates · N" inline in the heading rather than a separate
+    // right-aligned badge - kept as-is here rather than forced through cardHeader().
+    <Card title={<>Recent updates <span className="font-normal text-ink-3">· {updates.length}</span></>}>
       <List empty="No recorded changes available to you.">{updates.slice(0, 3).map((u) => Row(u, true))}</List>
       {updates.length > 3 && (
         <details className="mt-2">
@@ -273,7 +272,7 @@ export function RecentUpdates() {
           <div className="mt-2 flex flex-col gap-1.5">{updates.slice(3).map((u) => Row(u, false))}</div>
         </details>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -310,7 +309,7 @@ export function TodayBanner({ role, attention }) {
       <div className="flex min-w-[220px] flex-col justify-between gap-4 rounded-r2 px-5 py-4" style={soft}>
         <div>
           <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] opacity-75">Attendance</p>
-          <div className="mt-1 text-[34px] font-semibold leading-none tracking-tight">{now}</div>
+          <div className="mt-1 text-hero font-semibold leading-none tracking-tight">{now}</div>
           <p className="m-0 mt-1.5 text-[13px] opacity-85">{status}</p>
         </div>
         {mine && !mine.in && (

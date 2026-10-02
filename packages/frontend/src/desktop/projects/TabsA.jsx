@@ -1,7 +1,7 @@
 import { state, svc, can, toast, persist, render, uid, fmtD, fmtDT, inr, parseRoute, award } from '../../shared/core.js';
 import { TODAY, NAS_TREE } from '../../shared/data.js';
 import { seedFilings } from '../../shared/filing.js';
-import { Btn, Card, DataTable, Empty, Input, Select, List, Pill, StatusPill } from '../../ui/ui';
+import { Btn, Card, DataTable, Empty, Input, Item, Select, List, Pill, StatusPill } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { filedRows } from '../parts';
 import { first, name } from '../helpers';
@@ -12,7 +12,6 @@ import {
 import { FilesView } from './FilesView';
 
 const extBtn = 'inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-ink no-underline hover:bg-surface-2';
-const rowCls = 'flex min-h-11 items-center gap-3 rounded-r2 border border-line bg-surface px-3.5 py-2.5';
 
 // ---------- files ----------
 export function FilesTab({ p }) {
@@ -153,7 +152,7 @@ export function IntakeTab({ p }) {
       <Sub>What the studio needs from the client to start and keep moving.</Sub>
       <List empty="No intake items yet.">
         {rows.map((r) => (
-          <div key={r.id} className={rowCls}>
+          <Item key={r.id}>
             <b>{r.item}</b> <StatusPill status={label[r.status] || r.status} />
             {r.at && <small className="text-ink-3">{fmtD(r.at)}</small>}
             <div className="ml-auto flex flex-wrap gap-2">
@@ -164,7 +163,7 @@ export function IntakeTab({ p }) {
                 </>
               )}
             </div>
-          </div>
+          </Item>
         ))}
       </List>
     </Card>

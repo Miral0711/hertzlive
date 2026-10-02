@@ -4,13 +4,16 @@ import { Btn, Card, Field, Input, Select, StatusPill, DataTable, Grid3 } from '.
 import { first } from '../helpers';
 import { ClashBox, PURPOSE, SubText, Muted, hours, dateShift, submitBook } from './common';
 
+// Same "external link styled as a button" convention used elsewhere for a new-tab link
+// (e.g. projects/TabsA.jsx's `extBtn`), inlined here since that constant isn't exported.
+const extBtn = 'inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-ink no-underline hover:bg-surface-2';
 export function MeetLinks({ b }) {
   const m = svc.meetUrl(b);
   const c = svc.calendarUrl(b);
   return (
     <span className="inline-flex gap-1.5">
-      {m && <a className="inline-flex min-h-8 items-center rounded-r1 border border-line-2 px-2.5 text-[13px] font-semibold text-ink no-underline hover:bg-surface-2" href={m} target="_blank" rel="noopener noreferrer">Join Meet</a>}
-      {c && <a className="inline-flex min-h-8 items-center rounded-r1 border border-line-2 px-2.5 text-[13px] font-semibold text-ink no-underline hover:bg-surface-2" href={c} target="_blank" rel="noopener noreferrer">Add to Google Calendar</a>}
+      {m && <a className={extBtn} href={m} target="_blank" rel="noopener noreferrer">Join Meet</a>}
+      {c && <a className={extBtn} href={c} target="_blank" rel="noopener noreferrer">Add to Google Calendar</a>}
     </span>
   );
 }

@@ -1,7 +1,7 @@
 import { state, svc, can, fmtDT, go, parseRoute, render, toast } from '../../shared/core.js';
-import { Avatar, Btn, Card, Field, Input, PageHeader, Select, StatusPill, Tabs, Textarea } from '../../ui/ui';
+import { Avatar, Btn, Card, Field, Input, Item, ItemBody, List, PageHeader, Select, StatusPill, Tabs, Textarea } from '../../ui/ui';
 import { first } from '../helpers';
-import { DLink } from '../nav';
+import { href } from '../nav';
 import { openDialog } from '../session';
 import { Mono, SRC, SecHead, tabBase } from './common';
 
@@ -73,7 +73,7 @@ export default function Enquiries({ q }) {
       {can('enquiry', 'w') && tab !== 'web' && (
         <Btn kind="primary" icon="plus" onClick={() => { state.desk.enqForm = !state.desk.enqForm; render(); }}>Add phone enquiry</Btn>
       )}
-      <DLink to="#/settings?tab=services" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">Routing rules</DLink>
+      <Btn to={href('#/settings?tab=services')}>Routing rules</Btn>
     </PageHeader>
   );
   // A quiet one-line summary, not four KPI cards - the enquiry queue below is the main content.
@@ -137,31 +137,32 @@ export default function Enquiries({ q }) {
         </Select>
       </SecHead>
       {rows.length ? (
-        <div className="overflow-hidden rounded-r3 border border-line bg-surface">
+        <List>
           {rows.map((e) => (
-            <div
-              key={e.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => open(e.id)}
-              onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(e.id); } }}
-              className="flex cursor-pointer items-start gap-3 border-b border-line px-4 py-3 transition last:border-b-0 hover:bg-surface-2"
-            >
+            <Item key={e.id} onClick={() => open(e.id)} className="items-start">
               <Avatar>{(e.name || '?').slice(0, 1)}</Avatar>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <b className="truncate">{e.name}</b>
-                  {/* Skip the pill when it would just repeat the tab everyone's already looking at. */}
-                  {e.status !== 'new' && <StatusPill status={e.status} />}
-                </div>
-                <div className="truncate text-[13px] text-ink-2">{svc.serviceType(e.typeId)} · {e.city || 'City not given'}</div>
-                {e.msg && <div className="truncate text-[13px] text-ink-3">“{e.msg}”</div>}
-                <div className="mt-0.5 truncate text-xs text-ink-3">{SRC[e.source] || e.source} · {e.assignee ? first(e.assignee) : 'Unassigned'} · {fmtDT(e.at)}</div>
-              </div>
-              <Btn sm kind="link" className="flex-none self-center" onClick={(ev) => { ev.stopPropagation(); open(e.id); }}>Review</Btn>
-            </div>
+              <ItemBody
+                title={
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="truncate">{e.name}</span>
+                    {/* Skip the pill when it would just repeat the tab everyone's already looking at. */}
+                    {e.status !== 'new' && <StatusPill status={e.status} />}
+                  </span>
+                }
+                sub={
+                  <>
+                    <span className="block truncate text-[13px] text-ink-2">{svc.serviceType(e.typeId)} · {e.city || 'City not given'}</span>
+                    {e.msg && <span className="block truncate text-[13px] text-ink-3">“{e.msg}”</span>}
+                    <span className="mt-0.5 block truncate text-xs text-ink-3">{SRC[e.source] || e.source} · {e.assignee ? first(e.assignee) : 'Unassigned'} · {fmtDT(e.at)}</span>
+                  </>
+                }
+              />
+              {/* The whole row already opens the record (Item is a button), so this is a plain visual
+                  cue rather than a second nested interactive element. */}
+              <span className="flex-none self-center text-[13px] font-medium text-accent-text underline">Review</span>
+            </Item>
           ))}
-        </div>
+        </List>
       ) : (
         <Card>
           <div className="rounded-r2 bg-surface-2 px-4 py-9 text-center">

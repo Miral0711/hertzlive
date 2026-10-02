@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { RESOURCE } from '../data';
-import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable, Table, Th, Td, Tr } from '../../ui/ui';
+import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable, Table, Th, Td, Tr, ToggleChip } from '../../ui/ui';
 import { TONE_SOFT } from '../../ui/tones';
 import Icon from '../../ui/Icon';
 import { P, first, name } from '../helpers';
@@ -86,12 +86,9 @@ function FreeSlots({ date }) {
       <span className="font-semibold text-ink-2">Next free</span>
       <span className="text-ink-3">·</span>
       {slots.length === 0 ? <span className="text-ink-3">No free slot in the next two weeks.</span> : slots.map((x, i) => (
-        <button
-          key={i} type="button" disabled={!can('booking', 'w')} onClick={() => pick(x)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 font-medium hover:border-accent hover:bg-accent-soft"
-        >
+        <ToggleChip key={i} on={false} disabled={!can('booking', 'w')} onClick={() => pick(x)}>
           {x.date === TODAY ? 'Today' : fmtD(x.date)} {hh(x.start)}–{hh(x.end)}
-        </button>
+        </ToggleChip>
       ))}
     </div>
   );
@@ -194,17 +191,17 @@ function Rooms({ q }) {
         </div>
       )}
       <div ref={gridRef} onScroll={checkEdge} className="overflow-x-auto rounded-r3 border border-line bg-surface">
-        <table className="w-full min-w-[920px] table-fixed border-collapse text-[13px]">
+        <table className="w-full min-w-[920px] table-fixed border-collapse">
           <thead>
-            <tr>
-              <th className="sticky left-0 w-52 border-b border-line-2 bg-surface-2 p-2" />
+            <Tr>
+              <Th className="sticky left-0 w-52 bg-surface-2" />
               {hrs.map((h) => (
-                <th key={h} className={`border-b border-line-2 bg-surface-2 p-2 text-xs font-semibold ${nowH === h ? 'border-x border-accent text-accent-text' : 'text-ink-2'}`}>
+                <Th key={h} align="center" className={nowH === h ? 'border-x border-accent text-accent-text' : ''}>
                   {hh(h)}
                   {nowH === h && <span className="ml-1 inline-block rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold leading-none text-accent-ink align-middle">now</span>}
-                </th>
+                </Th>
               ))}
-            </tr>
+            </Tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
@@ -216,17 +213,17 @@ function Rooms({ q }) {
                     </td>
                   </tr>
                 )}
-                <tr key={r.id} className={r.busy ? '' : 'text-ink-3'}>
-                  <td title={r.title} className={`sticky left-0 w-52 truncate border-b border-line bg-surface px-2.5 ${r.busy ? 'py-2' : 'py-1'}`}>{r.label}</td>
+                <Tr className={r.busy ? '' : 'text-ink-3'}>
+                  <Td title={r.title} className="sticky left-0 w-52 truncate bg-surface">{r.label}</Td>
                   {hrs.map((h) => {
                     const b = r.hit(h);
                     return (
-                      <td key={h} className={`border-b border-l border-line p-1 text-center ${!b && nowH === h ? 'bg-accent/10' : ''}`}>
+                      <Td key={h} align="center" className={`border-l ${!b && nowH === h ? 'bg-accent/10' : ''}`}>
                         {cell(b, h)}
-                      </td>
+                      </Td>
                     );
                   })}
-                </tr>
+                </Tr>
               </Fragment>
             ))}
           </tbody>
@@ -725,7 +722,7 @@ export default function Schedule({ q }) {
     <>
       <PageHeader title="Schedule" sub="Meetings, approvals, who is where and the resource plan.">
         {can('booking', 'w') && (
-          <Btn kind="primary" icon="plus" className="!min-h-12 !px-6 !text-base" onClick={() => openDialog({ kind: 'book-slot', date: q.date || TODAY })}>Book a slot</Btn>
+          <Btn kind="primary" icon="plus" onClick={() => openDialog({ kind: 'book-slot', date: q.date || TODAY })}>Book a slot</Btn>
         )}
       </PageHeader>
       <Card className="mb-4 !py-2.5">

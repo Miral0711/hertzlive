@@ -5,8 +5,9 @@ import { ROLES } from '../../shared/data.js';
 import { DEFERRED } from '../data';
 import {
   Banner, Btn, Card, Grid2, Grid3, Input, Select, Field, PageHeader, List, Item, DataTable, Empty,
+  Switch, ToggleChip, Pill,
 } from '../../ui/ui';
-import { DLink } from '../nav';
+import { DLink, href } from '../nav';
 import { staff } from '../helpers';
 import Icon from '../../ui/Icon';
 import { SecHead, Stat } from '../studio/common';
@@ -229,16 +230,6 @@ const AddRow = ({ onSubmit, children, btn = 'Add', className = '' }) => (
   <form className={`${inline} ${className}`} onSubmit={onSubmit}>{children}<Btn type="submit">{btn}</Btn></form>
 );
 const Sub = ({ children }) => <p className={sub}>{children}</p>;
-// Visual switch. Works as a plain checkbox inside a form (name/defaultChecked) or controlled via onChange.
-const Switch = ({ label, sub: hint, ...rest }) => (
-  <label className="flex cursor-pointer items-center justify-between gap-4 rounded-r2 border border-line bg-surface px-4 py-3 hover:border-accent">
-    <span className="min-w-0"><b className="block">{label}</b>{hint && <small className="text-ink-3">{hint}</small>}</span>
-    <span className="relative inline-flex flex-none">
-      <input type="checkbox" className="peer sr-only" {...rest} />
-      <span className="h-6 w-11 rounded-full bg-surface-3 transition peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-surface after:shadow-s1 after:transition peer-checked:after:translate-x-5" />
-    </span>
-  </label>
-);
 
 // ---------- sections ----------
 function Prefs() {
@@ -250,15 +241,15 @@ function Prefs() {
       <div className="grid items-start gap-gap xl:grid-cols-2 [&>*]:min-w-0">
         <Card title="Appearance">
           <p className="mb-1.5 mt-0 text-[13px] font-semibold text-ink-2">Theme</p>
-          <div className="mb-3 inline-flex overflow-hidden rounded-r1 border border-line-2" role="group" aria-label="Theme">
+          <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Theme">
             {themes.map(([k, l]) => (
-              <button key={k} type="button" aria-pressed={state.theme === k} onClick={() => setTheme(k)} className={`min-h-9 px-4 text-[13px] font-semibold ${state.theme === k ? 'bg-accent text-accent-ink' : 'bg-surface text-ink-2 hover:bg-surface-2'}`}>{l}</button>
+              <ToggleChip key={k} on={state.theme === k} onClick={() => setTheme(k)}>{l}</ToggleChip>
             ))}
           </div>
           <div className="flex flex-col gap-2.5">
-            <Switch label="Reduce motion" sub="Fewer animations and transitions." checked={!!state.motion} onChange={motionToggle} />
-            <Switch label="Quiet mode" sub="No points or badges." checked={!!state.gamify.optOut} onChange={quietToggle} />
-            {staff() && <Switch label="Preview as client" sub="See the app the way a client sees it." checked={!!state.previewAsClient} onChange={previewToggle} />}
+            <Switch label="Reduce motion" sub="Fewer animations and transitions." on={!!state.motion} onClick={motionToggle} />
+            <Switch label="Quiet mode" sub="No points or badges." on={!!state.gamify.optOut} onClick={quietToggle} />
+            {staff() && <Switch label="Preview as client" sub="See the app the way a client sees it." on={!!state.previewAsClient} onClick={previewToggle} />}
           </div>
         </Card>
         <div className="flex flex-col gap-gap">
@@ -587,7 +578,7 @@ function Portfolio() {
   return (
     <>
       <SecHead title="Portfolio" sub="Choose which completed projects clients see in the Studio portfolio.">
-        <DLink to="#/portfolio" className="inline-flex min-h-9 items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text no-underline hover:border-accent hover:bg-accent-soft">View client page</DLink>
+        <Btn to={href('#/portfolio')}>View client page</Btn>
       </SecHead>
       <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
         <Stat label="Projects" value={list.length} sub="in the portfolio" />
@@ -602,7 +593,7 @@ function Portfolio() {
               <article key={p.id} className="flex flex-col rounded-r3 border border-line bg-surface p-4">
                 <div className="flex items-start justify-between gap-2">
                   <b className="text-base">{p.name}</b>
-                  <span className={`rounded-full px-2 text-xs font-semibold leading-6 ${on ? 'bg-ok-soft text-ok' : 'bg-surface-2 text-ink-3'}`}>{on ? 'Public' : 'Hidden'}</span>
+                  <Pill kind={on ? 'ok' : ''}>{on ? 'Public' : 'Hidden'}</Pill>
                 </div>
                 <small className="mt-1 text-ink-3">{p.type} · {p.year} · {p.city}</small>
                 {p.blurb && <p className="mb-0 mt-2 text-[13px] text-ink-2">{p.blurb}</p>}
