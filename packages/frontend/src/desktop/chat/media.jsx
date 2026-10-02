@@ -1,21 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { state, paintPh, messageAttachment } from '../../shared/core.js';
+import { Photo } from '../../ui/Ph.jsx';
+import { messageAttachment } from '../../shared/core.js';
 
-// Deterministic placeholder "photo" (the prototype's ph() + paintPh()).
+// Photo slot for chat media (real bundled photo, canvas fallback).
 export function Ph({ hue, seed, ar = 1.333, className = '' }) {
-  const ref = useRef(null);
-  const theme = state.theme;
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    c.dataset.hue = hue;
-    c.dataset.seed = seed;
-    c.dataset.ar = ar;
-    paintPh(c);
-  }, [hue, seed, ar, theme]);
   return (
     <div className={`aspect-[4/3] overflow-hidden rounded-r1 bg-surface-2 ${className}`} style={ar !== 1.333 ? { aspectRatio: String(ar) } : undefined}>
-      <canvas ref={ref} aria-hidden="true" className="block h-full w-full" />
+      <Photo hue={hue} seed={seed} ar={ar} />
     </div>
   );
 }

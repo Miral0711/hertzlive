@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { paintPh } from '../../shared/core.js';
+import { Photo } from '../../ui/Ph.jsx';
 import { Item, ItemBody, List, Card } from '../../ui/ui';
 import { href } from '../nav';
 
@@ -35,11 +34,11 @@ export const Grid = ({ children, className = '' }) => (
 
 // Deterministic placeholder photo (the prototype painted canvases after each render).
 export function PhCanvas({ hue, seed, ar = 1.333 }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) paintPh(ref.current);
-  }, [hue, seed, ar]);
-  return <canvas ref={ref} data-hue={hue} data-seed={seed} data-ar={ar} aria-hidden="true" className="block w-full rounded-r2" />;
+  return (
+    <div className="w-full overflow-hidden rounded-r2" style={{ aspectRatio: `${ar} / 1` }}>
+      <Photo hue={hue} seed={seed} ar={ar} />
+    </div>
+  );
 }
 
 const attentionAction = (h) =>
