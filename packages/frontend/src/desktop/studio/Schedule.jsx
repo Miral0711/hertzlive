@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { state, svc, can, fmtD, fmtDT, hh, toast, render, uid, persist } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
+import { addDays } from '../../shared/liveDates.js';
 import { RESOURCE } from '../data';
 import { Btn, Card, Field, Input, PageHeader, Pill, Select, StatusPill, Tabs, DataTable, Table, Th, Td, Tr, ToggleChip } from '../../ui/ui';
 import { TONE_SOFT } from '../../ui/tones';
@@ -389,7 +390,8 @@ function Who() {
   );
 }
 
-export const WEEKS = ['8 Sep', '15 Sep', '22 Sep', '29 Sep'];
+// Four weekly columns starting the day before today, labelled like the calendar (for example "8 Sept").
+export const WEEKS = [-1, 6, 13, 20].map((n) => new Date(`${addDays(TODAY, n)}T00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
 export function LoadGrid({ reassign = false }) {
   const tone = (tot) => (tot > 40 ? 'bg-crit-soft text-crit' : tot < 24 ? 'bg-surface-2 text-ink-3' : '');
   const doReassign = (ri, wi, to) => {
@@ -665,7 +667,7 @@ function Reminders() {
       <Card title="New reminder" className="mb-3.5">
         <form onSubmit={add} className="flex flex-wrap items-center gap-2.5">
           <Input name="text" placeholder="Remind me to…" required className="min-w-[240px] flex-1" />
-          <Input type="datetime-local" name="when" defaultValue="2026-09-10T10:00" aria-label="When" />
+          <Input type="datetime-local" name="when" defaultValue={`${addDays(TODAY, 1)}T10:00`} aria-label="When" />
           <Btn kind="primary" type="submit">Add reminder</Btn>
         </form>
       </Card>

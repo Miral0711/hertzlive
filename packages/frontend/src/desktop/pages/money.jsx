@@ -3,6 +3,7 @@ import {
   state, svc, can, go, toast, render, persist, inr, fmtD, fmtDT, uid, AIProvider, user,
 } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
+import { addDays } from '../../shared/liveDates.js';
 import { FEES, FEE_STAGES, HOURLY } from '../../shared/data2.js';
 import { seedFilings } from '../../shared/filing.js';
 import {
@@ -728,7 +729,7 @@ function RaiseInvoiceDialog() {
     const st = +p.stage;
     state.db.INVOICES.push({
       id: uid(), projectId: pr.id, no: 'HA/26-27/0' + (34 + state.db.INVOICES.length - 6), stage: st,
-      amount: Math.round((FEES[pr.id] * FEE_STAGES[st].pct) / 100), status: 'sent', issued: TODAY, due: p.due || '2026-09-24', paid: null,
+      amount: Math.round((FEES[pr.id] * FEE_STAGES[st].pct) / 100), status: 'sent', issued: TODAY, due: p.due || addDays(TODAY, 15), paid: null,
     });
     svc.log('Invoice raised · ' + pr.name, 'Project ' + pr.id);
     persist();
@@ -750,7 +751,7 @@ function RaiseInvoiceDialog() {
             {FEE_STAGES.map((st, i) => <option key={st.name} value={i}>{st.name} · {st.pct}%</option>)}
           </Select>
         </Field>
-        <Field label="Due date"><Input type="date" name="due" defaultValue="2026-09-24" /></Field>
+        <Field label="Due date"><Input type="date" name="due" defaultValue={addDays(TODAY, 15)} /></Field>
         <p className="mt-0 text-[13px] text-ink-3">The amount is the stage share of the project fee. GST is split on the invoice.</p>
         <ModalActions><Btn onClick={closeDialog}>Cancel</Btn><Btn kind="primary" type="submit">Raise invoice</Btn></ModalActions>
       </form>

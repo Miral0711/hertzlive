@@ -1,10 +1,12 @@
+import { useState } from 'react';
+import Ph from '../../ui/Ph';
 import {
   state, svc, can, persist, toast, render, hh, fmtD, uid, AIProvider,
 } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { DEFERRED } from '../data';
 import {
-  Banner, Btn, Card, Grid2, Grid3, Input, Select, Field, PageHeader, List, Item, DataTable, Empty,
+  Banner, Btn, Card, Grid2, Tabs, Input, Select, Field, PageHeader, List, Item, DataTable, Empty,
   Switch, ToggleChip, Pill,
 } from '../../ui/ui';
 import { DLink, href } from '../nav';
@@ -238,7 +240,7 @@ function Prefs() {
   return (
     <>
       <SecHead title="Preferences" sub="How the app looks and behaves for you. These are saved in this browser." />
-      <div className="grid items-start gap-gap xl:grid-cols-2 [&>*]:min-w-0">
+      <div className="grid items-stretch gap-gap xl:grid-cols-2 [&>*]:min-w-0">
         <Card title="Appearance">
           <p className="mb-1.5 mt-0 text-[13px] font-semibold text-ink-2">Theme</p>
           <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Theme">
@@ -253,22 +255,57 @@ function Prefs() {
           </div>
         </Card>
         <div className="flex flex-col gap-gap">
-          <Card title="AI">
+          <Card title="AI" className="flex-1">
             <div className="flex items-center justify-between gap-3 rounded-r2 bg-surface-2 px-3.5 py-2.5"><span className="text-ink-2">Provider</span><span className="font-mono text-[13px]">{AIProvider.name}</span></div>
             <p className="mb-0 mt-2.5 text-[13px] text-ink-3">Files chat messages automatically, drafts replies and summarises meetings. Swap the provider later without changing screens.</p>
           </Card>
-          <Card title="Data">
+          <Card title="Data" className="flex-1">
             <p className="mt-0 text-[13px] text-ink-3">Everything here is sample data saved in this browser. Resetting brings back the original sample records.</p>
-            <Btn kind="danger" onClick={resetSampleData}>Reset sample data</Btn>
-          </Card>
-          <Card title="Not built yet">
-            <p className="mb-2.5 mt-0 text-[13px] text-ink-3">Listed so nobody looks for them.</p>
-            <div className="flex flex-wrap gap-1.5">{DEFERRED.map((d) => <span key={d} className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs text-ink-2">{d}</span>)}</div>
+            <Btn kind="danger" className="mt-3" onClick={resetSampleData}>Reset sample data</Btn>
           </Card>
         </div>
+        <Card title="Not built yet" className="xl:col-span-2">
+          <p className="mb-2.5 mt-0 text-[13px] text-ink-3">Listed so nobody looks for them.</p>
+          <div className="flex flex-wrap gap-1.5">{DEFERRED.map((d) => <span key={d} className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs text-ink-2">{d}</span>)}</div>
+        </Card>
       </div>
     </>
   );
+}
+
+// Reads the chosen image, scales it down (so it fits in browser storage) and keeps it as the studio logo.
+const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+function logoPick(e) {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!LOGO_TYPES.includes(file.type)) { toast('Choose a PNG, JPG, WebP or SVG image.'); return; }
+  if (file.size > 3 * 1024 * 1024) { toast('That image is over 3 MB. Choose a smaller one.'); return; }
+  const reader = new FileReader();
+  reader.onerror = () => toast('Could not read that file.');
+  reader.onload = () => {
+    const img = new Image();
+    img.onerror = () => toast('That file is not a readable image.');
+    img.onload = () => {
+      const max = 360;
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      state.db.AGENCY.logo = c.toDataURL(file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png', 0.9);
+      if (persist()) toast('Logo updated.'); else toast('Logo shown, but it is too large to save in this browser.');
+      render();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function logoRemove() {
+  delete state.db.AGENCY.logo;
+  persist();
+  toast('Logo removed.');
+  render();
 }
 
 function Agency({ A }) {
@@ -293,14 +330,25 @@ function Agency({ A }) {
                 <Field label="Office closes"><Select name="hend" defaultValue={A.hours.end}>{sel(15, 22)}</Select></Field>
               </div>
             </div>
-            <Field label="Logo" hint="Upload comes with the real build."><Input type="file" disabled /></Field>
+            <Field label="Logo" hint="PNG, JPG, WebP or SVG. Shown in the top bar and the preview.">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="grid h-14 w-28 flex-none place-items-center overflow-hidden rounded-r2 border border-line bg-surface-2">
+                  {A.logo ? <img src={A.logo} alt={`${A.short} logo`} className="max-h-12 max-w-[96px] object-contain" /> : <small className="text-ink-3">No logo</small>}
+                </span>
+                <label className="inline-flex min-h-9 cursor-pointer items-center rounded-r1 border border-line-2 bg-surface px-3.5 font-semibold text-accent-text hover:border-accent hover:bg-accent-soft focus-within:ring-[3px] focus-within:ring-accent-soft">
+                  {A.logo ? 'Replace logo' : 'Choose file'}
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={logoPick} className="sr-only" />
+                </label>
+                {A.logo && <Btn sm onClick={logoRemove}>Remove</Btn>}
+              </div>
+            </Field>
             <Btn kind="primary" type="submit">Save changes</Btn>
           </form>
         </Card>
         <Card title="How it looks">
           <div className="overflow-hidden rounded-r3 border border-line" style={{ background: 'var(--ground)' }}>
             <div className="flex items-center gap-3 bg-accent px-4 py-3 text-accent-ink">
-              <b className="font-serif text-lg uppercase tracking-[0.14em]">{A.short}</b>
+              {A.logo ? <img src={A.logo} alt="" className="max-h-8 max-w-[140px] rounded-sm bg-white/95 p-1 object-contain" /> : <b className="font-serif text-lg uppercase tracking-[0.14em]">{A.short}</b>}
               <span className="text-xs uppercase tracking-[0.1em] opacity-70">Studio</span>
             </div>
             <div className="p-4">
@@ -321,8 +369,11 @@ function Agency({ A }) {
 
 function People() {
   const roles = Object.entries(state.db.ROLES);
+  const [tab, setTab] = useState('people');
   return (
-    <Grid2>
+    <>
+      <Tabs list={[['people', 'People'], ['roles', 'Roles']]} current={tab} onSelect={setTab} />
+      {tab === 'people' ? (
       <Card title="People">
         <DataTable
           cols={['Person', 'Role', 'Title']}
@@ -344,21 +395,23 @@ function People() {
         </form>
         <Sub>They get a WhatsApp invite with a login link.</Sub>
       </Card>
+      ) : (
       <Card title="Roles">
         <Sub>Rename roles to match how your studio talks. Permissions per role are set up with you at onboarding.</Sub>
         <DataTable
           cols={['Role', 'Label', 'What they can do']}
           rows={roles.map(([k, r]) => [
             <span key={k} className="font-mono text-[13px]">{k}</span>,
-            <form key={k + r.label} className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); roleLabel(k, formData(e.currentTarget)); }}>
-              <Input name="label" defaultValue={r.label} aria-label="Label" />
-              <Btn sm type="submit">Save</Btn>
+            <form key={k + r.label} className="flex min-w-[15rem] items-center gap-2" onSubmit={(e) => { e.preventDefault(); roleLabel(k, formData(e.currentTarget)); }}>
+              <Input name="label" defaultValue={r.label} aria-label="Label" className="min-w-0 flex-1" />
+              <Btn sm type="submit" className="shrink-0">Save</Btn>
             </form>,
             r.desc,
           ])}
         />
       </Card>
-    </Grid2>
+      )}
+    </>
   );
 }
 
@@ -401,24 +454,24 @@ function Services() {
 
 function Rooms({ A }) {
   return (
-    <Card>
-      <h2 className="mb-2.5 mt-0 text-lg font-semibold">Rooms and other bookable things</h2>
-      <Sub>Rooms at launch. Vehicles, equipment and desks use the same table later. With no rooms, bookings check people only.</Sub>
-      <DataTable
-        cols={['Name', 'Type', 'Location', 'Seats', 'Exclusive', 'Who can book', '']}
-        rows={state.db.ROOMS.map((r) => [
-          r.name,
-          r.type || 'room',
-          r.location || '',
-          r.cap,
-          r.exclusive === false ? 'Shared' : 'One booking at a time',
-          (r.bookableBy || []).map((k) => state.db.ROLES[k]?.label || k).join(', ') || 'Everyone',
-          <Btn key={r.id} sm onClick={() => resDel(r.id)}>Remove</Btn>,
-        ])}
-      />
-      <h2 className={h2}>Add</h2>
-      <form onSubmit={submit(resAdd)}>
-        <Grid3>
+    <div className="flex flex-col gap-gap">
+      <Card title="Rooms and other bookable things">
+        <Sub>Rooms at launch. Vehicles, equipment and desks use the same table later. With no rooms, bookings check people only.</Sub>
+        <DataTable
+          cols={['Name', 'Type', 'Location', 'Seats', 'Exclusive', 'Who can book', '']}
+          rows={state.db.ROOMS.map((r) => [
+            r.name,
+            r.type || 'room',
+            r.location || '',
+            r.cap,
+            r.exclusive === false ? 'Shared' : 'One booking at a time',
+            <span key={r.id + 'w'} className="block min-w-[10rem] whitespace-normal">{(r.bookableBy || []).map((k) => state.db.ROLES[k]?.label || k).join(', ') || 'Everyone'}</span>,
+            <Btn key={r.id} sm onClick={() => resDel(r.id)}>Remove</Btn>,
+          ])}
+        />
+      </Card>
+      <Card title="Add a room or resource">
+        <form onSubmit={submit(resAdd)} className="grid items-end gap-x-gap gap-y-1 sm:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1.1fr_0.6fr_1.8fr_auto] [&>*]:min-w-0">
           <TF label="Name" name="name" value="" />
           <Field label="Type">
             <Select name="type"><option value="room">Room</option><option value="vehicle">Vehicle</option><option value="equipment">Equipment</option><option value="desk">Desk</option></Select>
@@ -428,10 +481,10 @@ function Rooms({ A }) {
           <Field label="Exclusive">
             <Select name="exclusive"><option value="1">One booking at a time</option><option value="0">Shared, warn on capacity</option></Select>
           </Field>
-          <div className="flex items-center"><Btn kind="primary" type="submit">Add</Btn></div>
-        </Grid3>
-      </form>
-    </Card>
+          <div className="mb-2.5"><Btn kind="primary" type="submit">Add</Btn></div>
+        </form>
+      </Card>
+    </div>
   );
 }
 
@@ -443,8 +496,8 @@ function Booking({ A }) {
     ['Client self-reschedule', 'not planned, they message the studio'],
   ];
   return (
-    <Card className="max-w-[640px]">
-      <h2 className="mb-2.5 mt-0 text-lg font-semibold">Booking rules</h2>
+    <Grid2>
+    <Card title="Booking rules">
       <form className="max-w-[520px]" onSubmit={(e) => { e.preventDefault(); bookCfg(formData(e.currentTarget)); }}>
         <Field label="Gap between client meetings">
           <Select name="buffer" defaultValue={A.booking.buffer}>{[0, 0.25, 0.5].map((v) => <option key={v} value={v}>{v ? v * 60 + ' min' : 'None'}</option>)}</Select>
@@ -461,9 +514,11 @@ function Booking({ A }) {
         </div>
         <Btn kind="primary" type="submit">Save</Btn>
       </form>
-      <h2 className={h2}>Later</h2>
+    </Card>
+    <Card title="Later">
       <List>{later.map(([t, n]) => <Item key={t}><span className="flex-1">{t}</span><small>{n}</small></Item>)}</List>
     </Card>
+    </Grid2>
   );
 }
 
@@ -521,17 +576,22 @@ function Approvals() {
   return (
     <Card title="Approvals checklist by city">
       <Sub>{'New projects get the list for their city. "Any city" is the fallback. Edit per project on the project\'s Approvals tab.'}</Sub>
-      <Grid2>
+      <div className="grid gap-gap md:grid-cols-2 xl:grid-cols-3">
         {state.db.STATUTORY_TEMPLATES.map((t) => (
-          <div key={t.city}>
-            <h2 className="mb-2.5 mt-0 text-lg font-semibold">{t.city === '*' ? 'Any city' : t.city}</h2>
+          <section key={t.city} className="flex min-w-0 flex-col rounded-r3 border border-line bg-surface-2 p-3.5">
+            <header className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="m-0 text-base font-semibold">{t.city === '*' ? 'Any city' : t.city}</h2>
+              <span className="text-xs text-ink-3">{t.items.length} {t.items.length === 1 ? 'approval' : 'approvals'}{t.city === '*' ? ' · fallback' : ''}</span>
+            </header>
             <List>
               {t.items.map((it, i) => <Item key={i}><span className="flex-1">{it}</span><Btn sm onClick={() => tplDel(t.city, i)}>Remove</Btn></Item>)}
             </List>
-            <AddRow onSubmit={submit((p) => tplAdd(t.city, p))}><Input name="name" placeholder="Add approval" required /></AddRow>
-          </div>
+            <div className="mt-auto pt-3">
+              <AddRow onSubmit={submit((p) => tplAdd(t.city, p))}><Input name="name" placeholder="Add approval" required className="min-w-0 flex-1" /></AddRow>
+            </div>
+          </section>
         ))}
-      </Grid2>
+      </div>
       <AddRow onSubmit={submit(tplCityAdd)} btn="Add city" className="!mt-3"><Input name="city" placeholder="New city, e.g. Surat" required /></AddRow>
     </Card>
   );
@@ -580,24 +640,29 @@ function Portfolio() {
       <SecHead title="Portfolio" sub="Choose which completed projects clients see in the Studio portfolio.">
         <Btn to={href('#/portfolio')}>View client page</Btn>
       </SecHead>
-      <div className="mb-3.5 grid grid-cols-2 gap-gap lg:grid-cols-4">
+      <div className="mb-3.5 grid grid-cols-1 gap-gap sm:grid-cols-3">
         <Stat label="Projects" value={list.length} sub="in the portfolio" />
         <Stat label="Public" value={pub} sub="visible to clients" tone="text-ok" />
         <Stat label="Hidden" value={list.length - pub} sub="internal only" />
       </div>
       {list.length === 0 ? <Empty>No portfolio projects yet.</Empty> : (
-        <div className="grid gap-gap [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+        <div className="grid gap-gap sm:grid-cols-2 xl:grid-cols-3">
           {list.map((p) => {
             const on = p.public !== false;
             return (
-              <article key={p.id} className="flex flex-col rounded-r3 border border-line bg-surface p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <b className="text-base">{p.name}</b>
-                  <Pill kind={on ? 'ok' : ''}>{on ? 'Public' : 'Hidden'}</Pill>
+              <article key={p.id} className="flex flex-col overflow-hidden rounded-r3 border border-line bg-surface">
+                <div className={on ? '' : 'opacity-60 grayscale'}><Ph hue={p.hue ?? 200} seed={p.id} ar={1.9} className="!rounded-none" /></div>
+                <div className="flex flex-1 flex-col p-card">
+                  <div className="flex items-start justify-between gap-2">
+                    <b className="text-base">{p.name}</b>
+                    <Pill kind={on ? 'ok' : ''}>{on ? 'Public' : 'Hidden'}</Pill>
+                  </div>
+                  <small className="mt-1 text-ink-3">{p.type} · {p.year} · {p.city}</small>
+                  {p.blurb && <p className="mb-0 mt-2 text-[13px] text-ink-2">{p.blurb}</p>}
+                  <div className="mt-auto pt-4"><div className="border-t border-line pt-3">
+                    <Btn sm onClick={() => { svc.togglePortfolio(p.id); render(); }}>{on ? 'Hide from client app' : 'Show in client app'}</Btn>
+                  </div></div>
                 </div>
-                <small className="mt-1 text-ink-3">{p.type} · {p.year} · {p.city}</small>
-                {p.blurb && <p className="mb-0 mt-2 text-[13px] text-ink-2">{p.blurb}</p>}
-                <Btn sm className="mt-3 self-start" onClick={() => { svc.togglePortfolio(p.id); render(); }}>{on ? 'Hide from client app' : 'Show in client app'}</Btn>
               </article>
             );
           })}

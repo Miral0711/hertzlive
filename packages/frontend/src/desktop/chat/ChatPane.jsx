@@ -6,7 +6,7 @@ import {
   state, svc, can, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment,
 } from '../../shared/core.js';
 import { seedFilings } from '../../shared/filing.js';
-import { Btn, Pill, Dropdown, DropdownItem } from '../../ui/ui';
+import { Btn, Pill, Dropdown, DropdownItem, IconButton } from '../../ui/ui';
 import { P, name, role, staff } from '../helpers';
 import { FilingChip } from '../parts';
 import { openDialog, openThread, toggleChatPane } from '../session';
@@ -177,6 +177,23 @@ const Opts = ({ children }) => <div className="mt-1.5 flex flex-col items-start 
 function Attachment({ m }) {
   const a = messageAttachment(m);
   if (!a || m.deleted) return null;
+  // Photos and albums show the picture right in the message; tapping it opens the larger view.
+  const media = m.photo || m.album;
+  if (media && !m.file) {
+    const count = m.album ? Math.max(1, Math.min(Number(m.album.n) || 1, 4)) : 1;
+    return (
+      <button
+        type="button"
+        aria-label={`Open ${a.kind.toLowerCase()}`}
+        onClick={() => openAttachment(m.id)}
+        className={`my-2 grid w-full max-w-[340px] cursor-zoom-in gap-1.5 overflow-hidden rounded-r2 border-0 bg-transparent p-0 ${count > 1 ? 'grid-cols-2' : ''}`}
+      >
+        {Array.from({ length: count }, (_, i) => (
+          <Ph key={i} hue={Number(media.hue) || 30} seed={(Number(media.seed) || 1) + i} />
+        ))}
+      </button>
+    );
+  }
   return (
     <div className="my-2 flex min-w-0 flex-col gap-2 rounded-r1 border border-line-2 p-3">
       <b>{a.title}</b>
@@ -471,6 +488,14 @@ export function ChatView({ workspace = false }) {
       className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''}`}
     >
       <div className="flex min-h-20 flex-wrap items-center gap-2 border-b border-line p-4">
+        {/* "Back" only matters when the conversation list isn't already on screen — the narrow
+            (<980px) single-column layout, or the drawer this pane becomes on small viewports. */}
+        {(!desk.chatList || !workspace) && (
+          <div className="flex basis-full items-center justify-between gap-2 empty:hidden">
+            <span>{!desk.chatList ? <IconButton sm icon="back" label="Back to conversations" onClick={showList} className={workspace ? 'hidden max-[980px]:inline-grid' : ''} /> : null}</span>
+            <span>{!workspace ? <IconButton sm icon="x" label="Close chats" onClick={toggleChatPane} /> : null}</span>
+          </div>
+        )}
         <div ref={titleRef} tabIndex={-1} className="min-w-0 basis-full focus:outline-none">
           <b className="block font-semibold leading-snug">
             {desk.chatList ? (project && !desk.allChats ? project.name : 'Conversations') : cur.name}
@@ -496,10 +521,6 @@ export function ChatView({ workspace = false }) {
             </Dropdown>
           </div>
         )}
-        {/* "Back" only matters when the conversation list isn't already on screen — the narrow
-            (<980px) single-column layout, or the drawer this pane becomes on small viewports. */}
-        {!desk.chatList && <Btn sm onClick={showList} className={workspace ? 'hidden max-[980px]:inline-flex' : ''}>Back</Btn>}
-        {!workspace && <Btn sm aria-label="Close chats" onClick={toggleChatPane}>Close</Btn>}
       </div>
       {!desk.chatList && cur.kind === 'internal' && (
         <div className="bg-warn-soft px-3.5 py-2.5 font-medium text-warn">Internal only. Client never sees this thread.</div>

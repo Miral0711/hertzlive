@@ -1,5 +1,6 @@
 import { state, svc, can, fmtD, clone, uid, persist, toast, go, render } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
+import { addDays } from '../../shared/liveDates.js';
 import { DAILYLOG, STAGE_TEMPLATE } from '../data';
 import Modal, { ModalActions } from '../Modal';
 import { Btn, Field, Input, Select, Textarea } from '../../ui/ui';
@@ -75,7 +76,7 @@ export function TemplateDialog({ d }) {
       toast('Project created from template.');
     } else if (d.tkind === 'Checklist') {
       state.desk.checklists.push({
-        id: uid(), siteId: p.siteId, stage: p.name, due: '2026-09-30',
+        id: uid(), siteId: p.siteId, stage: p.name, due: addDays(TODAY, 21),
         items: Array.from({ length: 4 }, (_, i) => [`Check ${i + 1} from template`, false, null]),
       });
       persist();

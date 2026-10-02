@@ -1,5 +1,6 @@
 import { state, svc, can, toast, persist, render, uid, fmtD, fmtDT, inr, user } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
+import { addDays } from '../../shared/liveDates.js';
 import { seedFilings } from '../../shared/filing.js';
 import { FEES, FEE_STAGES } from '../../shared/data2.js';
 import { Btn, Card, DataTable, Empty, Kpi, Kpis, Bar, Select, StatusPill } from '../../ui/ui';
@@ -217,7 +218,7 @@ function raiseInvoice(projectId, st) {
     amount: Math.round((FEES[p.id] * FEE_STAGES[st].pct) / 100),
     status: 'sent',
     issued: TODAY,
-    due: '2026-09-24',
+    due: addDays(TODAY, 15),
     paid: null,
   });
   svc.log('Invoice raised · ' + p.name, 'Project ' + p.id);

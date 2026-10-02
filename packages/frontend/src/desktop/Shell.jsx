@@ -127,8 +127,14 @@ export default function Shell() {
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
         <DLink to="#/dashboard" className="flex h-full w-nav flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline max-lg:w-auto max-lg:min-w-[104px] max-sm:px-3">
-          <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
-          <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
+          {state.db.AGENCY.logo ? (
+            <img src={state.db.AGENCY.logo} alt={brand?.short || state.db.AGENCY.short} className="max-h-10 max-w-[140px] self-start rounded-sm bg-white/95 p-1 object-contain" />
+          ) : (
+            <>
+              <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
+              <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
+            </>
+          )}
         </DLink>
         <NavSearch />
         {!(workspace || focusedWork) && (

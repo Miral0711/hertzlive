@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { state, svc, can, inr, paintPh, user } from '../../shared/core.js';
+import { state, svc, can, inr, user } from '../../shared/core.js';
+import { Photo } from '../../ui/Ph.jsx';
 import { Pill, Btn } from '../../ui/ui';
 import { role, staff, name } from '../helpers';
 import { openMsg } from '../session';
@@ -9,15 +9,11 @@ export { role, staff, name, user };
 // "From chat" link that jumps to the source message.
 export const FromChat = ({ msgId }) => <Btn kind="link" onClick={() => openMsg(msgId)}>From chat</Btn>;
 
-// Placeholder "photo" painted on a canvas (prototype ph()).
+// Photo slot (real bundled photo, canvas fallback) — see ui/Ph.jsx.
 export function Ph({ hue, seed, ar = 1.333, className = '' }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) paintPh(ref.current);
-  });
   return (
-    <div className={`overflow-hidden ${className}`}>
-      <canvas ref={ref} data-hue={hue} data-seed={seed} data-ar={ar} aria-hidden="true" className="block h-auto w-full" />
+    <div className={`overflow-hidden ${className}`} style={{ aspectRatio: `${ar} / 1` }}>
+      <Photo hue={hue} seed={seed} ar={ar} />
     </div>
   );
 }
