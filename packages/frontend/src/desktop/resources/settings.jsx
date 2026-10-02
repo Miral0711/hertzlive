@@ -4,7 +4,7 @@ import {
 import { ROLES } from '../../shared/data.js';
 import { DEFERRED } from '../data';
 import {
-  Btn, Card, Grid2, Grid3, Input, Select, Field, PageHeader, List, Item, DataTable, Empty,
+  Banner, Btn, Card, Grid2, Grid3, Input, Select, Field, PageHeader, List, Item, DataTable, Empty,
 } from '../../ui/ui';
 import { DLink } from '../nav';
 import { staff } from '../helpers';
@@ -676,7 +676,7 @@ export function SettingsPage({ q }) {
           ))}
         </nav>
         <div className="min-w-0">
-          {state.desk.setMsg && <div role="status" className="mb-3.5 whitespace-pre-wrap rounded-r2 bg-accent-soft px-3.5 py-3">{state.desk.setMsg}</div>}
+          {state.desk.setMsg && <Banner role="status" className="whitespace-pre-wrap">{state.desk.setMsg}</Banner>}
           {T[tab] || <Empty />}
         </div>
       </div>

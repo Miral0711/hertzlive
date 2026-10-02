@@ -419,42 +419,45 @@ function Money({ q }) {
 }
 
 // ---------- vendors ----------
-function VendorRow({ v, preselect }) {
-  const open = state.desk.vendorOpen === v.id;
+// Stars as a compact meter rather than raw glyphs, so it sits at the same visual weight as the
+// rest of the row instead of reading as decorative filler.
+const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+
+function RateVendorDialog({ d }) {
+  const v = state.db.VENDORS.find((x) => x.id === d.vendorId);
+  if (!v) return null;
   const finished = svc.projects().filter((p) => (p.status || 'active') === 'finished');
   const projOpts = finished.length ? finished : svc.projects();
   const save = (e) => {
     e.preventDefault();
     const p = formData(e.currentTarget);
     svc.rateVendor(v.id, p.projectId, +p.stars, p.note);
-    state.desk.vendorOpen = null;
+    state.desk.dialog = null;
     toast('Rating saved.');
     render();
   };
   return (
-    <div className="border-b border-line py-2">
-      <Row className="flex-wrap">
-        <b>{v.name}</b>
-        <span className="grow" />
-        <span>{v.trade}</span>
-        <span>{'★'.repeat(v.rating) + '☆'.repeat(5 - v.rating)}</span>
-        <span>{v.phone}</span>
-        <span>{(v.projects || []).length} projects</span>
-        <Btn sm onClick={() => { state.desk.vendorOpen = open ? null : v.id; render(); }}>{open ? 'Close' : 'Rate'}</Btn>
-      </Row>
-      {open && (
-        <form onSubmit={save} className="mt-2 flex flex-wrap items-center gap-2.5">
-          <Select name="projectId" aria-label="Project" defaultValue={preselect}>
+    <Modal title={`Rate ${v.name}`}>
+      <form onSubmit={save}>
+        <Field label="Project">
+          <Select name="projectId" defaultValue={d.projectId || ''}>
             {projOpts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
-          <Select name="stars" aria-label="Stars">
-            {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} star{n > 1 ? 's' : ''}</option>)}
-          </Select>
-          <Input name="note" placeholder="Note" aria-label="Note" />
+        </Field>
+        <Grid2>
+          <Field label="Stars">
+            <Select name="stars" defaultValue="5">
+              {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} star{n > 1 ? 's' : ''}</option>)}
+            </Select>
+          </Field>
+          <Field label="Note"><Input name="note" placeholder="Optional" /></Field>
+        </Grid2>
+        <ModalActions>
+          <Btn onClick={closeDialog}>Cancel</Btn>
           <Btn kind="primary" type="submit">Save rating</Btn>
-        </form>
-      )}
-    </div>
+        </ModalActions>
+      </form>
+    </Modal>
   );
 }
 
@@ -463,9 +466,10 @@ function Vendors({ q }) {
   const trade = state.desk.vendorTrade || '';
   const trades = [...new Set(state.db.VENDORS.map((v) => v.trade))];
   const preselect = q.project || '';
+  const list = [...state.db.VENDORS].filter((v) => !trade || v.trade === trade).sort((a, b) => b.rating - a.rating);
   return (
     <>
-      <PageHeader title="Vendors">
+      <PageHeader title="Vendors" sub="Studio vendor directory and the rates they've quoted.">
         {tab === 'list' && (
           <Select
             aria-label="Filter by trade"
@@ -486,9 +490,17 @@ function Vendors({ q }) {
               .sort((a, b) => a[0].localeCompare(b[0]))}
           />
         ) : (
-          [...state.db.VENDORS].filter((v) => !trade || v.trade === trade)
-            .sort((a, b) => b.rating - a.rating)
-            .map((v) => <VendorRow key={v.id} v={v} preselect={preselect} />)
+          <DataTable
+            cols={['Vendor', 'Trade', 'Rating', 'Phone', 'Projects', '']}
+            rows={list.map((v) => [
+              <b>{v.name}</b>,
+              v.trade,
+              <span className="tracking-tight text-warn">{stars(v.rating)}</span>,
+              v.phone,
+              `${(v.projects || []).length} project${(v.projects || []).length === 1 ? '' : 's'}`,
+              <Btn sm onClick={() => openDialog({ kind: 'rate-vendor', vendorId: v.id, projectId: preselect })}>Rate</Btn>,
+            ])}
+          />
         )}
       </Card>
     </>
@@ -793,6 +805,7 @@ export const dialogs = {
   estimate: EstimateDialog,
   proposal: ProposalDialog,
   'raise-vendor': RaiseVendorDialog,
+  'rate-vendor': RateVendorDialog,
   invoice: InvoiceDialog,
   'invoice-nudge': NudgeDialog,
   'raise-invoice': RaiseInvoiceDialog,

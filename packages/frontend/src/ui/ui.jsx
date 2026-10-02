@@ -140,11 +140,13 @@ export function PageHeader({ title, sub, children }) {
     </div>
   );
 }
-export const Empty = ({ children = 'Nothing here yet.' }) => (
-  <div className="rounded-r2 bg-surface-2 p-7 text-center text-ink-3">{children}</div>
+// `compact` is for a secondary slot (a card's own empty list) where the full-page p-7 block reads
+// too heavy — same tokens, smaller padding and type.
+export const Empty = ({ children = 'Nothing here yet.', compact = false }) => (
+  <div className={`rounded-r2 bg-surface-2 text-center text-ink-3 ${compact ? 'px-4 py-3.5 text-[13px]' : 'p-7'}`}>{children}</div>
 );
-export const Banner = ({ internal = false, children }) => (
-  <div className={`mb-3.5 rounded-r1 px-3.5 py-2.5 font-medium ${internal ? 'bg-warn-soft text-warn' : 'bg-accent-soft text-accent-text'}`}>
+export const Banner = ({ internal = false, children, className = '', ...rest }) => (
+  <div className={`mb-3.5 rounded-r1 px-3.5 py-2.5 font-medium ${internal ? 'bg-warn-soft text-warn' : 'bg-accent-soft text-accent-text'} ${className}`} {...rest}>
     {children}
   </div>
 );
@@ -177,25 +179,53 @@ export const ItemBody = ({ title, sub }) => (
     {sub && <small className="text-ink-3">{sub}</small>}
   </span>
 );
-export const List = ({ children, empty = 'Nothing here yet.' }) => (
-  <div className="flex flex-col gap-1.5">{Children.count(children) ? children : <Empty>{empty}</Empty>}</div>
+export const List = ({ children, empty = 'Nothing here yet.', compact = false }) => (
+  <div className="flex flex-col gap-1.5">{Children.count(children) ? children : <Empty compact={compact}>{empty}</Empty>}</div>
 );
 
+// ---------- Breadcrumbs ----------
+// Current-location trail (Projects / HA-2401 Jagwani Residence / Drawings). One shared style for
+// every nested-navigation surface (project header, file browsers) instead of each re-typing the
+// same "crumbs" markup. `linkAs` lets desktop pass its hash-route-aware DLink; defaults to the
+// plain router Link for callers that already pass real paths.
+export function Breadcrumbs({ items, linkAs: As = Link, className = '' }) {
+  return (
+    <nav aria-label="Breadcrumb" className={`flex flex-wrap items-center gap-1.5 text-[13px] text-ink-3 ${className}`}>
+      {items.map((it, i) => (
+        <span key={it.key ?? it.label} className="flex items-center gap-1.5">
+          {i > 0 && <span aria-hidden="true">/</span>}
+          {it.to && i < items.length - 1
+            ? <As to={it.to} className="text-accent-text no-underline hover:underline">{it.label}</As>
+            : <b className="font-semibold text-ink">{it.label}</b>}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
 // ---------- Tabs ----------
-export function Tabs({ base, list, current }) {
+// Same underline tab bar everywhere a page switches between a few views. `base` + `current` for
+// the usual URL-driven tabs (a `Link` per tab); pass `onSelect(key)` instead for a tab bar that
+// drives local/step state rather than the route (e.g. a wizard) — same look, a `button` per tab.
+export function Tabs({ base, list, current, onSelect }) {
+  const cls = (k) => `-mb-px inline-flex min-h-[38px] items-center border-b-2 px-3 py-2 font-medium no-underline hover:text-ink aria-[current=page]:border-accent aria-[current=page]:font-semibold ${current === k ? 'border-accent text-accent-text' : 'border-transparent text-ink-2'}`;
   return (
     <div className="mb-4 flex flex-wrap gap-0.5 border-b border-line">
-      {list.map(([k, l]) => (
+      {list.map(([k, l]) => (onSelect ? (
+        <button key={k} type="button" aria-current={current === k ? 'page' : undefined} onClick={() => onSelect(k)} className={cls(k)} style={{ color: current === k ? 'var(--accent-text)' : undefined }}>
+          {l}
+        </button>
+      ) : (
         <Link
           key={k}
           to={`${base}?tab=${k}`}
           aria-current={current === k ? 'page' : undefined}
-          className={`-mb-px inline-flex min-h-[38px] items-center border-b-2 px-3 py-2 font-medium no-underline hover:text-ink aria-[current=page]:border-accent aria-[current=page]:font-semibold ${current === k ? 'border-accent text-accent-text' : 'border-transparent text-ink-2'}`}
+          className={cls(k)}
           style={{ color: current === k ? 'var(--accent-text)' : undefined }}
         >
           {l}
         </Link>
-      ))}
+      )))}
     </div>
   );
 }
