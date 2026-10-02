@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { state, svc, can, fmtD, fmtDT, accessibleMessage, toast, go } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
+import { addDays } from '../../shared/liveDates.js';
 import { Btn, DataTable, Empty, StatusPill } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink } from '../nav';
@@ -167,7 +168,7 @@ export function IssueWorkspace({ s: site, q }) {
     const form = e.currentTarget;
     svc.addIssue({
       siteId: site.id, projectId: site.projectId, title: new FormData(form).get('title'), type: 'Site query',
-      drawing: '', sla: '24 h', assignee: 'u5', due: '2026-09-11T09:00', source: 'desk',
+      drawing: '', sla: '24 h', assignee: 'u5', due: `${addDays(TODAY, 2)}T09:00`, source: 'desk',
     });
     form.reset();
     toast('Issue raised.');

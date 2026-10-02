@@ -1,4 +1,5 @@
 import { state, clone } from "../shared/core.js";
+import { shiftSeedExports } from "../shared/liveDates.js";
 import { P, days } from "./helpers.js";
 // ---------- Desktop studio: focused work with contextual conversation ----------
 // Shared layer (data.js, data2.js, core.js, filing.js) is read-only here. Extra seeds live below.
@@ -540,3 +541,6 @@ export const SHARES_SEED = [
     expires: "2026-09-17",
   },
 ];
+
+// Move this file's sample dates onto the real current date (see shared/liveDates.js).
+shiftSeedExports({ PROPOSALS, RESOURCE, REMINDERS, DAILYLOG, ANNOUNCEMENTS, DM_THREADS, DM_MESSAGES, SELECTIONS, SAMPLES, CHECKLISTS, FINISHES, TEMPLATES, SHARES_SEED });

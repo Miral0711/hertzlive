@@ -1,5 +1,6 @@
 // ---------- Seed data (Hertz Architects, Vadodara). All names/figures fictional. ----------
-export const TODAY = "2026-09-09";
+import { TODAY_LIVE } from "./liveDates.js";
+export const TODAY = TODAY_LIVE;
 export const ROLES = {
   partner: { label: "Partner", desc: "Portfolio, approvals, rooms, costs" },
   designer: { label: "Designer", desc: "Tasks, R&D, client references" },

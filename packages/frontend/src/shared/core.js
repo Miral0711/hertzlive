@@ -2,6 +2,12 @@
 import { TODAY, ROLES, USERS, PROJECTS, SITES, FEED, ISSUES, SNAGS, MATERIALS, THREADS, MESSAGES, MOODBOARD, ROOMS, BOOKINGS, LEAVES, HOLIDAYS, ATTENDANCE_TODAY, SALARY, BADGES, TASKS, AUDIT, NAS_TREE, ORG_LEAVE_TYPES, ORG_LEAVE_REQUESTS, ORG_HOLIDAYS } from './data.js';
 import { TIMESHEETS, TRANSMITTALS, RFIS, CHANGES, INVOICES, MEETINGS, VENDORS, HEADCOUNT, GRNS, DOCS, BRIEFS, SIGNATURES, SPOTS, AGENCY, TRADES, STATUTORY_TEMPLATES, STATUTORY, SERVICE_TYPES, ROUTING_RULES, ENQUIRIES, EXPENSES, SITE_CHECKINS, FOLLOWUPS, DECISIONS_DUE, CONNECTIONS, SHARE_LINKS, REVIEWS, PUNCHES, DRAWING_INDEX, INTAKE, PORTFOLIO, CLIENT_REFS, NOTIFICATIONS } from './data2.js';
 import { render } from './store.js';
+import * as SEED_MAIN from './data.js';
+import * as SEED_MORE from './data2.js';
+import { shiftSeedExports, shiftDates, daysBetween, monthDelta, addDays, SEED_TODAY } from './liveDates.js';
+// Move the sample data from its fixed day to the real current date (see liveDates.js).
+shiftSeedExports(SEED_MAIN);
+shiftSeedExports(SEED_MORE);
 export { render };
 // ---------- Core: state, RBAC, service layer, sync queue, AI provider, router ----------
 export const $ = (s, r = document) => r.querySelector(s);
@@ -203,7 +209,12 @@ export function loadDb() {
   });
   try {
     const s = JSON.parse(localStorage.getItem("hertz-proto") || "null");
-    if (s && s.v === 10) Object.assign(state, s.state);
+    if (s && s.v === 10) {
+      Object.assign(state, s.state);
+      // A saved session keeps its own edits; its dates move forward by the days since it was last opened.
+      const from = s.seed || SEED_TODAY;
+      if (from !== TODAY) shiftDates(state.db, daysBetween(from, TODAY), monthDelta(from, TODAY));
+    }
   } catch (e) {}
   // A page reload interrupts the simulated transfer; make it retryable.
   state.queue.forEach(item => {
@@ -228,6 +239,7 @@ export function persist() {
       "hertz-proto",
       JSON.stringify({
         v: 10,
+        seed: TODAY,
         state: {
           db: state.db,
           queue: state.queue,
@@ -1973,7 +1985,7 @@ export const AIProvider = {
     const p = state.db.PROJECTS.find((x) => x.id === projectId) || {};
     const s = state.db.SITES.find((x) => x.projectId === projectId) || {};
     const wk = state.db.FEED.filter(
-      (f) => f.siteId === s.id && f.at >= "2026-09-03",
+      (f) => f.siteId === s.id && f.at >= addDays(TODAY, -6),
     );
     return {
       title: `${p.name}, week to ${fmtD(TODAY)}`,
