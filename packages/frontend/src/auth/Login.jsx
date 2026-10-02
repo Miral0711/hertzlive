@@ -17,7 +17,7 @@ export default function Login() {
   const [pending, setPending] = useState(false);
 
   if (isAuthenticated()) {
-    return <Navigate to={location.state?.from?.pathname || '/desktop/today'} replace />;
+    return <Navigate to={location.state?.from?.pathname || '/desktop/dashboard'} replace />;
   }
 
   async function onSubmit(e) {
@@ -27,7 +27,7 @@ export default function Login() {
     try {
       const session = await login(email, password);
       hydrateSessionIntoState(session);
-      navigate(location.state?.from?.pathname || '/desktop/today', { replace: true });
+      navigate(location.state?.from?.pathname || '/desktop/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Unable to sign in.');
     } finally {

@@ -89,6 +89,7 @@ export function TemplateDialog({ d }) {
       if (!state.desk.thread) { toast('Open a conversation before applying a message template.'); return; }
       if (chatDraft(state.desk.thread)) { toast('Your existing draft is kept. Send or clear it before using a template.'); return; }
       setChatDraft(state.desk.thread, draft);
+      if (state.desk.chatHidden) state.desk.chatAutoOpened = true;
       state.desk.chatHidden = false;
       state.desk.chatList = false;
       render();

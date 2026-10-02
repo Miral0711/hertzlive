@@ -117,17 +117,22 @@ export function closeDialog() {
 // ---------- chat navigation ----------
 export function openThread(id) {
   if (!svc.thread(id)) return toast('That conversation is not available for your role.');
+  if (state.desk.chatHidden) state.desk.chatAutoOpened = true;
   Object.assign(state.desk, { thread: id, chatList: false, chatHidden: false, hi: null });
   render();
 }
 export function openMsg(id) {
   const m = state.db.MESSAGES.find((x) => x.id === id);
   if (!m || !svc.thread(m.threadId)) return toast('That chat is not visible to you.');
+  if (state.desk.chatHidden) state.desk.chatAutoOpened = true;
   Object.assign(state.desk, { thread: m.threadId, chatList: false, chatHidden: false, hi: id });
   render();
   toast(`Showing ${first(m.by)}'s message in ${svc.thread(m.threadId).name}.`);
 }
+// A pane opened by an in-page action (a "From chat" link, a message template) is temporary and closes when you leave
+// that page. A pane opened or closed with the Chats button is the user's own choice and is left alone.
 export function toggleChatPane() {
+  state.desk.chatAutoOpened = false;
   state.desk.chatHidden = !state.desk.chatHidden;
   persist();
   render();
