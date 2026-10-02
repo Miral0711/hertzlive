@@ -12,7 +12,7 @@ import {
 } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { DLink, href } from '../nav';
-import { P, first } from '../helpers';
+import { P, first, role, staff } from '../helpers';
 import { formData, openDialog } from '../session';
 
 const ym = (d) => (d || '').slice(0, 7);
@@ -170,6 +170,19 @@ export default function Dashboard() {
   const onTrack = sites.filter(siteOnTrack).length;
   const showMoney = can('budget', 'r');
   const showEnquiries = can('enquiry', 'r');
+  // What each role may see. Everything is also scoped by svc (a client only gets their own projects, a contractor only
+  // their own site), so these flags just decide which panels make sense at all.
+  const r = role();
+  const isClient = r === 'client';
+  const isContractor = r === 'contractor';
+  const isStaff = staff();
+  const showSites = can('site', 'r');
+  const showTasks = can('task', 'r');
+  const showIssues = can('issue', 'r') && !isClient;
+  const showBookings = can('booking', 'r');
+  const showStudio = isStaff; // studio-wide pulse, workload and portfolio
+  const decisions = svc.decisionsDue({}).filter((d) => svc.thread(d.threadId));
+  const nextMilestone = active.flatMap((p) => (p.milestones || []).filter((m) => !m.done)).sort((a, b) => a.date.localeCompare(b.date))[0];
 
   const rows = monthsBack(months).map(cashRow);
   const now = rows[rows.length - 1];
@@ -198,8 +211,8 @@ export default function Dashboard() {
     : null;
   const pulseParts = [
     ['Projects', projectsScore],
-    ['Sites', sitesScore],
-    ['Team', teamScore],
+    ...(showSites ? [['Sites', sitesScore]] : []),
+    ...(showTasks ? [['Team', teamScore]] : []),
     ...(financesScore != null ? [['Finances', financesScore]] : []),
     ...(enquiriesScore != null ? [['Enquiries', enquiriesScore]] : []),
   ];
@@ -293,37 +306,61 @@ export default function Dashboard() {
         <div>
           <h1 className="m-0 text-[28px] font-semibold leading-tight tracking-tight">{greeting()}, {first(u.id)}</h1>
           <p className="m-0 mt-1 text-[13px] text-ink-3">
-            {sites.length - onTrack} site{sites.length - onTrack === 1 ? '' : 's'} behind plan · {bookings.length} meeting{bookings.length === 1 ? '' : 's'} today
+            {isClient
+              ? `${decisions.length} decision${decisions.length === 1 ? '' : 's'} waiting for you${nextMilestone ? ` · next milestone ${fmtD(nextMilestone.date)}` : ''}`
+              : isContractor
+                ? `${sites.map((x) => `${x.name} ${x.progress}%`).join(' · ') || 'No site assigned'}`
+                : `${sites.length - onTrack} site${sites.length - onTrack === 1 ? '' : 's'} behind plan · ${bookings.length} meeting${bookings.length === 1 ? '' : 's'} today`}
           </p>
         </div>
         <div className="flex gap-2">
-          <Dropdown trigger={<><Icon name="plus" small /> Quick actions</>} panelClassName="!flex w-60 flex-col gap-0.5 !p-2">
-            <DropdownItem icon="check" onClick={() => openDialog({ kind: 'add-task-all', projectId: '' })}>Add task</DropdownItem>
-            {can('site', 'w') && <DropdownItem icon="sites" onClick={() => openDialog({ kind: 'add-site' })}>Add site</DropdownItem>}
-            {can('booking', 'w') && <DropdownItem icon="cal" onClick={() => openDialog({ kind: 'book-slot', date: TODAY })}>Book a meeting</DropdownItem>}
-            {showEnquiries && <DropdownItem icon="enquiries" onClick={() => go('#/enquiries')}>Review enquiries</DropdownItem>}
-            {showMoney && <DropdownItem icon="money" onClick={() => go('#/money?tab=invoices')}>Raise / chase invoices</DropdownItem>}
-          </Dropdown>
+          {isStaff && (can('task', 'w') || can('site', 'w') || can('booking', 'w') || showEnquiries || showMoney) && (
+            <Dropdown trigger={<><Icon name="plus" small /> Quick actions</>} panelClassName="!flex w-60 flex-col gap-0.5 !p-2">
+              {can('task', 'w') && <DropdownItem icon="check" onClick={() => openDialog({ kind: 'add-task-all', projectId: '' })}>Add task</DropdownItem>}
+              {can('site', 'w') && !isClient && r === 'partner' && <DropdownItem icon="sites" onClick={() => openDialog({ kind: 'add-site' })}>Add site</DropdownItem>}
+              {can('booking', 'w') && <DropdownItem icon="cal" onClick={() => openDialog({ kind: 'book-slot', date: TODAY })}>Book a meeting</DropdownItem>}
+              {showEnquiries && <DropdownItem icon="enquiries" onClick={() => go('#/enquiries')}>Review enquiries</DropdownItem>}
+              {showMoney && <DropdownItem icon="money" onClick={() => go('#/money?tab=invoices')}>Raise / chase invoices</DropdownItem>}
+            </Dropdown>
+          )}
           <Btn onClick={() => { render(); toast('Dashboard refreshed.'); }}>Refresh</Btn>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-gap lg:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Active projects" value={active.length} sub={`${projects.length} in total`} to="#/projects" />
-        {showMoney
-          ? <Stat label="Revenue this month" value={inr(now.received)} sub={`of ${inr(now.due)} due`} tone={now.received < now.due ? 'text-warn' : 'text-ok'} to="#/money" />
-          : <Stat label="Open tasks" value={svc.tasks({ mine: true }).length} sub="assigned to you" to="#/tasks" />}
-        {showMoney && <Stat label="Outstanding" value={inr(outstanding)} sub="overdue + unpaid" tone={outstanding ? 'text-warn' : 'text-ok'} to="#/money?tab=invoices" />}
-        <Stat label="Sites on track" value={`${onTrack} / ${sites.length}`} sub={`${sites.length - onTrack} behind plan`} tone={sites.length - onTrack ? 'text-crit' : 'text-ok'} to="#/sites" />
-        <Stat label="Open tasks" value={svc.tasks().length} sub="across the studio" to="#/tasks" />
-        {showEnquiries
-          ? <Stat label="New enquiries" value={svc.myEnquiries().length} sub="awaiting review" to="#/enquiries" />
-          : <Stat label="Notifications" value={notes.length} sub="unread" />}
+      <div className="grid gap-gap [grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))]">
+        {isContractor ? (
+          <>
+            <Stat label="Site progress" value={sites[0] ? `${sites[0].progress}%` : '—'} sub={sites[0]?.stage || 'no site assigned'} to={sites[0] ? `#/sites/${sites[0].id}` : undefined} />
+            <Stat label="Open issues" value={issues.length} sub="on your site" tone={issues.length ? 'text-warn' : 'text-ok'} to="#/sites" />
+            <Stat label="Snags for you" value={sites.reduce((n, x) => n + svc.snags(x.id).filter((g) => g.status !== 'closed').length, 0)} sub="to fix" to="#/sites" />
+            <Stat label="Notifications" value={notes.length} sub="unread" />
+          </>
+        ) : isClient ? (
+          <>
+            <Stat label="Active projects" value={active.length} sub={`${projects.length} in total`} to="#/projects" />
+            <Stat label="Waiting for you" value={decisions.length} sub={decisions.length ? 'decisions to make' : 'all clear'} tone={decisions.length ? 'text-warn' : 'text-ok'} />
+            <Stat label="Next milestone" value={nextMilestone ? fmtD(nextMilestone.date) : '—'} sub={nextMilestone?.name || 'none scheduled'} />
+            <Stat label="Notifications" value={notes.length} sub="unread" />
+          </>
+        ) : (
+          <>
+            <Stat label="Active projects" value={active.length} sub={`${projects.length} in total`} to="#/projects" />
+            {showMoney && <Stat label="Revenue this month" value={inr(now.received)} sub={`of ${inr(now.due)} due`} tone={now.received < now.due ? 'text-warn' : 'text-ok'} to="#/money" />}
+            {showMoney && <Stat label="Outstanding" value={inr(outstanding)} sub="overdue + unpaid" tone={outstanding ? 'text-warn' : 'text-ok'} to="#/money?tab=invoices" />}
+            {showSites && <Stat label="Sites on track" value={`${onTrack} / ${sites.length}`} sub={`${sites.length - onTrack} behind plan`} tone={sites.length - onTrack ? 'text-crit' : 'text-ok'} to="#/sites" />}
+            {showTasks && <Stat label="Your open tasks" value={svc.tasks({ mine: true }).length} sub="assigned to you" to={r === 'partner' ? '#/tasks' : undefined} />}
+            {r === 'partner' && <Stat label="Open tasks" value={svc.tasks().length} sub="across the studio" to="#/tasks" />}
+            {showEnquiries && <Stat label="New enquiries" value={svc.myEnquiries().length} sub="awaiting review" to="#/enquiries" />}
+            {!showEnquiries && <Stat label="Notifications" value={notes.length} sub="unread" />}
+          </>
+        )}
       </div>
 
+      {showStudio && (
+      <>
       <SectionTitle>Studio pulse</SectionTitle>
       <div className="grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        <Panel className="lg:col-span-2" title="Cash flow" action={
+        {showMoney && <Panel className="lg:col-span-2" title="Cash flow" action={
           <div className="flex items-center gap-2.5">
             <span className="text-xs text-accent-text">{prev ? `${inr(prev.received)} last month` : ''}</span>
             <ToggleGroup value={months} onChange={setMonths} options={[[6, '6M'], [12, '12M']]} />
@@ -334,9 +371,9 @@ export default function Dashboard() {
             <span><b className="block text-lg font-semibold">{inr(dueTotal)}</b><span className="text-ink-3">due</span></span>
             <span><b className="block text-lg font-semibold text-crit">{inr(overdueTotal)}</b><span className="text-ink-3">overdue</span></span>
           </div>
-          {showMoney ? <CashChart rows={rows} /> : <p className="m-0 text-ink-3">Not visible for your role.</p>}
-        </Panel>
-        <Panel title="Studio health">
+          <CashChart rows={rows} />
+        </Panel>}
+        <Panel className={showMoney ? '' : 'lg:col-span-3'} title="Studio health">
           <div className="mb-3 flex items-center gap-4">
             <span className={`text-[40px] font-semibold leading-none tracking-tight ${pulseTone(pulseOverall) === 'ok' ? 'text-ok' : pulseTone(pulseOverall) === 'warn' ? 'text-warn' : 'text-crit'}`}>{pulseOverall}</span>
             <span className="text-ink-3">/ 100<br />overall</span>
@@ -352,9 +389,13 @@ export default function Dashboard() {
         </Panel>
       </div>
 
+      </>
+      )}
+
+      {(isStaff || isClient) && (
       <div className="mt-gap grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
         <Panel
-          className="lg:col-span-2"
+          className={showMoney ? 'lg:col-span-2' : 'lg:col-span-3'}
           title="Portfolio progress"
           action={
             <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="!min-h-8 !py-1 text-xs">
@@ -376,11 +417,11 @@ export default function Dashboard() {
             </DLink>
           ))}
         </Panel>
-        <Panel
+        {showMoney && <Panel
           title="Budget health"
           action={<ToggleGroup value={budgetView} onChange={setBudgetView} options={[['overall', 'Overall'], ['project', 'By project']]} />}
         >
-          {!showMoney ? <p className="m-0 text-ink-3">Not visible for your role.</p> : budgetView === 'overall' ? (
+          {budgetView === 'overall' ? (
             <>
               <BudgetRing spent={spent} committed={committed} remaining={remaining} />
               <div className="mt-3 flex flex-col gap-1.5 text-[13px]">
@@ -403,24 +444,26 @@ export default function Dashboard() {
               })}
             </div>
           )}
-        </Panel>
+        </Panel>}
       </div>
+      )}
 
+      {(isStaff || isClient) && (
       <div className="mt-gap grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        <Panel className="lg:col-span-2" title="Project health">
+        <Panel className={isStaff && showTasks ? 'lg:col-span-2' : 'lg:col-span-3'} title="Project health">
           <div className="flex flex-col divide-y divide-line">
             {projectHealth.map(({ p, schedule, budget: b, site, approvals }) => (
               <div key={p.id} className="flex flex-wrap items-center gap-2.5 py-2.5 first:pt-0 last:pb-0">
                 <b className="w-36 min-w-0 flex-none truncate">{p.name}</b>
                 <span className="flex flex-1 flex-wrap gap-1.5">
-                  <StatusDot status={schedule} /><StatusDot status={b === 'healthy' ? 'healthy' : b} /><StatusDot status={site} /><StatusDot status={approvals} />
+                  <StatusDot status={schedule} />{showMoney && <StatusDot status={b === 'healthy' ? 'healthy' : b} />}{showSites && <StatusDot status={site} />}<StatusDot status={approvals} />
                 </span>
               </div>
             ))}
           </div>
-          <p className="m-0 mt-2.5 text-xs text-ink-3">Schedule · Budget · Site · Approvals</p>
+          <p className="m-0 mt-2.5 text-xs text-ink-3">Schedule{showMoney ? ' · Budget' : ''}{showSites ? ' · Site' : ''} · Approvals</p>
         </Panel>
-        <Panel
+        {isStaff && showTasks && <Panel
           title="Team workload"
           action={<ToggleGroup value={teamMetric} onChange={setTeamMetric} options={[['tasks', 'Tasks'], ['hours', 'Hours'], ['projects', 'Projects']]} />}
         >
@@ -437,11 +480,45 @@ export default function Dashboard() {
               </DLink>
             );
           })}
+        </Panel>}
+      </div>
+      )}
+
+      {isContractor && (
+      <div className="mt-gap grid gap-gap lg:grid-cols-2 [&>*]:min-w-0">
+        <Panel title="Your site" action={<DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">Open site</DLink>}>
+          {sites.length === 0 && <p className="m-0 text-ink-3">No site assigned yet.</p>}
+          {sites.map((x) => (
+            <DLink key={x.id} to={`#/sites/${x.id}`} className="flex items-center gap-3 border-t border-line py-2.5 no-underline first:border-t-0" style={{ color: 'inherit' }}>
+              <span className="w-40 min-w-0 flex-none"><b className="block truncate">{x.name}</b><small className="text-ink-3">{x.stage}</small></span>
+              <span className="flex-1"><Bar value={x.progress} /></span>
+              <small className="w-9 flex-none text-right text-ink-3">{x.progress}%</small>
+            </DLink>
+          ))}
+        </Panel>
+        <Panel title="Snags for you">
+          <List empty="No open snags.">
+            {sites.flatMap((x) => svc.snags(x.id)).filter((g) => g.status !== 'closed').map((g) => (
+              <Item key={g.id} to={href(`#/sites/${g.siteId}?tab=snags`)}><ItemBody title={g.text} sub={g.status} /></Item>
+            ))}
+          </List>
         </Panel>
       </div>
+      )}
 
-      <div className="mt-gap grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        <Panel title="Upcoming milestones">
+      <div className="mt-gap grid gap-gap [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))] [&>*]:min-w-0">
+        {isClient && (
+          <Panel title="Waiting for you">
+            <List empty="Nothing waiting. You are all caught up.">
+              {decisions.slice(0, 5).map((d) => (
+                <Item key={d.id} to={href(`#/projects/${d.projectId}?tab=decisions`)}>
+                  <ItemBody title={d.title} sub={d.due ? `Due ${fmtD(d.due)}` : 'No due date'} />
+                </Item>
+              ))}
+            </List>
+          </Panel>
+        )}
+        {!isContractor && <Panel title="Upcoming milestones">
           <List empty="No milestones ahead.">
             {milestones.map((m) => (
               <Item key={m.id} to={href(`#/projects/${m.project.id}`)}>
@@ -450,8 +527,8 @@ export default function Dashboard() {
               </Item>
             ))}
           </List>
-        </Panel>
-        <Panel title="Open site issues" action={<DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">View sites</DLink>}>
+        </Panel>}
+        {showIssues && <Panel title="Open site issues" action={<DLink to="#/sites" className="text-xs text-accent-text no-underline hover:underline">View sites</DLink>}>
           {issues.length === 0 ? <p className="m-0 text-ink-3">No open issues.</p> : (
             <div className="flex flex-col gap-2.5">
               {[['critical', 'crit', 'Critical'], ['attention', 'warn', 'Attention'], ['waiting', '', 'Waiting']].map(([band, tone, label]) => (
@@ -466,7 +543,7 @@ export default function Dashboard() {
               ))}
             </div>
           )}
-        </Panel>
+        </Panel>}
         {showEnquiries && (
           <Panel title="Enquiries" action={<DLink to="#/enquiries" className="text-xs text-accent-text no-underline hover:underline">View all</DLink>}>
             <p className="mb-2 mt-0 text-xs font-semibold uppercase tracking-[0.08em] text-ink-3">By status</p>
@@ -494,8 +571,8 @@ export default function Dashboard() {
       </div>
 
       <SectionTitle>Your day</SectionTitle>
-      <div className="grid gap-gap lg:grid-cols-3 [&>*]:min-w-0">
-        <Panel title="Today's schedule" action={<span className="text-xs text-accent-text">{fmtD(TODAY)}</span>}>
+      <div className="grid gap-gap [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))] [&>*]:min-w-0">
+        {showBookings && <Panel title="Today's schedule" action={<span className="text-xs text-accent-text">{fmtD(TODAY)}</span>}>
           {bookings.length === 0 && <p className="m-0 text-ink-3">No meetings today.</p>}
           {bookings.map((b, i) => (
             <div key={b.id} className="flex gap-2.5 py-1.5">
@@ -508,7 +585,7 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
-        </Panel>
+        </Panel>}
         <Panel title="Recent activity">
           <List empty="Nothing new.">{notes.slice(0, 5).map(noteLink)}</List>
         </Panel>

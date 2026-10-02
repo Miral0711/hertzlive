@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { state, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
+import { state, render, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
 import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
 import { Empty } from '../ui/ui';
@@ -84,6 +84,19 @@ export default function Shell() {
   const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio'].includes(page);
   const workspace = page === 'chats' && allowed;
   const focusedWork = page === 'review';
+  // Opening a conversation on the Chats page un-hides the side pane. Put the pane back the way it was when you leave Chats,
+  // so a chat opened there does not stay open on other pages.
+  const hiddenBeforeChats = useRef(state.desk.chatHidden);
+  const wasWorkspace = useRef(false);
+  useEffect(() => {
+    if (workspace && !wasWorkspace.current) hiddenBeforeChats.current = state.desk.chatHidden;
+    if (!workspace && wasWorkspace.current) {
+      state.desk.chatHidden = hiddenBeforeChats.current;
+      state.desk.chatList = true;
+      render();
+    }
+    wasWorkspace.current = workspace;
+  }, [workspace]);
   const noChat = workspace || focusedWork || state.desk.chatHidden;
   const u = me();
   const Page = PAGES[page] || PAGES.today;

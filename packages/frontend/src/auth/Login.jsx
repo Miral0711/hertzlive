@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { login, isAuthenticated } from './authClient';
 import { DEMO_ACCOUNTS } from './demoAccounts';
+import { Select } from '../ui/ui';
 import { hydrateSessionIntoState } from '../desktop/session';
 
 // Visually a plain, self-contained page (not part of the desktop Shell chrome), styled with the
 // same design tokens the rest of the app already uses (surface/ink/accent/line — see
-// shared/index.css) so it reads as part of Archos Studio without touching any existing UI.
+// shared/index.css) so it reads as part of Hertz Studio without touching any existing UI.
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -42,7 +43,7 @@ export default function Login() {
       >
         <div className="mb-6 text-center">
           <b className="block text-lg font-bold tracking-tight text-ink">Hertz Studio</b>
-          <small className="text-ink-3">Sign in to Archos Studio</small>
+          <small className="text-ink-3">Sign in to Hertz Studio</small>
         </div>
 
         {error && (
@@ -53,16 +54,11 @@ export default function Login() {
 
         <label htmlFor="login-account" className="mb-3 block text-[13px] text-ink-2">
           Account
-          <select
-            id="login-account"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 min-h-10 w-full rounded-r1 border border-line-2 bg-surface px-2.5 text-ink"
-          >
+          <Select id="login-account" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full">
             {DEMO_ACCOUNTS.map((a) => (
               <option key={a.personaId} value={a.email}>{a.label}</option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label htmlFor="login-password" className="mb-5 block text-[13px] text-ink-2">
@@ -81,7 +77,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex min-h-10 w-full items-center justify-center rounded-r1 bg-accent px-3.5 font-semibold text-on-accent hover:opacity-90 disabled:opacity-60"
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-r1 bg-accent px-3.5 font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
         >
           {pending ? 'Signing in…' : 'Sign in'}
         </button>

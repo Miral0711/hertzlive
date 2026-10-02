@@ -245,7 +245,107 @@ export function Field({ label, hint, error, children, className = '' }) {
   );
 }
 export const Input = ({ className = '', ...p }) => <input className={`${control} ${className}`} {...p} />;
-export const Select = ({ className = '', ...p }) => <select className={`${control} ${className}`} {...p} />;
+// ---------- Select: the app's themed dropdown (use this everywhere instead of a native <select>) ----------
+// Same props as a native select: value / defaultValue / name / onChange / disabled / required / className / aria-label / data-*,
+// with <option> children. The browser draws native lists in its own style, so this renders the list in the app theme.
+// onChange receives a select-like event (e.target.value, e.target.name). Inside a <form> a hidden input carries the value
+// and fires a bubbling input event, so FormData and form-level onInput handlers keep working.
+function flattenOptions(children, out = []) {
+  Children.forEach(children, (o) => {
+    if (!isValidElement(o)) return;
+    if (o.type === 'option') {
+      const text = textOf(o.props.children);
+      out.push({ value: String(o.props.value ?? text), label: o.props.children, disabled: !!o.props.disabled });
+    } else if (typeof o.type === 'function') {
+      // A small component that renders <option>s (for example a shared options list): call it to read them.
+      try { flattenOptions(o.type(o.props), out); } catch (_) { /* component needs hooks; not supported as a child */ }
+    } else if (o.props?.children) flattenOptions(o.props.children, out);
+  });
+  return out;
+}
+export function Select({ children, value, defaultValue, name, onChange, disabled, required, className = '', 'aria-label': ariaLabel, id, placeholder, autoFocus, ...rest }) {
+  const options = flattenOptions(children);
+  const controlled = value !== undefined;
+  const [inner, setInner] = useState(defaultValue !== undefined ? String(defaultValue) : (options[0]?.value ?? ''));
+  const current = controlled ? String(value) : inner;
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const box = useRef(null);
+  const hidden = useRef(null);
+  const selected = options.find((o) => o.value === current);
+  useEffect(() => { if (hidden.current) hidden.current.value = current; }, [current]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', away);
+    return () => document.removeEventListener('mousedown', away);
+  }, [open]);
+  const openMenu = () => { if (disabled) return; setActive(Math.max(0, options.findIndex((o) => o.value === current))); setOpen(true); };
+  const pick = (o) => {
+    if (!o || o.disabled) return;
+    if (!controlled) setInner(o.value);
+    setOpen(false);
+    if (hidden.current) {
+      hidden.current.value = o.value;
+      hidden.current.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    onChange?.({ target: { value: o.value, name }, currentTarget: { value: o.value, name } });
+  };
+  const onKeyDown = (e) => {
+    if (disabled) return;
+    if (!open && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); openMenu(); return; }
+    if (!open) return;
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(options.length - 1, a + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+    else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
+    else if (e.key === 'End') { e.preventDefault(); setActive(options.length - 1); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(options[active]); }
+    else if (e.key === 'Tab') setOpen(false);
+  };
+  return (
+    <div ref={box} className={`relative inline-block ${className}`}>
+      {name && <input ref={hidden} type="hidden" name={name} defaultValue={current} required={required} {...rest} />}
+      <button
+        type="button"
+        id={id}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={onKeyDown}
+        className={`${control} flex w-full min-w-[140px] items-center justify-between gap-3 text-left disabled:opacity-50 ${open ? '!border-accent !ring-[3px] !ring-accent-soft' : ''}`}
+      >
+        <span className={`min-w-0 truncate ${selected ? '' : 'text-ink-3'}`}>{selected ? selected.label : placeholder || 'Select'}</span>
+        <svg viewBox="0 0 24 24" className={`h-4 w-4 flex-none text-ink-3 transition ${open ? 'rotate-180 text-accent-text' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <ul role="listbox" aria-label={ariaLabel} className="absolute left-0 top-full z-40 m-0 mt-1.5 max-h-72 min-w-full list-none overflow-auto rounded-r3 border border-line bg-surface p-1.5 shadow-s2">
+          {options.map((o, i) => {
+            const on = o.value === current;
+            return (
+              <li
+                key={o.value + i}
+                role="option"
+                aria-selected={on}
+                aria-disabled={o.disabled || undefined}
+                onMouseEnter={() => setActive(i)}
+                onMouseDown={(e) => { e.preventDefault(); pick(o); }}
+                className={`flex min-h-9 cursor-pointer items-center justify-between gap-4 whitespace-nowrap rounded-r1 px-2.5 py-1.5 text-[14px] ${o.disabled ? 'cursor-not-allowed opacity-40' : ''} ${i === active ? 'bg-accent-soft' : ''} ${on ? 'font-semibold text-accent-text' : 'text-ink'}`}
+              >
+                {o.label}
+                {on && <Icon name="check" small className="flex-none text-accent-text" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+export const SelectMenu = Select;
 export const Textarea = ({ className = '', ...p }) => <textarea className={`${control} min-h-[72px] resize-y ${className}`} {...p} />;
 
 // ---------- Divider ----------
@@ -342,7 +442,7 @@ export const Th = ({ align = 'left', className = '', children, ...rest }) => (
   <th scope="col" className={`${TH_CLS} ${alignCls[align]} ${className}`} {...rest}>{children}</th>
 );
 export const Td = ({ align = 'left', className = '', wrap = false, children, ...rest }) => (
-  <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-40 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
+  <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-0 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
 );
 export const Tr = ({ className = '', children, ...rest }) => <tr className={`group ${className}`} {...rest}>{children}</tr>;
 
@@ -427,7 +527,7 @@ export function DataTable({ cols, rows, align }) {
           {shown.map(({ r, i }) => (
             <Tr key={i}>
               {r.map((c, j) => (
-                <Td key={j} align={colAlign(j)} wrap={textOf(c).length > 48} className={j === 0 && cols[0] ? 'font-medium' : ''}>
+                <Td key={j} align={colAlign(j)} wrap={fixed || textOf(c).length > 48} className={j === 0 && cols[0] ? 'font-medium' : ''}>
                   {c}
                 </Td>
               ))}
