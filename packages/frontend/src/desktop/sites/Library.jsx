@@ -76,8 +76,10 @@ export function SamplesPage() {
             s.projectIds.map((p) => P(p).name.split(' ')[0]).join(', '),
             <StatusPill status={s.out ? `out · ${s.out}` : 'on shelf'} />,
             s.out
-              ? <Btn sm onClick={() => { s.out = null; render(); }}>Returned</Btn>
-              : <Btn sm onClick={() => { s.out = `With ${first(state.userId)}`; render(); }}>Take out</Btn>,
+              ? (s.outBy && s.outBy !== state.userId && role() !== 'partner'
+                  ? <Btn sm disabled title={`Only ${s.out.replace('With ', '')} or a partner can mark this returned`}>Returned</Btn>
+                  : <Btn sm onClick={() => { s.out = null; s.outBy = null; render(); }}>Returned</Btn>)
+              : <Btn sm onClick={() => { s.out = `With ${first(state.userId)}`; s.outBy = state.userId; render(); }}>Take out</Btn>,
           ])}
         />
       </Card>

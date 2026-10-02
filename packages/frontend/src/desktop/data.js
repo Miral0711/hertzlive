@@ -149,6 +149,7 @@ export const SAMPLES = [
     hue: 30,
     seed: 61,
     out: "Client, Jagwani",
+    outBy: null,
   },
   {
     id: "sm2",
@@ -182,6 +183,7 @@ export const SAMPLES = [
     hue: 40,
     seed: 64,
     out: "Site, Sanghvi",
+    outBy: null,
   },
   {
     id: "sm5",
