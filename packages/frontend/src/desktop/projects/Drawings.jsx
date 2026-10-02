@@ -279,7 +279,7 @@ export function DrawingsTab({ p }) {
               {r.dwg && staff() && svc.connection('autocad') && (
                 <a className="inline-flex min-h-8 items-center whitespace-nowrap rounded-r1 border border-line-2 px-2.5 text-[13px] font-semibold no-underline" href={r.dwg} target="_blank" rel="noopener noreferrer">Open in AutoCAD Web</a>
               )}
-              {!r.done && staff() && <Btn sm onClick={() => openDialog({ kind: 'finalise-drawing', id: r.id })}>Finalise</Btn>}
+              {!r.done && can('drawing', 'w') && <Btn sm onClick={() => openDialog({ kind: 'finalise-drawing', id: r.id })}>Finalise</Btn>}
             </div>,
           ])}
         />

@@ -79,6 +79,7 @@ function setTaskPriority(id, priority) {
   persist();
 }
 function toggleChecklistItem(taskId, itemId) {
+  if (!can('task', 'w')) return;
   const t = state.db.TASKS.find((x) => x.id === taskId);
   const item = t?.checklist?.find((c) => c.id === itemId);
   if (!item) return;
@@ -426,7 +427,7 @@ function TaskDetailDialog({ d }) {
             {checklist.map((c) => (
               <li key={c.id}>
                 <label className="flex min-h-9 items-center gap-2.5 rounded-r1 border border-line bg-surface px-2.5 py-1.5">
-                  <input type="checkbox" checked={!!c.done} onChange={() => toggleChecklistItem(t.id, c.id)} />
+                  <input type="checkbox" checked={!!c.done} disabled={!can('task', 'w')} onChange={() => toggleChecklistItem(t.id, c.id)} />
                   <span className={c.done ? 'text-ink-3 line-through' : ''}>{c.text}</span>
                 </label>
               </li>

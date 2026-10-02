@@ -339,6 +339,18 @@ function Salary({ q }) {
   );
 }
 
+// Mutates state directly (no dedicated svc.* yet for this step) — same minimal pattern as
+// toggleChecklistItem/finishAsk: the permission check lives in the handler itself, not just
+// the button's visibility, so it still holds if this is ever called from somewhere else.
+function markExpensePaid(id) {
+  if (state.role !== 'hr') return;
+  const e = state.db.EXPENSES.find((x) => x.id === id);
+  if (!e || e.status !== 'approved') return;
+  e.status = 'paid';
+  persist();
+  toast('Marked paid.');
+  render();
+}
 function Expenses() {
   const claim = (e) => {
     e.preventDefault();
@@ -381,13 +393,13 @@ function Expenses() {
             {e.msgId ? <FromChat msgId={e.msgId}>View bill</FromChat> : <Muted>No bill yet</Muted>}
           </span>,
           <StatusPill status={e.status} />,
-          e.status === 'pending' && (can('salary', 'r') || state.role === 'partner') ? (
+          e.status === 'pending' && state.role === 'partner' ? (
             <div className="flex gap-2">
-              <Btn sm kind="primary" onClick={() => { state.db.EXPENSES.find((x) => x.id === e.id).status = 'approved'; persist(); toast('Approved.'); }}>Approve</Btn>
-              {state.role === 'partner' && <Btn sm onClick={() => { svc.decideExpense(e.id, 'rejected'); toast('Rejected.'); render(); }}>Reject</Btn>}
+              <Btn sm kind="primary" onClick={() => { svc.decideExpense(e.id, 'approved'); toast('Approved.'); render(); }}>Approve</Btn>
+              <Btn sm onClick={() => { svc.decideExpense(e.id, 'rejected'); toast('Rejected.'); render(); }}>Reject</Btn>
             </div>
           ) : e.status === 'approved' && state.role === 'hr' ? (
-            <Btn sm onClick={() => { state.db.EXPENSES.find((x) => x.id === e.id).status = 'paid'; persist(); toast('Marked paid.'); }}>Mark paid</Btn>
+            <Btn sm onClick={() => markExpensePaid(e.id)}>Mark paid</Btn>
           ) : '',
         ])}
       />

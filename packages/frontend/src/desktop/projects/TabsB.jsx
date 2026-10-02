@@ -16,6 +16,7 @@ import {
 
 // ---------- finishes ----------
 function finishAsk(id) {
+  if (!can('material', 'w')) return;
   const f = FINISHES.find((x) => x.id === id);
   f.clientStatus = 'asked';
   const t = state.db.THREADS.find((x) => x.kind === 'client' && x.projectId === f.projectId);
@@ -57,7 +58,7 @@ export function FinishesTab({ p }) {
                 </div>
               )
               : ''
-            : !f.clientStatus || f.clientStatus === 'pending'
+            : can('material', 'w') && (!f.clientStatus || f.clientStatus === 'pending')
               ? <Btn sm onClick={() => finishAsk(f.id)}>Ask client to choose</Btn>
               : '',
         ])}

@@ -97,15 +97,21 @@ export function FinaliseDrawingDialog({ d }) {
 export function IntakeUploadDialog({ d }) {
   const submit = (e) => {
     e.preventDefault();
-    svc.receiveIntake(d.id, formData(e.currentTarget).fileName);
-    state.desk.dialog = null;
-    toast('Received.');
+    try {
+      svc.receiveIntake(d.id, formData(e.currentTarget).fileName);
+      state.desk.dialog = null;
+      toast('Received.');
+    } catch (err) {
+      d.error = err.message;
+    }
+    render();
   };
   return (
     <Modal title="Upload">
       <form onSubmit={submit}>
         <Field label="File name"><Input name="fileName" required placeholder="site-photos.zip" /></Field>
         <p className="text-ink-3">Prototype upload: type a file name to simulate the file.</p>
+        <Alert>{d.error}</Alert>
         <ModalActions><Close>Cancel</Close><Btn kind="primary" type="submit">Upload</Btn></ModalActions>
       </form>
     </Modal>
@@ -115,14 +121,20 @@ export function IntakeUploadDialog({ d }) {
 export function IntakeAddDialog({ d }) {
   const submit = (e) => {
     e.preventDefault();
-    svc.addIntake(d.projectId, formData(e.currentTarget).item);
-    state.desk.dialog = null;
-    toast('Item added.');
+    try {
+      svc.addIntake(d.projectId, formData(e.currentTarget).item);
+      state.desk.dialog = null;
+      toast('Item added.');
+    } catch (err) {
+      d.error = err.message;
+    }
+    render();
   };
   return (
     <Modal title="Add intake item">
       <form onSubmit={submit}>
         <Field label="Item"><Input name="item" required /></Field>
+        <Alert>{d.error}</Alert>
         <ModalActions><Close>Cancel</Close><Btn kind="primary" type="submit">Add</Btn></ModalActions>
       </form>
     </Modal>

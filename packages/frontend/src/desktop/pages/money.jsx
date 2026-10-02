@@ -12,7 +12,7 @@ import {
 } from '../../ui/ui';
 import { DLink, href } from '../nav';
 import { P, V, days, first, role } from '../helpers';
-import { PROPOSALS, msFor, INVOICE_MS } from '../data';
+import { PROPOSALS, msFor, setInvoiceMilestone } from '../data';
 import Modal, { ModalActions } from '../Modal';
 import { openDialog, closeDialog, formData } from '../session';
 import { Stat, SecHead } from '../studio/common';
@@ -84,11 +84,10 @@ function pay(id) {
 function chase(id) {
   const i = state.db.INVOICES.find((x) => x.id === id);
   const t = state.db.THREADS.find((x) => x.kind === 'client' && x.projectId === i.projectId);
-  if (t) {
-    svc.addMessage(t.id, {
-      text: `Gentle reminder: invoice ${i.no} for ${inr(i.amount)} was due on ${fmtD(i.due)}. Please let us know if anything is holding it up.`,
-    });
-  }
+  if (!t) return toast('No client chat for this project yet — reminder not sent.');
+  svc.addMessage(t.id, {
+    text: `Gentle reminder: invoice ${i.no} for ${inr(i.amount)} was due on ${fmtD(i.due)}. Please let us know if anything is holding it up.`,
+  });
   seedFilings();
   toast('Reminder sent in client chat.');
 }
@@ -247,7 +246,7 @@ function Invoices({ inv }) {
                   key="m"
                   aria-label={`Milestone for ${i.no}`}
                   value={ms ? ms.id : ''}
-                  onChange={(e) => { INVOICE_MS[i.id] = e.target.value; toast('Linked to milestone.'); }}
+                  onChange={(e) => { setInvoiceMilestone(i.id, e.target.value); toast('Linked to milestone.'); }}
                 >
                   {mss.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </Select>
@@ -765,7 +764,8 @@ function NudgeDialog({ d }) {
     e.preventDefault();
     const p = formData(e.currentTarget);
     const t = state.db.THREADS.find((x) => x.kind === 'client' && x.projectId === inv.projectId);
-    if (t) svc.addMessage(t.id, { text: p.text });
+    if (!t) return toast('No client chat for this project yet — use Copy and send it another way.');
+    svc.addMessage(t.id, { text: p.text });
     state.desk.dialog = null;
     toast('Sent to client group.');
   };

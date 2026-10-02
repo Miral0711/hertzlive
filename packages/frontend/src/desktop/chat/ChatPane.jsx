@@ -3,7 +3,7 @@ import {
   useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore,
 } from 'react';
 import {
-  state, svc, can, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment,
+  state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment,
 } from '../../shared/core.js';
 import { seedFilings } from '../../shared/filing.js';
 import { Btn, Pill, Dropdown, DropdownItem, IconButton } from '../../ui/ui';
@@ -47,6 +47,7 @@ function pick(m, option) {
   toast('Decision recorded.');
 }
 function billDecision(m, ok) {
+  if (role() !== 'partner') return;
   if (ok) {
     m.bill.status = 'approved';
     m.bill.decidedAt = new Date().toISOString();
@@ -226,7 +227,7 @@ function Message({ m }) {
             <Pill kind={m.bill.status === 'approved' ? '' : 'warn'}>
               {m.bill.status === 'approved' ? 'approved' : m.bill.status === 'query' ? 'bill asked' : 'reimbursement asked'}
             </Pill>
-            {m.bill.status === 'asked' && m.by !== state.userId && (can('material', 'a') || role() === 'partner') && (
+            {m.bill.status === 'asked' && m.by !== state.userId && role() === 'partner' && (
               <>
                 <Btn sm kind="primary" onClick={() => billDecision(m, true)}>Approve</Btn>
                 <Btn sm onClick={() => billDecision(m, false)}>Ask for bill</Btn>

@@ -147,7 +147,7 @@ export function IntakeTab({ p }) {
     <Card>
       <Hdr>
         <h2 className="m-0 text-lg font-semibold">Intake checklist</h2>
-        {staff() && <Btn sm onClick={() => openDialog({ kind: 'intake-add', projectId: p.id })}>Add item</Btn>}
+        {can('intake', 'w') && <Btn sm onClick={() => openDialog({ kind: 'intake-add', projectId: p.id })}>Add item</Btn>}
       </Hdr>
       <Sub>What the studio needs from the client to start and keep moving.</Sub>
       <List empty="No intake items yet.">

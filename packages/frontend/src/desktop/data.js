@@ -302,7 +302,26 @@ export const RESOURCE = [
     weeks: [{ p1: 36 }, { p1: 36 }, { p1: 40, p2: 8 }, { p1: 32 }],
   },
 ];
-export const INVOICE_MS = {};
+// Which milestone an invoice is linked to. localStorage only (like the drawing shortcuts in
+// projects/common.jsx) rather than routed through the main persist()/state.db flow, since it's
+// a small per-browser link, not shared app data.
+const INVOICE_MS_KEY = "archos-desktop-invoice-ms";
+export const INVOICE_MS = (() => {
+  try {
+    return JSON.parse(localStorage.getItem(INVOICE_MS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+})();
+export function setInvoiceMilestone(invoiceId, msId) {
+  INVOICE_MS[invoiceId] = msId;
+  try {
+    localStorage.setItem(INVOICE_MS_KEY, JSON.stringify(INVOICE_MS));
+  } catch {
+    // Best-effort: a lost milestone link isn't worth failing the app over if storage is
+    // unavailable (private browsing, quota, etc.) — same trade-off the rest of the app makes.
+  }
+}
 export function msFor(i) {
   const ms = P(i.projectId).milestones || [];
   if (!ms.length) return null;
