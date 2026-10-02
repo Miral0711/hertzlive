@@ -1508,7 +1508,7 @@ export const svc = {
     const d = b.date.replace(/-/g, "");
     const t = (h) => d + "T" + String(Math.floor(h)).padStart(2, "0") + String(Math.round((h % 1) * 60)).padStart(2, "0") + "00";
     const e = encodeURIComponent;
-    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + e(b.title) + "&dates=" + t(b.start) + "/" + t(b.end) + "&details=" + e("Booked in Archos");
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + e(b.title) + "&dates=" + t(b.start) + "/" + t(b.end) + "&details=" + e("Booked in Hertz Studio");
   },
   // Mock Meet link for confirmed non-site meetings. Production: Calendar API creates the real one.
   meetUrl(b) {

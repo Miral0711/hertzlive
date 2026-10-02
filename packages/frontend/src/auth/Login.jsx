@@ -6,7 +6,7 @@ import { hydrateSessionIntoState } from '../desktop/session';
 
 // Visually a plain, self-contained page (not part of the desktop Shell chrome), styled with the
 // same design tokens the rest of the app already uses (surface/ink/accent/line — see
-// shared/index.css) so it reads as part of Archos Studio without touching any existing UI.
+// shared/index.css) so it reads as part of Hertz Studio without touching any existing UI.
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -42,7 +42,7 @@ export default function Login() {
       >
         <div className="mb-6 text-center">
           <b className="block text-lg font-bold tracking-tight text-ink">Hertz Studio</b>
-          <small className="text-ink-3">Sign in to Archos Studio</small>
+          <small className="text-ink-3">Sign in to Hertz Studio</small>
         </div>
 
         {error && (
