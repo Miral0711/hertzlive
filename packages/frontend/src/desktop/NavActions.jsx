@@ -1,4 +1,4 @@
-// Right side of the navbar: notifications, help, settings and the profile menu (with "Switch to" roles).
+// Right side of the navbar: notifications, settings and the profile menu (with "Switch to" roles).
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { state, svc, me, fmtDT, persist, render } from '../shared/core.js';
@@ -76,25 +76,6 @@ function Notifications() {
   );
 }
 
-function Help() {
-  const wa = svc.cfg().wa;
-  const rows = [
-    ['Search anything', 'Press Ctrl or Cmd + K to search pages, projects, people and messages.'],
-    ['Check in and out', 'Use the Attendance panel on the Today page.'],
-    ['Preview as a client', 'Profile menu, then Switch to Client.'],
-    ['Reset the demo', 'Profile menu, then Reset sample data.'],
-  ];
-  return (
-    <Pop label="Help and support" trigger={<span className="text-[15px] font-semibold leading-none">?</span>} className="max-md:hidden">
-      <div className="px-2.5 pb-1 pt-1"><b>Help and support</b></div>
-      {rows.map(([t, d]) => <div key={t} className="rounded-r1 px-2.5 py-1.5"><b className="block text-[13px]">{t}</b><small className="text-ink-3">{d}</small></div>)}
-      <Divider className="my-1" />
-      {wa && <a href={`https://wa.me/${String(wa).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="flex min-h-9 items-center gap-2.5 rounded-r1 px-2.5 font-medium text-accent-text no-underline hover:bg-surface-2"><Icon name="chat" small /> Contact support on WhatsApp</a>}
-      <DLink to="#/settings?tab=prefs" className="flex min-h-9 items-center gap-2.5 rounded-r1 px-2.5 font-medium text-ink no-underline hover:bg-surface-2"><Icon name="settings" small /> Preferences</DLink>
-    </Pop>
-  );
-}
-
 function Profile() {
   const navigate = useNavigate();
   const u = me();
@@ -132,7 +113,6 @@ export default function NavActions() {
   return (
     <div className="flex flex-none items-center gap-1.5 sm:gap-2">
       <Notifications />
-      <Help />
       <DLink to="#/settings" aria-label="Settings" title="Settings" className={`${btn} no-underline max-md:hidden`}><Icon name="settings" small /></DLink>
       <Profile />
     </div>

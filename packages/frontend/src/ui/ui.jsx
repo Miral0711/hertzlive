@@ -312,7 +312,7 @@ export const Th = ({ align = 'left', className = '', children, ...rest }) => (
   <th scope="col" className={`${TH_CLS} ${alignCls[align]} ${className}`} {...rest}>{children}</th>
 );
 export const Td = ({ align = 'left', className = '', wrap = false, children, ...rest }) => (
-  <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-40 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
+  <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-0 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
 );
 export const Tr = ({ className = '', children, ...rest }) => <tr className={`group ${className}`} {...rest}>{children}</tr>;
 
@@ -397,7 +397,7 @@ export function DataTable({ cols, rows, align }) {
           {shown.map(({ r, i }) => (
             <Tr key={i}>
               {r.map((c, j) => (
-                <Td key={j} align={colAlign(j)} wrap={textOf(c).length > 48} className={j === 0 && cols[0] ? 'font-medium' : ''}>
+                <Td key={j} align={colAlign(j)} wrap={fixed || textOf(c).length > 48} className={j === 0 && cols[0] ? 'font-medium' : ''}>
                   {c}
                 </Td>
               ))}
