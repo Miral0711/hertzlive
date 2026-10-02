@@ -65,7 +65,7 @@ function Mark({ text, q }) {
   const n = q.trim();
   const i = n ? t.toLowerCase().indexOf(n.toLowerCase()) : -1;
   if (i < 0) return t;
-  return <>{t.slice(0, i)}<mark className="rounded-sm bg-accent-soft px-0.5 text-accent-text">{t.slice(i, i + n.length)}</mark>{t.slice(i + n.length)}</>;
+  return <>{t.slice(0, i)}<mark className="rounded-[2px] bg-accent-soft p-0 text-accent-text">{t.slice(i, i + n.length)}</mark>{t.slice(i + n.length)}</>;
 }
 
 export default function NavSearch() {

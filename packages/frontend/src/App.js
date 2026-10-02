@@ -8,7 +8,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<Navigate to="/desktop/today" replace />} />
+        <Route path="/" element={<Navigate to="/desktop/dashboard" replace />} />
         <Route
           path="/desktop/*"
           element={(
@@ -17,7 +17,7 @@ function App() {
             </RequireAuth>
           )}
         />
-        <Route path="*" element={<Navigate to="/desktop/today" replace />} />
+        <Route path="*" element={<Navigate to="/desktop/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

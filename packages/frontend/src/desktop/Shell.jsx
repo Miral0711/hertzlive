@@ -61,9 +61,9 @@ export default function Shell() {
   const [navOpen, setNavOpen] = useState(false);
 
   // Keep the legacy route string in step with the URL for code that calls parseRoute().
-  state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/today') + location.search;
+  state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/dashboard') + location.search;
   const { parts, q } = parseRoute();
-  const page = parts[0] || 'today';
+  const page = parts[0] || 'dashboard';
 
   useEffect(() => {
     window.__navigate = (route) => navigate(href(route));
@@ -86,20 +86,31 @@ export default function Shell() {
   const focusedWork = page === 'review';
   // Opening a conversation on the Chats page un-hides the side pane. Put the pane back the way it was when you leave Chats,
   // so a chat opened there does not stay open on other pages.
+  // Remember the pane state at the moment we enter Chats. This must happen while Shell renders, before the Chats page
+  // renders its own children: that page un-hides the pane as it opens a conversation, so an effect would see it too late.
   const hiddenBeforeChats = useRef(state.desk.chatHidden);
   const wasWorkspace = useRef(false);
+  if (workspace && !wasWorkspace.current) { hiddenBeforeChats.current = state.desk.chatHidden; wasWorkspace.current = true; }
   useEffect(() => {
-    if (workspace && !wasWorkspace.current) hiddenBeforeChats.current = state.desk.chatHidden;
     if (!workspace && wasWorkspace.current) {
+      wasWorkspace.current = false;
       state.desk.chatHidden = hiddenBeforeChats.current;
       state.desk.chatList = true;
       render();
     }
-    wasWorkspace.current = workspace;
   }, [workspace]);
+  // Close a pane that an in-page action opened (for example "From chat") once we move to another page.
+  useEffect(() => {
+    if (state.desk.chatAutoOpened && !workspace) {
+      state.desk.chatAutoOpened = false;
+      state.desk.chatHidden = true;
+      render();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
   const noChat = workspace || focusedWork || state.desk.chatHidden;
   const u = me();
-  const Page = PAGES[page] || PAGES.today;
+  const Page = PAGES[page] || PAGES.dashboard;
   const brand = tenantBrand();
 
   return (
@@ -115,7 +126,7 @@ export default function Shell() {
         <button type="button" aria-label="Open menu" aria-expanded={navOpen} onClick={() => setNavOpen((o) => !o)} className="ml-2 hidden h-10 w-10 flex-none place-items-center rounded-r1 border border-line-2 text-ink-2 max-lg:grid">
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
-        <DLink to="#/today" className="flex h-full w-nav flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline max-lg:w-auto max-lg:min-w-[104px] max-sm:px-3">
+        <DLink to="#/dashboard" className="flex h-full w-nav flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline max-lg:w-auto max-lg:min-w-[104px] max-sm:px-3">
           <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
           <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
         </DLink>
