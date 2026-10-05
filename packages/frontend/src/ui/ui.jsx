@@ -432,7 +432,7 @@ function numericValue(text) {
 // ---------- Table primitives: every table in the app is built from these, so alignment, spacing,
 // header style, hover and borders are defined once (tokens: --table-pad-x, --table-row-h, --table-head-h). ----------
 export const TH_CLS = 'h-head whitespace-nowrap border-b border-line bg-surface-2 px-tbl-x py-2 text-xs font-semibold uppercase tracking-[0.04em] text-ink-2';
-export const TD_CLS = 'h-row border-b border-line px-tbl-x py-2 align-middle text-[14px] group-last:border-b-0 group-hover:bg-surface-2';
+export const TD_CLS = 'h-row border-b border-line px-tbl-x py-2 align-middle text-[14px] group-last/row:border-b-0 group-hover/row:bg-surface-2';
 const alignCls = { left: 'text-left', right: 'text-right tabular-nums [&:not(:last-child)]:pr-10', center: 'text-center' };
 export const Table = ({ children, className = '', minWidth, fixed = false, compact = false, fill = false }) => (
   <div className={`max-w-full overflow-x-auto rounded-r3 border border-line bg-surface ${className}`}>
@@ -445,7 +445,7 @@ export const Th = ({ align = 'left', className = '', children, ...rest }) => (
 export const Td = ({ align = 'left', className = '', wrap = false, children, ...rest }) => (
   <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-0 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
 );
-export const Tr = ({ className = '', children, ...rest }) => <tr className={`group ${className}`} {...rest}>{children}</tr>;
+export const Tr = ({ className = '', children, ...rest }) => <tr className={`group/row ${className}`} {...rest}>{children}</tr>;
 
 // A column is numeric if its header says so (₹/# prefix - currency/counts, kept for sort math)
 // or every cell in it is plain digits/percent (hours, days, counts) - so numeric columns line up
