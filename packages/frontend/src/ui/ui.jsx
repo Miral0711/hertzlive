@@ -1,4 +1,5 @@
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react';
+import { usePhone } from '../desktop/phone';
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
 import { TONE_FILL, TONE_SOFT } from './tones';
@@ -208,9 +209,13 @@ export function Breadcrumbs({ items, linkAs: As = Link, className = '' }) {
 // the usual URL-driven tabs (a `Link` per tab); pass `onSelect(key)` instead for a tab bar that
 // drives local/step state rather than the route (e.g. a wizard) — same look, a `button` per tab.
 export function Tabs({ base, list, current, onSelect }) {
-  const cls = (k) => `-mb-px inline-flex min-h-[38px] items-center border-b-2 px-3 py-2 font-medium no-underline hover:text-ink aria-[current=page]:border-accent aria-[current=page]:font-semibold ${current === k ? 'border-accent text-accent-text' : 'border-transparent text-ink-2'}`;
+  const bar = useRef(null);
+  useEffect(() => {
+    bar.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [current]);
+  const cls = (k) => `-mb-px inline-flex min-h-[38px] flex-none items-center whitespace-nowrap border-b-2 px-3 py-2 font-medium no-underline hover:text-ink aria-[current=page]:border-accent aria-[current=page]:font-semibold ${current === k ? 'border-accent text-accent-text' : 'border-transparent text-ink-2'}`;
   return (
-    <div className="mb-4 flex flex-wrap gap-0.5 border-b border-line">
+    <div ref={bar} className="mb-4 flex gap-0.5 overflow-x-auto border-b border-line">
       {list.map(([k, l]) => (onSelect ? (
         <button key={k} type="button" aria-current={current === k ? 'page' : undefined} onClick={() => onSelect(k)} className={cls(k)} style={{ color: current === k ? 'var(--accent-text)' : undefined }}>
           {l}
@@ -384,7 +389,7 @@ export function IconButton({ icon, label, sm = false, className = '', ...rest })
 
 // ---------- Dropdown (native <details>-backed menu — same pattern the app already used ad hoc
 // in several places, centralised here: closes on outside click / Escape). ----------
-export function Dropdown({ trigger, children, align = 'right', className = '', panelClassName = '' }) {
+export function Dropdown({ trigger, children, align = 'right', className = '', panelClassName = '', plain = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) ref.current.open = false; };
@@ -395,7 +400,9 @@ export function Dropdown({ trigger, children, align = 'right', className = '', p
   }, []);
   return (
     <details ref={ref} className={`relative ${className}`}>
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text [&::-webkit-details-marker]:hidden">
+      <summary className={plain
+        ? 'flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full text-inherit hover:bg-black/10 [&::-webkit-details-marker]:hidden'
+        : 'flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text [&::-webkit-details-marker]:hidden'}>
         {trigger}
       </summary>
       <div className={`absolute top-full z-30 mt-1.5 min-w-[220px] rounded-r3 border border-line bg-surface p-2 shadow-s2 ${align === 'right' ? 'right-0' : 'left-0'} ${panelClassName}`}>
@@ -431,11 +438,11 @@ function numericValue(text) {
 // ---------- Table primitives: every table in the app is built from these, so alignment, spacing,
 // header style, hover and borders are defined once (tokens: --table-pad-x, --table-row-h, --table-head-h). ----------
 export const TH_CLS = 'h-head whitespace-nowrap border-b border-line bg-surface-2 px-tbl-x py-2 text-xs font-semibold uppercase tracking-[0.04em] text-ink-2';
-export const TD_CLS = 'h-row border-b border-line px-tbl-x py-2 align-middle text-[14px] group-last:border-b-0 group-hover:bg-surface-2';
+export const TD_CLS = 'h-row border-b border-line px-tbl-x py-2 align-middle text-[14px] group-last/row:border-b-0 group-hover/row:bg-surface-2';
 const alignCls = { left: 'text-left', right: 'text-right tabular-nums [&:not(:last-child)]:pr-10', center: 'text-center' };
-export const Table = ({ children, className = '', minWidth, fixed = false, compact = false }) => (
-  <div className={`overflow-x-auto rounded-r3 border border-line bg-surface ${className}`}>
-    <table className={`w-full border-collapse text-ink ${fixed ? 'table-fixed' : ''} ${compact ? '[&_td]:!px-2 [&_th]:!px-2 [&_td]:!text-[13px]' : ''}`} style={minWidth ? { minWidth } : undefined}>{children}</table>
+export const Table = ({ children, className = '', minWidth, fixed = false, compact = false, fill = false }) => (
+  <div className={`max-w-full overflow-x-auto rounded-r3 border border-line bg-surface ${className}`}>
+    <table className={`border-collapse text-ink ${fill ? 'w-max min-w-full' : 'w-full'} ${fixed ? 'table-fixed' : ''} ${compact ? '[&_td]:!px-2 [&_th]:!px-2 [&_td]:!text-[13px]' : ''}`} style={minWidth && !fill ? { minWidth } : undefined}>{children}</table>
   </div>
 );
 export const Th = ({ align = 'left', className = '', children, ...rest }) => (
@@ -444,7 +451,7 @@ export const Th = ({ align = 'left', className = '', children, ...rest }) => (
 export const Td = ({ align = 'left', className = '', wrap = false, children, ...rest }) => (
   <td className={`${TD_CLS} ${alignCls[align]} ${wrap ? 'min-w-0 max-w-[340px] [overflow-wrap:anywhere]' : 'whitespace-nowrap'} ${className}`} {...rest}>{children}</td>
 );
-export const Tr = ({ className = '', children, ...rest }) => <tr className={`group ${className}`} {...rest}>{children}</tr>;
+export const Tr = ({ className = '', children, ...rest }) => <tr className={`group/row ${className}`} {...rest}>{children}</tr>;
 
 // A column is numeric if its header says so (₹/# prefix - currency/counts, kept for sort math)
 // or every cell in it is plain digits/percent (hours, days, counts) - so numeric columns line up
@@ -453,6 +460,7 @@ const plainNumber = /^-?[\d,]+(\.\d+)?%?$/;
 // cols: header strings ('' = actions column). A leading ₹ or # marks a numeric column (right aligned, sorted by value).
 // Optional `align` array overrides per column: ['left', 'right', ...].
 export function DataTable({ cols, rows, align }) {
+  const phone = usePhone();
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState(null);
   const isNum = (i) => {
@@ -482,7 +490,7 @@ export function DataTable({ cols, rows, align }) {
   if (!rows.length) return <Empty />;
   // Short-text tables get equal column widths so spacing is even; tables with action buttons or long text size to content.
   // Equal widths only when the table has no actions column and no long or control-heavy cells; those would be clipped, so they size to content.
-  const fixed = cols.length <= 8 && !cols.includes('') && rows.every((r) => r.every((c) => textOf(c).length <= 48));
+  const fixed = !phone && cols.length <= 8 && !cols.includes('') && rows.every((r) => r.every((c) => textOf(c).length <= 48));
   return (
     <>
       {rows.length > 8 && (
@@ -495,7 +503,7 @@ export function DataTable({ cols, rows, align }) {
           className={`${control} mb-2 block max-w-[280px]`}
         />
       )}
-      <Table fixed={fixed} compact={cols.length >= 8} minWidth={fixed ? cols.length * 130 : undefined}>
+      <Table fixed={fixed} fill={phone} compact={cols.length >= 8} minWidth={fixed ? cols.length * 130 : undefined}>
         <thead>
           <tr>
             {cols.map((c, i) => (

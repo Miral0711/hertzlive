@@ -83,14 +83,19 @@ function FreeSlots({ date }) {
     openDialog({ kind: 'book-slot', date: x.date });
   };
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2.5 text-[13px]">
-      <span className="font-semibold text-ink-2">Next free</span>
-      <span className="text-ink-3">·</span>
-      {slots.length === 0 ? <span className="text-ink-3">No free slot in the next two weeks.</span> : slots.map((x, i) => (
-        <ToggleChip key={i} on={false} disabled={!can('booking', 'w')} onClick={() => pick(x)}>
-          {x.date === TODAY ? 'Today' : fmtD(x.date)} {hh(x.start)}–{hh(x.end)}
-        </ToggleChip>
-      ))}
+    <div className="mb-4 flex items-center gap-2.5 text-[13px]">
+      <span className="flex-none font-semibold text-ink-2">Next free</span>
+      {slots.length === 0 ? <span className="text-ink-3">No free slot in the next two weeks.</span> : (
+        <div className="flex min-w-0 gap-2 overflow-x-auto">
+          {slots.map((x, i) => (
+            <span key={i} className="flex-none">
+              <ToggleChip on={false} disabled={!can('booking', 'w')} onClick={() => pick(x)}>
+                {x.date === TODAY ? 'Today' : fmtD(x.date)} {hh(x.start)}–{hh(x.end)}
+              </ToggleChip>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -181,8 +186,9 @@ function Rooms({ q }) {
           column is already visible. Below min-w it still scrolls, and these buttons (shown only
           then) are a reliable, always-reachable way to the last column - placed in normal flow
           above the grid, never overlapping row or header text. */}
+      <div className="overflow-hidden rounded-r3 border border-line bg-surface">
       {(!edge.start || !edge.end) && (
-        <div className="mb-2 flex justify-end gap-1.5">
+        <div className="flex justify-end gap-1.5 border-b border-line px-2 py-1.5">
           <Btn sm disabled={edge.start} aria-label="Scroll earlier" onClick={() => scrollGrid(-1)} className="!min-h-8 !w-8 !rounded-full !px-0">
             <Icon name="chev" small className="rotate-180" />
           </Btn>
@@ -191,7 +197,7 @@ function Rooms({ q }) {
           </Btn>
         </div>
       )}
-      <div ref={gridRef} onScroll={checkEdge} className="overflow-x-auto rounded-r3 border border-line bg-surface">
+      <div ref={gridRef} onScroll={checkEdge} className="overflow-x-auto">
         <table className="w-full min-w-[920px] table-fixed border-collapse">
           <thead>
             <Tr>
@@ -229,6 +235,7 @@ function Rooms({ q }) {
             ))}
           </tbody>
         </table>
+      </div>
       </div>
       <p className="mb-0 mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
         <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-accent" />Office</span>

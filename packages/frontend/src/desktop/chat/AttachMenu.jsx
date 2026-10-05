@@ -21,7 +21,7 @@ const ACTION_ITEMS = [
   { kind: 'poll', label: 'Poll', icon: 'checkcheck' },
 ];
 
-export default function AttachMenu({ onPickFile, onPickAction }) {
+export default function AttachMenu({ onPickFile, onPickAction, bare = false }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
   const inputRef = useRef(null);
@@ -50,16 +50,29 @@ export default function AttachMenu({ onPickFile, onPickAction }) {
 
   return (
     <div ref={boxRef} className="relative">
-      <Btn
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Attach"
-        className="!min-h-10 !px-2.5"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Icon name="clip" />
-      </Btn>
+      {bare ? (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Attach"
+          className="inline-grid h-10 w-10 place-items-center rounded-full border-0 bg-transparent text-ink-3 hover:text-ink"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Icon name="clip" />
+        </button>
+      ) : (
+        <Btn
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Attach"
+          className="!min-h-10 !px-2.5"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Icon name="clip" />
+        </Btn>
+      )}
       {open && (
         <div
           role="menu"
