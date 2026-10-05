@@ -209,9 +209,13 @@ export function Breadcrumbs({ items, linkAs: As = Link, className = '' }) {
 // the usual URL-driven tabs (a `Link` per tab); pass `onSelect(key)` instead for a tab bar that
 // drives local/step state rather than the route (e.g. a wizard) — same look, a `button` per tab.
 export function Tabs({ base, list, current, onSelect }) {
-  const cls = (k) => `-mb-px inline-flex min-h-[38px] items-center border-b-2 px-3 py-2 font-medium no-underline hover:text-ink aria-[current=page]:border-accent aria-[current=page]:font-semibold ${current === k ? 'border-accent text-accent-text' : 'border-transparent text-ink-2'}`;
+  const bar = useRef(null);
+  useEffect(() => {
+    bar.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [current]);
+  const cls = (k) => `-mb-px inline-flex min-h-[38px] flex-none items-center whitespace-nowrap border-b-2 px-3 py-2 font-medium no-underline hover:text-ink aria-[current=page]:border-accent aria-[current=page]:font-semibold ${current === k ? 'border-accent text-accent-text' : 'border-transparent text-ink-2'}`;
   return (
-    <div className="mb-4 flex flex-wrap gap-0.5 border-b border-line">
+    <div ref={bar} className="mb-4 flex gap-0.5 overflow-x-auto border-b border-line">
       {list.map(([k, l]) => (onSelect ? (
         <button key={k} type="button" aria-current={current === k ? 'page' : undefined} onClick={() => onSelect(k)} className={cls(k)} style={{ color: current === k ? 'var(--accent-text)' : undefined }}>
           {l}

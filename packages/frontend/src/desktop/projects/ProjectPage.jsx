@@ -200,15 +200,19 @@ const PTAB = {
   team: TeamTab, decisions: DecisionsTab, moodboard: MoodboardTab, handover: HandoverTab,
 };
 
-const navLink = '-mb-px flex min-h-11 items-center whitespace-nowrap border-b-2 px-3.5 py-2.5 font-medium no-underline hover:text-accent-text';
+const navLink = '-mb-px flex min-h-11 flex-none items-center whitespace-nowrap border-b-2 px-3.5 py-2.5 font-medium no-underline hover:text-accent-text';
 function ProjectTabs({ projectId, list, current }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
+  const bar = useRef(null);
   const frequent = ['overview', 'tasks', 'drawings', 'files', 'decisions'];
   const direct = [...frequent, ...(!frequent.includes(current) ? [current] : [])]
     .map((key) => list.find(([id]) => id === key)).filter(Boolean);
   // Close the menu after choosing a tool, on Escape, and on a click anywhere else.
   useEffect(() => { setOpen(false); }, [current, projectId]);
+  useEffect(() => {
+    bar.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [current, projectId]);
   useEffect(() => {
     if (!open) return undefined;
     const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
@@ -241,24 +245,34 @@ function ProjectTabs({ projectId, list, current }) {
     sizes[i] += g.entries.length + 1;
   });
   const used = balanced.filter((c) => c.length);
+  const menuBox = () => {
+    const r = box.current?.getBoundingClientRect();
+    const top = (r?.bottom ?? 0) + 6;
+    const phone = window.innerWidth < 768;
+    const maxHeight = Math.max(160, window.innerHeight - top - (phone ? 68 : 16));
+    if (phone) return { top, left: 16, right: 16, maxHeight, overflowY: 'auto' };
+    const width = Math.min(720, window.innerWidth - 32);
+    const left = Math.max(16, Math.min(r?.left ?? 16, window.innerWidth - width - 16));
+    return { top, left, width, maxHeight, overflowY: 'auto' };
+  };
   return (
-    <nav className="mb-5 border-b border-line" aria-label="Project sections">
-      <div className="flex flex-wrap items-stretch gap-1">
+    <nav className="mb-5" aria-label="Project sections">
+      <div ref={bar} className="flex items-stretch gap-1 overflow-x-auto border-b border-line">
         {direct.map(destination)}
         {more.length > 0 && (
-          <div ref={box} className="relative">
+          <div ref={box} className="relative flex-none">
             <button
               type="button"
               aria-haspopup="true"
               aria-expanded={open}
               onClick={() => setOpen((o) => !o)}
-              className={`-mb-px flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-3.5 py-2.5 font-medium hover:text-accent-text ${open ? 'text-accent-text' : 'text-ink-2'}`}
+              className={`-mb-px flex min-h-11 flex-none cursor-pointer items-center gap-1.5 whitespace-nowrap border-0 border-b-2 border-transparent bg-transparent px-3.5 py-2.5 font-medium hover:text-accent-text ${open ? 'text-accent-text' : 'text-ink-2'}`}
             >
               More project tools
               <svg viewBox="0 0 24 24" className={`h-4 w-4 transition ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
             </button>
             {open && (
-              <div className="absolute left-0 top-full z-20 mt-1.5 w-[min(720px,calc(100vw-2rem))] max-md:fixed max-md:inset-x-4 max-md:top-auto max-md:w-auto rounded-r3 border border-line bg-surface p-3 shadow-s2">
+              <div className="fixed z-20 rounded-r3 border border-line bg-surface p-3 shadow-s2" style={menuBox()}>
                 <div className="grid gap-3 md:grid-cols-3">
                   {used.map((col, ci) => (
                     <div key={ci} className="flex min-w-0 flex-col gap-3">

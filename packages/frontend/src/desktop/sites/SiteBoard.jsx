@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { state, svc, can, inr, fmtD, fmtT, fmtDT, toast, persist, render } from '../../shared/core.js';
 import { TODAY } from '../../shared/data.js';
 import { DAILYLOG } from '../data';
@@ -294,9 +295,13 @@ const STABS = [
 ];
 
 function SiteTabs({ id, list, current }) {
+  const bar = useRef(null);
   const badge = { issues: openIssues(id).length, deliveries: shortN(id), snags: openSnags(id) };
+  useEffect(() => {
+    bar.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [current]);
   return (
-    <nav aria-label="Site work" className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
+    <nav ref={bar} aria-label="Site work" className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
       {list.map(([key, label]) => {
         const on = key === current;
         const n = badge[key];
