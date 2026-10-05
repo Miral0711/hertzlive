@@ -1,4 +1,5 @@
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react';
+import { usePhone } from '../desktop/phone';
 import { Link } from 'react-router-dom';
 import Icon from './Icon';
 import { TONE_FILL, TONE_SOFT } from './tones';
@@ -433,9 +434,9 @@ function numericValue(text) {
 export const TH_CLS = 'h-head whitespace-nowrap border-b border-line bg-surface-2 px-tbl-x py-2 text-xs font-semibold uppercase tracking-[0.04em] text-ink-2';
 export const TD_CLS = 'h-row border-b border-line px-tbl-x py-2 align-middle text-[14px] group-last:border-b-0 group-hover:bg-surface-2';
 const alignCls = { left: 'text-left', right: 'text-right tabular-nums [&:not(:last-child)]:pr-10', center: 'text-center' };
-export const Table = ({ children, className = '', minWidth, fixed = false, compact = false }) => (
-  <div className={`overflow-x-auto rounded-r3 border border-line bg-surface ${className}`}>
-    <table className={`w-full border-collapse text-ink ${fixed ? 'table-fixed' : ''} ${compact ? '[&_td]:!px-2 [&_th]:!px-2 [&_td]:!text-[13px]' : ''}`} style={minWidth ? { minWidth } : undefined}>{children}</table>
+export const Table = ({ children, className = '', minWidth, fixed = false, compact = false, fill = false }) => (
+  <div className={`max-w-full overflow-x-auto rounded-r3 border border-line bg-surface ${className}`}>
+    <table className={`border-collapse text-ink ${fill ? 'w-max min-w-full' : 'w-full'} ${fixed ? 'table-fixed' : ''} ${compact ? '[&_td]:!px-2 [&_th]:!px-2 [&_td]:!text-[13px]' : ''}`} style={minWidth && !fill ? { minWidth } : undefined}>{children}</table>
   </div>
 );
 export const Th = ({ align = 'left', className = '', children, ...rest }) => (
@@ -453,6 +454,7 @@ const plainNumber = /^-?[\d,]+(\.\d+)?%?$/;
 // cols: header strings ('' = actions column). A leading ₹ or # marks a numeric column (right aligned, sorted by value).
 // Optional `align` array overrides per column: ['left', 'right', ...].
 export function DataTable({ cols, rows, align }) {
+  const phone = usePhone();
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState(null);
   const isNum = (i) => {
@@ -482,7 +484,7 @@ export function DataTable({ cols, rows, align }) {
   if (!rows.length) return <Empty />;
   // Short-text tables get equal column widths so spacing is even; tables with action buttons or long text size to content.
   // Equal widths only when the table has no actions column and no long or control-heavy cells; those would be clipped, so they size to content.
-  const fixed = cols.length <= 8 && !cols.includes('') && rows.every((r) => r.every((c) => textOf(c).length <= 48));
+  const fixed = !phone && cols.length <= 8 && !cols.includes('') && rows.every((r) => r.every((c) => textOf(c).length <= 48));
   return (
     <>
       {rows.length > 8 && (
@@ -495,7 +497,7 @@ export function DataTable({ cols, rows, align }) {
           className={`${control} mb-2 block max-w-[280px]`}
         />
       )}
-      <Table fixed={fixed} compact={cols.length >= 8} minWidth={fixed ? cols.length * 130 : undefined}>
+      <Table fixed={fixed} fill={phone} compact={cols.length >= 8} minWidth={fixed ? cols.length * 130 : undefined}>
         <thead>
           <tr>
             {cols.map((c, i) => (

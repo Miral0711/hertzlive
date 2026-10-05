@@ -89,6 +89,31 @@ function ProjectCards({ projects }) {
   );
 }
 
+function milestoneOf(p) {
+  const nm = projectMilestones(p).find((m) => !m.done);
+  if (!nm) return <span className="text-ink-3">No upcoming milestone</span>;
+  return (
+    <>
+      {nm.name}
+      <small className="block text-ink-3">
+        {fmtD(nm.date)}{nm.date < TODAY && <> · <span className="text-crit">Overdue</span></>}
+      </small>
+    </>
+  );
+}
+
+function attentionOf(p, budget) {
+  const issues = openIssues(p.id);
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      {issues.length
+        ? <DLink to={`#/sites/${p.siteId}?tab=${role() === 'contractor' ? 'feed' : 'issues'}`} className="text-accent-text underline">{issues.length} open issue{issues.length === 1 ? '' : 's'}</DLink>
+        : <span>No open issues</span>}
+      {budget && <ProjectBudgetStatus p={p} />}
+    </div>
+  );
+}
+
 function ProjectList({ status }) {
   const all = svc.projects();
   const ps = status === 'all' ? all : all.filter((p) => (p.status || 'active') === status);
@@ -107,12 +132,10 @@ function ProjectList({ status }) {
       <ProjectCards projects={ps} />
       <details className="group mb-3.5 rounded-r3 border border-line bg-surface px-card">
         <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 font-semibold text-ink-2 hover:text-accent-text [&::-webkit-details-marker]:hidden"><svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>Project list · owners and deadlines</summary>
-        <div className="pb-card">
+        <div className="min-w-0 pb-card">
         <DataTable
           cols={['Project', 'Owner', 'Next milestone', 'Needs attention']}
           rows={ps.map((p) => {
-            const nm = projectMilestones(p).find((m) => !m.done);
-            const issues = openIssues(p.id);
             const finished = p.status === 'finished';
             return [
               <>
@@ -120,20 +143,8 @@ function ProjectList({ status }) {
                 <small className="block text-ink-3">{p.code} · {PHASES[p.phase]}{finished ? ' · Finished ' + fmtD(p.finishedAt) : ''}</small>
               </>,
               <ProjectOwner p={p} />,
-              nm ? (
-                <>
-                  {nm.name}
-                  <small className="block text-ink-3">
-                    {fmtD(nm.date)}{nm.date < TODAY && <> · <span className="text-crit">Overdue</span></>}
-                  </small>
-                </>
-              ) : <span className="text-ink-3">No upcoming milestone</span>,
-              <>
-                {issues.length
-                  ? <DLink to={`#/sites/${p.siteId}?tab=${role() === 'contractor' ? 'feed' : 'issues'}`} className="text-accent-text underline">{issues.length} open issue{issues.length === 1 ? '' : 's'}</DLink>
-                  : 'No open issues'}
-                {budget && <small className="block"><ProjectBudgetStatus p={p} /></small>}
-              </>,
+              milestoneOf(p),
+              attentionOf(p, budget),
             ];
           })}
         />
@@ -144,7 +155,7 @@ function ProjectList({ status }) {
           <svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
           Compare project details{budget ? ' · team and budget' : ' · team and phase'}
         </summary>
-        <div className="pb-card">
+        <div className="min-w-0 pb-card">
         <DataTable
           cols={['Project', 'Phase', 'Team', ...(budget ? ['₹Budget', '₹Spent', 'Budget status'] : []), 'Status']}
           rows={ps.map((p) => [
