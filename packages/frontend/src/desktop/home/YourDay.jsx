@@ -94,12 +94,27 @@ export function TodayBriefing() {
     overdue > 0 && `${inr(overdue)} is overdue for payment`,
     decisions > 0 && `${decisions} decision${decisions === 1 ? '' : 's'} waiting on a client`,
   ].filter(Boolean);
+  const quiet = 'Nothing urgent on record — a good day to get ahead.';
   return (
     <section className="mb-gap rounded-r3 border border-line bg-surface p-card">
       <p className="m-0 text-[15px] leading-relaxed text-ink-2">
-        <b className="text-ink">{greetingWord()}, {first(state.userId)}.</b>{' '}
-        {clauses.length ? clauses.join(' · ') + '.' : 'Nothing urgent on record — a good day to get ahead.'}
+        <b className="text-ink">{greetingWord()}, {first(state.userId)}.</b>
+        <span className="hidden md:inline">
+          {clauses.length ? ` ${clauses.join(' · ')}.` : ` ${quiet}`}
+        </span>
       </p>
+      {clauses.length > 0 ? (
+        <ul className="m-0 mt-2 list-none space-y-1 p-0 text-[15px] leading-snug text-ink-2 md:hidden">
+          {clauses.map((c) => (
+            <li key={c} className="flex gap-2">
+              <span className="text-ink-3" aria-hidden="true">·</span>
+              <span>{c}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 mt-1 text-[15px] text-ink-2 md:hidden">{quiet}</p>
+      )}
     </section>
   );
 }
@@ -268,7 +283,7 @@ export function RecentUpdates() {
       <List empty="No recorded changes available to you.">{updates.slice(0, 3).map((u) => Row(u, true))}</List>
       {updates.length > 3 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-[13px] font-medium text-accent-text">View all {updates.length} updates →</summary>
+          <summary className="cursor-pointer text-[13px] font-medium text-accent-text">Show {updates.length - 3} more</summary>
           <div className="mt-2 flex flex-col gap-1.5">{updates.slice(3).map((u) => Row(u, false))}</div>
         </details>
       )}
@@ -297,11 +312,11 @@ export function TodayBanner({ role, attention }) {
           <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] opacity-75">{d.toLocaleDateString('en-IN', { weekday: 'long' })} · {role}</p>
           <h1 className="m-0 mt-1 text-hero font-semibold leading-tight tracking-tight">{d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</h1>
         </div>
-        <div className="flex flex-wrap gap-2.5">
+        <div className="grid grid-cols-3 gap-2.5">
           {stats.map(([n, l]) => (
-            <div key={l} className="min-w-[116px] rounded-r2 px-3.5 py-2" style={soft}>
+            <div key={l} className="min-w-0 rounded-r2 px-2.5 py-2.5 sm:px-3.5" style={soft}>
               <b className="block text-xl font-semibold leading-tight">{n}</b>
-              <span className="text-xs opacity-80">{l}</span>
+              <span className="mt-0.5 block text-xs leading-snug opacity-80">{l}</span>
             </div>
           ))}
         </div>

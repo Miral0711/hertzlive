@@ -13,7 +13,7 @@ const PREFERRED = {
 };
 const DEFAULT_TABS = ['today', 'projects', 'chats', 'sites'];
 
-const tabCls = (on) => `flex h-full flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-semibold leading-none no-underline ${on ? 'text-accent-text' : 'text-ink-3'}`;
+const tabCls = (on) => `flex h-full flex-col items-center justify-center gap-0.5 px-1 text-[10px] leading-none no-underline ${on ? 'font-semibold text-accent-text' : 'font-medium text-ink-3'}`;
 
 export default function MobileBar({ page, moreOpen, onMore }) {
   const allowed = navFor();
@@ -32,7 +32,7 @@ export default function MobileBar({ page, moreOpen, onMore }) {
       <div className="grid" style={{ height: TAB_BAR_H, gridTemplateColumns: `repeat(${ids.length + 1}, minmax(0, 1fr))` }}>
         {ids.map((k) => (
           <DLink key={k} to={`#/${k}`} aria-current={page === k ? 'page' : undefined} className={tabCls(page === k)}>
-            <span className="relative">
+            <span className={`relative grid h-7 w-7 place-items-center rounded-full ${page === k ? 'bg-accent-soft' : ''}`}>
               <Icon name={icon[k]} />
               {k === 'chats' && unread > 0 && (
                 <span className="absolute -right-2 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-accent-ink">
@@ -44,7 +44,9 @@ export default function MobileBar({ page, moreOpen, onMore }) {
           </DLink>
         ))}
         <button type="button" aria-expanded={moreOpen} aria-controls="module-nav" onClick={onMore} className={`${tabCls(moreOpen)} border-0 bg-transparent`}>
-          <Icon name="more" />
+          <span className={`grid h-7 w-7 place-items-center rounded-full ${moreOpen ? 'bg-accent-soft' : ''}`}>
+            <Icon name="more" />
+          </span>
           <span>More</span>
         </button>
       </div>
