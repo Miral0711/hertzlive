@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { state, render, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
+import { state, svc, render, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
 import { useStore } from '../shared/store';
 import Icon from '../ui/Icon';
 import { Empty } from '../ui/ui';
@@ -11,6 +11,8 @@ import { NAV, NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
 import DialogHost from './DialogHost';
+import MobileBar from './MobileBar';
+import { TAB_BAR_H, usePhone } from './phone';
 import { toggleChatPane } from './session';
 
 const ICON = Object.fromEntries(NAV.map(([k, , i]) => [k, i]));
@@ -59,6 +61,7 @@ export default function Shell() {
   const navigate = useNavigate();
   const mainRef = useRef(null);
   const [navOpen, setNavOpen] = useState(false);
+  const phone = usePhone();
 
   // Keep the legacy route string in step with the URL for code that calls parseRoute().
   state.route = '#' + (location.pathname.slice(DESKTOP_BASE.length) || '/dashboard') + location.search;
@@ -109,6 +112,8 @@ export default function Shell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
   const noChat = workspace || focusedWork || state.desk.chatHidden;
+  // On a phone, an open conversation covers the shell the way a WhatsApp thread does.
+  const inChatThread = phone && workspace && !state.desk.chatList && Boolean(svc.thread(state.desk.thread));
   const u = me();
   const Page = PAGES[page] || PAGES.dashboard;
   const brand = tenantBrand();
@@ -122,10 +127,12 @@ export default function Shell() {
       >
         Skip to workspace
       </a>
-      <header className="flex items-center gap-2 border-b border-line bg-surface pr-3 sm:gap-4 sm:pr-5">
-        <button type="button" aria-label="Open menu" aria-expanded={navOpen} onClick={() => setNavOpen((o) => !o)} className="ml-2 hidden h-10 w-10 flex-none place-items-center rounded-r1 border border-line-2 text-ink-2 max-lg:grid">
+      <header inert={inChatThread || undefined} className="flex items-center gap-2 border-b border-line bg-surface pr-3 sm:gap-4 sm:pr-5">
+        {!phone && (
+          <button type="button" aria-label="Open menu" aria-expanded={navOpen} onClick={() => setNavOpen((o) => !o)} className="ml-2 hidden h-10 w-10 flex-none place-items-center rounded-r1 border border-line-2 text-ink-2 max-lg:grid">
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-        </button>
+          </button>
+        )}
         <DLink to="#/dashboard" className="flex h-full w-nav flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline max-lg:w-auto max-lg:min-w-[104px] max-sm:px-3">
           {state.db.AGENCY.logo ? (
             <img src={state.db.AGENCY.logo} alt={brand?.short || state.db.AGENCY.short} className="max-h-10 max-w-[140px] self-start rounded-sm bg-white/95 p-1 object-contain" />
@@ -137,7 +144,7 @@ export default function Shell() {
           )}
         </DLink>
         <NavSearch />
-        {!(workspace || focusedWork) && (
+        {!phone && !(workspace || focusedWork) && (
           <button
             type="button"
             onClick={toggleChatPane}
@@ -151,9 +158,9 @@ export default function Shell() {
         <NavActions />
       </header>
 
-      <div className={`relative grid min-h-0 max-lg:grid-cols-[minmax(0,1fr)] ${noChat ? 'grid-cols-shell' : 'grid-cols-shell-chat max-[1250px]:grid-cols-shell'}`}>
+      <div inert={inChatThread || undefined} className={`relative grid min-h-0 max-lg:grid-cols-[minmax(0,1fr)] ${noChat ? 'grid-cols-shell' : 'grid-cols-shell-chat max-[1250px]:grid-cols-shell'}`}>
         {navOpen && <button type="button" aria-label="Close menu" onClick={() => setNavOpen(false)} className="absolute inset-0 z-30 hidden bg-black/40 max-lg:block" />}
-        <nav aria-label="Modules" className={`flex min-h-0 flex-col gap-0.5 overflow-auto bg-nav px-2.5 pb-3 pt-1 text-nav-ink max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-[min(280px,85vw)] max-lg:shadow-s2 max-lg:transition-transform ${navOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}>
+        <nav id="module-nav" aria-label="Modules" style={phone ? { bottom: `calc(${TAB_BAR_H} + env(safe-area-inset-bottom))` } : undefined} className={`flex min-h-0 flex-col gap-0.5 overflow-auto bg-nav px-2.5 pb-3 pt-1 text-nav-ink max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-[min(280px,85vw)] max-lg:shadow-s2 max-lg:transition-transform ${navOpen ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}`}>
           <SideNav page={focusedWork ? 'projects' : page} />
           <div className="mt-auto flex flex-col gap-2 border-t border-nav-line pt-3">
             <DLink to="#/settings" className="flex min-h-9 items-center gap-3 rounded-r1 px-3 text-[13.5px] font-medium text-nav-ink no-underline opacity-90 transition hover:bg-nav-hover hover:opacity-100">
@@ -175,7 +182,9 @@ export default function Shell() {
           id="workspace"
           tabIndex={-1}
           data-page={page}
-          className="min-h-0 min-w-0 overflow-auto px-page-x pb-16 pt-page-y focus:outline-none"
+          className={`min-h-0 min-w-0 focus:outline-none ${phone && !inChatThread
+            ? `px-3 pt-3 pb-[calc(3.25rem+env(safe-area-inset-bottom))] ${workspace ? 'flex flex-col overflow-hidden' : 'overflow-auto'}`
+            : 'overflow-auto px-page-x pb-16 pt-page-y'}`}
         >
           {(state.storageError || state.desk.draftStorageError) && (
             <div role="alert" className="mb-3.5 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">
@@ -187,8 +196,11 @@ export default function Shell() {
         {!noChat && <div className="contents max-[1250px]:hidden"><ChatPane /></div>}
       </div>
 
+      {phone && !inChatThread && (
+        <MobileBar page={focusedWork ? 'projects' : page} moreOpen={navOpen} onMore={() => setNavOpen((o) => !o)} />
+      )}
       {state.toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-r2 bg-ink px-4 py-2.5 font-medium text-surface shadow-s2">
+        <div role="status" className={`fixed left-1/2 z-50 -translate-x-1/2 rounded-r2 bg-ink px-4 py-2.5 font-medium text-surface shadow-s2 ${phone && !inChatThread ? 'bottom-[calc(3.25rem+env(safe-area-inset-bottom)+0.75rem)]' : 'bottom-6'}`}>
           {state.toast}
         </div>
       )}

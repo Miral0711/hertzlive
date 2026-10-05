@@ -1,5 +1,6 @@
 // Feature module: chat. Exports page components and dialog components (see registry.js).
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { state, svc, toast, render, accessibleMessage, messageAttachment, fmtT, fmtD } from '../../shared/core.js';
 import { filingRules, FILE_KINDS, ROOM_WORDS } from '../../shared/filing.js';
 import {
@@ -16,7 +17,8 @@ import { AttachmentPreview } from '../chat/media';
 import {
   IssueReview, ProjectUpdateDialog, SiteIssueDialog, SiteReviewDialog,
 } from '../chat/site';
-import { conversationThreads, markChatRead } from '../chat/store';
+import { conversationThreads, markChatRead, pendingFocus } from '../chat/store';
+import { usePhone } from '../phone';
 import { Stat } from '../studio/common';
 
 const Unavailable = ({ title, children }) => (
@@ -58,37 +60,12 @@ function FiledRow({ m, compact = false }) {
   );
 }
 
-function ChatsPage({ parts, q }) {
-  // "#/chats?thread=id" and "#/chats/id" open that conversation.
-  const wanted = q.thread || parts[0] || '';
-  useEffect(() => {
-    if (!wanted) return;
-    if (!svc.thread(wanted)) { toast('That conversation is not available for your role.'); return; }
-    Object.assign(state.desk, { thread: wanted, chatList: false, chatHidden: false, hi: null });
-    render();
-  }, [wanted]);
-
-  const desk = state.desk;
-  const hasConversation = !desk.chatList && Boolean(svc.thread(desk.thread));
-  if (hasConversation) markChatRead(desk.thread);
-  const rows = svc.threads().flatMap((t) => svc.messages(t.id))
-    .map((m) => ({ m, f: state.filings[m.id] })).filter((x) => x.f);
-  const check = rows.filter((x) => x.f.status !== 'filed');
-  const rules = Object.entries(filingRules);
-  const dms = svc.threads().filter((t) => ['dm', 'group'].includes(t.kind));
+function ChatDesk({ rows, check, rules, dms, tucked = false }) {
   return (
     <>
-      <PageHeader title="Chats" sub="Unread status is private to you in this browser." />
-      {desk.readStorageError && <p role="status" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
-      <div className="grid h-[clamp(420px,calc(100dvh-230px),850px)] grid-cols-[minmax(260px,34%)_minmax(0,1fr)] overflow-hidden rounded-r2 border border-line bg-surface max-[980px]:grid-cols-1">
-        <section aria-label="Conversation list" className={`flex min-h-0 min-w-0 flex-col ${hasConversation ? 'max-[980px]:hidden' : ''}`}>
-          <ConversationList threads={conversationThreads()} filterable />
-        </section>
-        <ChatView workspace />
-      </div>
       {/* Supporting workspace information, not a second dashboard - a normal, always-visible
           section with a plain heading, kept visually secondary to the chat panel above. */}
-      <section className="mt-gap-lg border-t border-line pt-gap">
+      <section className={tucked ? '' : 'mt-gap-lg border-t border-line pt-gap'}>
         <h2 className="m-0 text-[15px] font-semibold text-ink-2">AI filing review</h2>
         <p className="mb-gap mt-1 text-[13px] text-ink-3">How the AI filed chat messages, and what still needs a person to check.</p>
         <div className="mb-gap grid grid-cols-2 gap-gap lg:grid-cols-4">
@@ -148,6 +125,73 @@ function ChatsPage({ parts, q }) {
         </Card>
         </div>
       </div>
+    </>
+  );
+}
+
+function ChatsPage({ parts, q }) {
+  const phone = usePhone();
+  // "#/chats?thread=id" and "#/chats/id" open that conversation.
+  const wanted = q.thread || parts[0] || '';
+  useEffect(() => {
+    if (!wanted) return;
+    if (!svc.thread(wanted)) { toast('That conversation is not available for your role.'); return; }
+    Object.assign(state.desk, { thread: wanted, chatList: false, chatHidden: false, hi: null });
+    render();
+  }, [wanted]);
+
+  const desk = state.desk;
+  const hasConversation = !desk.chatList && Boolean(svc.thread(desk.thread));
+  if (hasConversation) markChatRead(desk.thread);
+  const rows = svc.threads().flatMap((t) => svc.messages(t.id))
+    .map((m) => ({ m, f: state.filings[m.id] })).filter((x) => x.f);
+  const check = rows.filter((x) => x.f.status !== 'filed');
+  const rules = Object.entries(filingRules);
+  const dms = svc.threads().filter((t) => ['dm', 'group'].includes(t.kind));
+  const deskInfo = <ChatDesk rows={rows} check={check} rules={rules} dms={dms} tucked={phone} />;
+
+  // The list replaces the thread (and the thread replaces the list). Focus the row we came back to.
+  useEffect(() => {
+    if (!phone || hasConversation) return;
+    const row = pendingFocus.current?.row;
+    if (!row) return;
+    pendingFocus.current = null;
+    document.querySelector(`[data-thread="${CSS.escape(row)}"]`)?.focus();
+  });
+
+  if (phone && hasConversation) {
+    return createPortal(
+      <div className="fixed inset-0 z-40 flex min-h-0 flex-col bg-surface">
+        <ChatView workspace />
+      </div>,
+      document.body,
+    );
+  }
+  if (phone) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {desk.readStorageError && <p role="status" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-r2 border border-line bg-surface">
+          <ConversationList threads={conversationThreads()} filterable />
+        </div>
+        <details className="mt-3 max-h-[42%] shrink-0 overflow-auto rounded-r2 border border-line bg-surface">
+          <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-semibold text-ink-2">Filing and announcements</summary>
+          <div className="px-4 pb-4">{deskInfo}</div>
+        </details>
+      </div>
+    );
+  }
+  return (
+    <>
+      <PageHeader title="Chats" sub="Unread status is private to you in this browser." />
+      {desk.readStorageError && <p role="status" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
+      <div className="grid h-[clamp(420px,calc(100dvh-230px),850px)] grid-cols-[minmax(260px,34%)_minmax(0,1fr)] overflow-hidden rounded-r2 border border-line bg-surface max-[980px]:grid-cols-1">
+        <section aria-label="Conversation list" className={`flex min-h-0 min-w-0 flex-col ${hasConversation ? 'max-[980px]:hidden' : ''}`}>
+          <ConversationList threads={conversationThreads()} filterable />
+        </section>
+        <ChatView workspace />
+      </div>
+      {deskInfo}
     </>
   );
 }
