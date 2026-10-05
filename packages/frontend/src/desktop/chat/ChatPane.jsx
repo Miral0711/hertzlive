@@ -7,6 +7,7 @@ import {
 } from '../../shared/core.js';
 import { seedFilings } from '../../shared/filing.js';
 import { Btn, Pill, Dropdown, DropdownItem, IconButton } from '../../ui/ui';
+import Icon from '../../ui/Icon';
 import { P, name, role, staff } from '../helpers';
 import { FilingChip } from '../parts';
 import { openDialog, openThread, toggleChatPane } from '../session';
@@ -22,6 +23,7 @@ import {
   chatDraft, conversationPreview, conversationThreads, draftRev, markChatRead, pendingFocus,
   setChatDraft, unreadCount, useDraftTick,
 } from './store';
+import { usePhone } from '../phone';
 
 // ---------- actions ----------
 export function openThreadFocus(id) {
@@ -340,6 +342,7 @@ function PendingFileBar({ pending, onCancel, onSend }) {
 }
 
 function Composer({ thread, last }) {
+  const phone = usePhone();
   useDraftTick();
   const [text, setText] = useState(() => chatDraft(thread.id));
   const [pending, setPending] = useState(null);
@@ -366,7 +369,7 @@ function Composer({ thread, last }) {
   };
 
   return (
-    <div className="border-t border-line p-3">
+    <div className={`border-t border-line bg-surface p-3 ${phone ? 'pb-[max(0.75rem,env(safe-area-inset-bottom))]' : ''}`}>
       <p role="status" className="m-0 min-h-0 text-xs text-crit empty:hidden">{status}</p>
       {staff() && last && last.by !== state.userId && (
         <Btn kind="link" sm className="mb-2" onClick={() => suggestReply(thread.id)}>✨ Suggest reply</Btn>
@@ -414,9 +417,15 @@ function Composer({ thread, last }) {
           placeholder={`Message ${thread.name}`}
           aria-label="Message"
           autoComplete="off"
-          className="min-h-10 w-full min-w-0 rounded-r1 border border-line bg-surface-2 px-3 text-ink focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
+          className={`min-h-10 w-full min-w-0 border border-line bg-surface-2 px-3 text-ink focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft ${phone ? 'min-h-11 rounded-full px-4' : 'rounded-r1'}`}
         />
-        <Btn kind="primary" type="submit" className="!min-h-10">Send</Btn>
+        {phone ? (
+          <button type="submit" aria-label="Send" className="inline-grid h-11 w-11 flex-none place-items-center rounded-full border-0 bg-accent text-accent-ink">
+            <Icon name="send" small />
+          </button>
+        ) : (
+          <Btn kind="primary" type="submit" className="!min-h-10">Send</Btn>
+        )}
       </form>
     </div>
   );
@@ -439,6 +448,7 @@ const contextLine = (t) => {
 };
 
 export function ChatView({ workspace = false }) {
+  const phone = usePhone();
   const paneRef = useRef(null);
   const titleRef = useRef(null);
   useEffect(() => {
@@ -486,8 +496,38 @@ export function ChatView({ workspace = false }) {
       id="conversation"
       ref={paneRef}
       aria-label="Conversations"
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''}`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''} ${phone && workspace ? 'min-h-0 flex-1' : ''}`}
     >
+      {phone ? (
+        <div className="flex items-center gap-1.5 border-b border-line bg-surface px-1.5 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+          {!desk.chatList && <IconButton sm icon="back" label="Back to conversations" onClick={showList} />}
+          {!desk.chatList && (
+            <span className="inline-grid h-9 w-9 flex-none place-items-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent-text">{cur.name.slice(0, 1)}</span>
+          )}
+          <div ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 focus:outline-none">
+            <b className="block truncate font-semibold leading-snug">
+              {desk.chatList ? (project && !desk.allChats ? project.name : 'Chats') : cur.name}
+            </b>
+            <small className="block truncate text-xs text-ink-3">{desk.chatList ? 'Choose a conversation' : contextLine(cur)}</small>
+          </div>
+          {!desk.chatList && (
+            <Dropdown
+              trigger={<><Icon name="more" small /><span className="sr-only">Conversation actions</span></>}
+              align="right"
+              panelClassName="!w-56"
+            >
+              <DropdownItem icon="photos" onClick={() => openDialog({ kind: 'media', threadId: cur.id, tab: 'Photos' })}>Media</DropdownItem>
+              {sib.map((x) => (
+                <DropdownItem key={x.id} onClick={() => openThreadFocus(x.id)} className={x.id === cur.id ? '!bg-accent-soft !text-accent-text' : ''}>
+                  {x.name}
+                </DropdownItem>
+              ))}
+              <DropdownItem onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })}>Start video call</DropdownItem>
+            </Dropdown>
+          )}
+          {!workspace && <IconButton sm icon="x" label="Close chats" onClick={toggleChatPane} />}
+        </div>
+      ) : (
       <div className="flex min-h-20 flex-wrap items-center gap-2 border-b border-line p-4">
         {/* "Back" only matters when the conversation list isn't already on screen — the narrow
             (<980px) single-column layout, or the drawer this pane becomes on small viewports. */}
@@ -523,6 +563,7 @@ export function ChatView({ workspace = false }) {
           </div>
         )}
       </div>
+      )}
       {!desk.chatList && cur.kind === 'internal' && (
         <div className="bg-warn-soft px-3.5 py-2.5 font-medium text-warn">Internal only. Client never sees this thread.</div>
       )}
@@ -554,6 +595,7 @@ const useNarrow = () => useSyncExternalStore(subscribeNarrow, () => window.match
 
 // Below 1250px the pane is a right-hand drawer (modal <dialog>): Escape / backdrop close it.
 function Drawer({ children }) {
+  const phone = usePhone();
   const ref = useRef(null);
   const unmounting = useRef(false);
   useEffect(() => {
@@ -576,7 +618,9 @@ function Drawer({ children }) {
       onClose={hide}
       onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}
       // backdrop:bg-black/30 is the same intentional dialog-scrim exception as Modal.jsx.
-      className="fixed left-auto right-0 top-[60px] m-0 h-[calc(100dvh-60px)] max-h-none w-[min(420px,100vw)] max-w-[100vw] overflow-hidden border-0 border-l border-line bg-surface p-0 text-ink shadow-s2 backdrop:bg-black/30 max-[600px]:top-[108px] max-[600px]:h-[calc(100dvh-108px)]"
+      className={phone
+        ? 'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-hidden border-0 bg-surface p-0 text-ink backdrop:bg-transparent'
+        : 'fixed left-auto right-0 top-[60px] m-0 h-[calc(100dvh-60px)] max-h-none w-[min(420px,100vw)] max-w-[100vw] overflow-hidden border-0 border-l border-line bg-surface p-0 text-ink shadow-s2 backdrop:bg-black/30'}
     >
       <div className="h-full [&>aside]:h-full">{children}</div>
       {state.toast && (
