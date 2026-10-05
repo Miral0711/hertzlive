@@ -389,7 +389,7 @@ export function IconButton({ icon, label, sm = false, className = '', ...rest })
 
 // ---------- Dropdown (native <details>-backed menu — same pattern the app already used ad hoc
 // in several places, centralised here: closes on outside click / Escape). ----------
-export function Dropdown({ trigger, children, align = 'right', className = '', panelClassName = '' }) {
+export function Dropdown({ trigger, children, align = 'right', className = '', panelClassName = '', plain = false }) {
   const ref = useRef(null);
   useEffect(() => {
     const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) ref.current.open = false; };
@@ -400,7 +400,9 @@ export function Dropdown({ trigger, children, align = 'right', className = '', p
   }, []);
   return (
     <details ref={ref} className={`relative ${className}`}>
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text [&::-webkit-details-marker]:hidden">
+      <summary className={plain
+        ? 'flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full text-inherit hover:bg-black/10 [&::-webkit-details-marker]:hidden'
+        : 'flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text [&::-webkit-details-marker]:hidden'}>
         {trigger}
       </summary>
       <div className={`absolute top-full z-30 mt-1.5 min-w-[220px] rounded-r3 border border-line bg-surface p-2 shadow-s2 ${align === 'right' ? 'right-0' : 'left-0'} ${panelClassName}`}>

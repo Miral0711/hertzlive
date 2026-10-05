@@ -6,6 +6,7 @@ import { filingRules, FILE_KINDS, ROOM_WORDS } from '../../shared/filing.js';
 import {
   Btn, Card, Empty, Field, Input, Item, List, PageHeader, Select, ToggleChip,
 } from '../../ui/ui';
+import Icon from '../../ui/Icon';
 import Modal, { ModalActions } from '../Modal';
 import { FilingChip, FromChat } from '../parts';
 import { ANNOUNCEMENTS } from '../data';
@@ -169,15 +170,24 @@ function ChatsPage({ parts, q }) {
   }
   if (phone) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        {desk.readStorageError && <p role="status" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-r2 border border-line bg-surface">
-          <ConversationList threads={conversationThreads()} filterable />
-        </div>
-        <details className="mt-3 max-h-[42%] shrink-0 overflow-auto rounded-r2 border border-line bg-surface">
-          <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-semibold text-ink-2">Filing and announcements</summary>
-          <div className="px-4 pb-4">{deskInfo}</div>
-        </details>
+      <div className="flex min-h-0 flex-1 flex-col bg-surface">
+        {desk.readStorageError && <p role="status" className="m-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
+        <ConversationList
+          threads={conversationThreads()}
+          filterable
+          footer={(
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-3 border-b border-line px-3 py-3 [&::-webkit-details-marker]:hidden">
+                <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-surface-2 text-ink-2">
+                  <Icon name="folder" />
+                </span>
+                <span className="min-w-0 flex-1 text-[16px] font-medium">Filing and announcements</span>
+                <Icon name="chev" small className="text-ink-3 transition group-open:rotate-90" />
+              </summary>
+              <div className="border-t border-line px-4 pb-4">{deskInfo}</div>
+            </details>
+          )}
+        />
       </div>
     );
   }
