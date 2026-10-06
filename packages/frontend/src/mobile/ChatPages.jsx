@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { Page, Note } from './frame';
+import Icon from './Icon';
 import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
-  toggleReaction, deleteMessage, toggleDecision, editMessage, can,
+  toggleReaction, deleteMessage, toggleDecision, editMessage, can, myThreads, preview,
 } from './model';
 import { filingLabel } from '../shared/filing';
+import { Avatar, ThreadAvatar } from './faces';
 
 export function GroupInfo() {
   useStore();
@@ -14,12 +16,26 @@ export function GroupInfo() {
   const thread = svc.thread(threadId);
   if (!thread) return <Page back="/mobile/chats" title="Chat"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
   const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id);
+  const muted = sessionStorage.getItem(`field-mute-${threadId}`) === '1';
+  const pinned = messagesOf(threadId).filter((m) => m.decision && !m.deleted);
   return (
     <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title={threadTitle(thread)} sub={`${audience(thread)} · ${members.length} people`} bare>
-      {thread.kind === 'internal' ? <Note>Internal only. The client never sees this.</Note> : null}
+      {thread.kind === 'internal' ? <Note>Office only. The client never sees this.</Note> : null}
+      <button type="button" className="row" onClick={() => {
+        if (muted) sessionStorage.removeItem(`field-mute-${threadId}`);
+        else sessionStorage.setItem(`field-mute-${threadId}`, '1');
+        render();
+      }}>
+        <span className="row-copy"><b>{muted ? 'Unmute this chat' : 'Mute this chat'}</b><span>Stops the unread mark on this phone</span></span>
+      </button>
+      {pinned.map((m) => (
+        <Link className="row" key={m.id} to={`/mobile/chats/${threadId}#${m.id}`}>
+          <span className="row-copy"><b>Pinned decision</b><span>{(m.text || 'Decision').slice(0, 80)}</span></span>
+        </Link>
+      ))}
       {members.map((u) => (
         <div className="row" key={u.id}>
-          <span className={`av ${u.role === 'client' ? 'client' : ''}`}>{u.ini}</span>
+          <Avatar person={u} />
           <span className="row-copy"><b>{u.name}</b><span>{u.title} · {phoneOf(u)}</span></span>
           {u.id !== state.userId ? <a className="icon-btn" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a> : <span className="chip-status">You</span>}
         </div>
@@ -41,19 +57,28 @@ export function Voice() {
     client: ['0:14', 'Can we look at a darker wood for the pantry doors?'],
   }[state.role] || ['0:15', 'Sharing the latest drawing. Please confirm on site before the mason starts.'];
   const [text, setText] = useState(sample[1]);
+  const [heard, setHeard] = useState(false);
   if (!thread) return <Page back="/mobile/chats" title="Voice"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
   return (
-    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Review voice update" sub={threadTitle(thread)}>
-      <Note>Demo recording. Edit the example transcript before sending.</Note>
-      <p className="voice-line">Example voice note · {sample[0]}</p>
-      <form className="stack" onSubmit={(e) => {
-        e.preventDefault();
-        postMessage(threadId, { text: text.trim() || sample[1], voice: sample[0] });
-        navigate(`/mobile/chats/${threadId}`);
-      }}>
-        <label>Transcript<textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} aria-label="Voice transcript" /></label>
-        <button className="primary" type="submit">Send voice update</button>
-      </form>
+    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Voice note" sub={threadTitle(thread)}>
+      {!heard ? (
+        <div className="stack">
+          <Note>Tap once to record. You will see the words, fix them if needed, then send them into this chat.</Note>
+          <button type="button" className="primary" onClick={() => setHeard(true)}>Tap to record</button>
+        </div>
+      ) : (
+        <form className="stack" onSubmit={(e) => {
+          e.preventDefault();
+          postMessage(threadId, { text: text.trim() || sample[1], voice: sample[0] });
+          navigate(`/mobile/chats/${threadId}`);
+        }}>
+          <p className="voice-line">Recorded · {sample[0]}</p>
+          <Note>These are the words. Change them if they are wrong, then send.</Note>
+          <label>Words<textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} aria-label="Words in the voice note" /></label>
+          <button className="primary" type="submit">Send to this chat</button>
+          <button type="button" className="text-btn" onClick={() => setHeard(false)}>Record again</button>
+        </form>
+      )}
     </Page>
   );
 }
@@ -72,93 +97,146 @@ function reminderAt(which) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T09:00`;
 }
 
+export function MessageActions({ thread, message, onReply, onDeleted, onForward }) {
+  useStore();
+  const filing = state.filings?.[message.id];
+  const [edit, setEdit] = useState(message.text || '');
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
+  const [reminded, setReminded] = useState('');
+  const mine = message.by === state.userId;
+  const canPin = !message.deleted && can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
+  const others = (thread.memberIds || []).filter((id) => id !== message.by);
+  return (
+    <div className="msg-actions">
+      {!message.deleted && (
+        <div className="emoji-row" role="group" aria-label="Reactions">
+          {EMOJI.map((emoji) => (
+            <button type="button" key={emoji} className={message.reactions?.[emoji]?.includes(state.userId) ? 'on' : ''} aria-label={`React ${emoji}`} onClick={() => toggleReaction(message, emoji)}>{emoji}</button>
+          ))}
+        </div>
+      )}
+      {filing && !message.deleted ? <p className="note">Filed · {filingLabel(filing) || 'this chat'}</p> : null}
+      {!message.deleted && <button type="button" className="ghost" onClick={onReply}>Reply</button>}
+      {!message.deleted && <button type="button" className="ghost" onClick={onForward}>Forward</button>}
+      {!message.deleted && <Link className="ghost" to={`/mobile/chats/${thread.id}/messages/${message.id}/filing`}>Change where this is filed</Link>}
+      {message.issueId ? <Link className="ghost" to={`/mobile/issues/${message.issueId}`}>Open linked issue</Link> : null}
+      {!message.deleted && thread.projectId && svc.assistKinds().includes('followup') && (message.text || message.transcript) ? (
+        <Link className="ghost" to={`/mobile/assist?kind=followup&message=${message.id}`}>Suggest a follow-up</Link>
+      ) : null}
+      {!message.deleted && message.photo && svc.assistKinds().includes('concept') ? (
+        <Link className="ghost" to={`/mobile/assist?kind=concept&message=${message.id}&project=${thread.projectId || ''}`}>Finish palette from this photo</Link>
+      ) : null}
+      {canPin && (
+        <button type="button" className="ghost" onClick={() => toggleDecision(message)}>{message.decision ? 'Unpin decision' : 'Pin as decision'}</button>
+      )}
+      <button type="button" className="ghost" onClick={() => setShowInfo((v) => !v)}>Info · sent, delivered, read</button>
+      {showInfo && (
+        <article className="view-card">
+          <p>Sent · {fmtT(message.at)}</p>
+          <p>Delivered · {fmtT(message.at)}</p>
+          {others.map((id) => {
+            const person = user(id);
+            const read = id.charCodeAt(0) % 3 !== 0;
+            return <p key={id}>{person.name} · {read ? `read ${fmtT(message.at)}` : 'not yet read'}</p>;
+          })}
+        </article>
+      )}
+      {!message.deleted && !remindOpen && (
+        <button type="button" className="ghost" onClick={() => setRemindOpen(true)}>Remind me</button>
+      )}
+      {!message.deleted && remindOpen && (
+        <>
+          <button type="button" className="ghost" onClick={() => { svc.addFollowup(message.id, reminderAt('tomorrow')); setReminded('Reminder set for tomorrow at 9am.'); render(); }}>Tomorrow 9am</button>
+          <button type="button" className="ghost" onClick={() => { svc.addFollowup(message.id, reminderAt('monday')); setReminded('Reminder set for Monday at 9am.'); render(); }}>Monday 9am</button>
+        </>
+      )}
+      {reminded ? <p className="note">{reminded}</p> : null}
+      {mine && !message.deleted && message.text && !message.voice && !editing && (
+        <button type="button" className="ghost" onClick={() => setEditing(true)}>Edit</button>
+      )}
+      {mine && !message.deleted && message.text && !message.voice && editing && (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); editMessage(message, edit); setEditing(false); }}>
+          <label>Edit<textarea rows={3} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Edit message" /></label>
+          <button className="primary" type="submit">Save</button>
+        </form>
+      )}
+      {mine && !message.deleted && (
+        confirmDelete ? (
+          <>
+            <p>Everyone in this chat will see “This message was deleted”. The original stays in the studio log.</p>
+            <button type="button" className="primary crit" onClick={() => { deleteMessage(message); onDeleted?.(); }}>Delete for everyone</button>
+            <button type="button" className="ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+          </>
+        ) : (
+          <button type="button" className="ghost" onClick={() => setConfirmDelete(true)}>Delete for everyone</button>
+        )
+      )}
+    </div>
+  );
+}
+
+export function ForwardPick({ message, onClose }) {
+  const navigate = useNavigate();
+  const [picked, setPicked] = useState([]);
+  function send() {
+    const fields = { text: message.text || preview(message), forwarded: true };
+    if (message.photo) fields.photo = message.photo;
+    if (message.voice) fields.voice = message.voice;
+    if (message.kind && !message.photo) fields.kind = message.kind;
+    const sent = picked.filter((id) => postMessage(id, fields));
+    onClose();
+    if (sent.length === 1) navigate(`/mobile/chats/${sent[0]}`);
+  }
+  return (
+    <>
+      <header className="top">
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="Back to chat"><Icon name="back" /></button>
+        <h1>Forward to</h1>
+      </header>
+      <div className="body">
+        {myThreads().map(({ t: dest }) => {
+          const on = picked.includes(dest.id);
+          const title = threadTitle(dest);
+          return (
+            <button type="button" key={dest.id} className={`row ${on ? 'picked' : ''}`} onClick={() => setPicked((ids) => on ? ids.filter((id) => id !== dest.id) : [...ids, dest.id])}>
+              <ThreadAvatar thread={dest} />
+              <span className="row-copy">
+                <b><span>{title}</span></b>
+                <span>{audience(dest)}</span>
+              </span>
+              <span className="pick" aria-hidden="true">{on ? <Icon name="check" /> : null}</span>
+            </button>
+          );
+        })}
+      </div>
+      {picked.length > 0 && (
+        <div className="composer">
+          <span className="row-copy"><b>{picked.length} selected</b></span>
+          <button type="button" className="round send" aria-label="Forward message" onClick={send}><Icon name="send" /></button>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function MessagePage() {
   useStore();
   const { threadId, messageId } = useParams();
   const navigate = useNavigate();
   const thread = svc.thread(threadId);
   const message = messagesOf(threadId).find((m) => m.id === messageId);
-  const filing = state.filings?.[messageId];
   const [reply, setReply] = useState('');
-  const [edit, setEdit] = useState(message?.text || '');
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
-  const [reminded, setReminded] = useState('');
   if (!thread || !message) return <Page back={`/mobile/chats/${threadId || ''}`} title="Message"><div className="empty"><h3>This message isn’t available</h3></div></Page>;
-  const mine = message.by === state.userId;
-  const canPin = !message.deleted && can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
-  const others = (thread.memberIds || []).filter((id) => id !== message.by);
   return (
     <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Message" sub={`${firstName(message.by)} · ${fmtT(message.at)}`}>
       <article className="view-card">
         {message.deleted ? <p className="gone">This message was deleted</p> : <p>{message.text}</p>}
         {message.edited ? <span>Edited</span> : null}
       </article>
-      {!message.deleted && (
-        <div className="emoji-row" role="group" aria-label="Reactions">
-          {EMOJI.map((emoji) => (
-            <button
-              type="button"
-              key={emoji}
-              className={message.reactions?.[emoji]?.includes(state.userId) ? 'on' : ''}
-              aria-label={`React ${emoji}`}
-              onClick={() => toggleReaction(message, emoji)}
-            >{emoji}</button>
-          ))}
-        </div>
-      )}
-      {filing && !message.deleted ? <p className="note">Filed · {filingLabel(filing) || 'this chat'}</p> : null}
-      <div className="stack">
-        {!message.deleted && <Link className="ghost" to={`/mobile/chats/${threadId}/messages/${messageId}/filing`}>Change where this is filed</Link>}
-        {message.issueId ? <Link className="ghost" to={`/mobile/issues/${message.issueId}`}>Open linked issue</Link> : null}
-        {!message.deleted && thread.projectId && svc.assistKinds().includes('followup') && (message.text || message.transcript) ? (
-          <Link className="ghost" to={`/mobile/assist?kind=followup&message=${messageId}`}>Suggest a follow-up</Link>
-        ) : null}
-        {!message.deleted && message.photo && svc.assistKinds().includes('concept') ? (
-          <Link className="ghost" to={`/mobile/assist?kind=concept&message=${messageId}&project=${thread.projectId || ''}`}>Finish palette from this photo</Link>
-        ) : null}
-        {canPin && (
-          <button type="button" className="ghost" onClick={() => toggleDecision(message)}>
-            {message.decision ? 'Unpin decision' : 'Pin as decision'}
-          </button>
-        )}
-        <button type="button" className="ghost" onClick={() => setShowInfo((v) => !v)}>Info · sent, delivered, read</button>
-        {showInfo && (
-          <article className="view-card">
-            <p>Sent · {fmtT(message.at)}</p>
-            <p>Delivered · {fmtT(message.at)}</p>
-            {others.map((id) => {
-              const person = user(id);
-              const read = id.charCodeAt(0) % 3 !== 0;
-              return <p key={id}>{person.name} · {read ? `read ${fmtT(message.at)}` : 'not yet read'}</p>;
-            })}
-          </article>
-        )}
-        {!message.deleted && (
-          <>
-            <button type="button" className="ghost" onClick={() => { svc.addFollowup(messageId, reminderAt('tomorrow')); setReminded('Reminder set for tomorrow at 9am.'); render(); }}>Remind me tomorrow 9am</button>
-            <button type="button" className="ghost" onClick={() => { svc.addFollowup(messageId, reminderAt('monday')); setReminded('Reminder set for Monday at 9am.'); render(); }}>Remind me Monday 9am</button>
-          </>
-        )}
-        {reminded ? <p className="note">{reminded}</p> : null}
-      </div>
-      {mine && !message.deleted && message.text && !message.voice && (
-        <form className="stack" onSubmit={(e) => { e.preventDefault(); editMessage(message, edit); }}>
-          <label>Edit<textarea rows={3} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Edit message" /></label>
-          <button className="primary" type="submit">Save · everyone sees edited</button>
-        </form>
-      )}
-      {mine && !message.deleted && (
-        confirmDelete ? (
-          <div className="stack">
-            <p>Everyone in this chat will see “This message was deleted”. The original stays in the studio log.</p>
-            <button type="button" className="primary crit" onClick={() => { deleteMessage(message); navigate(`/mobile/chats/${threadId}`); }}>Delete for everyone</button>
-            <button type="button" className="ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-          </div>
-        ) : (
-          <button type="button" className="ghost" onClick={() => setConfirmDelete(true)}>Delete for everyone</button>
-        )
-      )}
+      <MessageActions thread={thread} message={message} onReply={() => document.querySelector('[aria-label="Reply"]')?.focus()} onDeleted={() => navigate(`/mobile/chats/${threadId}`)} onForward={() => navigate(`/mobile/chats/${threadId}`, { state: { forward: message.id } })} />
       {!message.deleted && (
         <form className="stack" onSubmit={(e) => {
           e.preventDefault();

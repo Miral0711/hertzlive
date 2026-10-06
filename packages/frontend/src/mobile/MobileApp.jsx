@@ -3,19 +3,39 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { boot } from '../desktop/session';
 import { applyAgencyTheme } from '../shared/core';
 import { useStore } from '../shared/store';
-import { FieldProvider } from './FieldContext';
-import { state, todayCount } from './model';
+import { FieldProvider, useField } from './FieldContext';
+import { state, todayCount, myThreads, unreadCount } from './model';
+import { t } from './copy';
 import Icon from './Icon';
 import './mobile.css';
 
 boot();
 
 const TABS = [
-  ['chats', 'Chats', 'chat'],
-  ['today', 'Today', 'today'],
-  ['projects', 'Projects', 'projects'],
-  ['updates', 'Updates', 'bell'],
+  ['chats', 'chat'],
+  ['today', 'today'],
+  ['projects', 'projects'],
+  ['updates', 'bell'],
 ];
+
+function Tabs() {
+  useStore();
+  const { read } = useField();
+  const due = todayCount();
+  const unread = myThreads().reduce((n, { t: thread }) => n + unreadCount(thread.id, read[thread.id]), 0);
+  return (
+    <nav className="tabbar" aria-label="Main">
+      {TABS.map(([id, icon]) => (
+        <NavLink key={id} to={`/mobile/${id}`} end={id !== 'projects'} className={({ isActive }) => `tab${isActive ? ' on' : ''}`}>
+          <Icon name={icon} />
+          <span>{t(id)}</span>
+          {id === 'today' && due > 0 && <span className="badge">{due}</span>}
+          {id === 'chats' && unread > 0 && <span className="badge">{unread}</span>}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
 
 const WITH_TABS = new Set([
   '/mobile/chats',
@@ -33,7 +53,6 @@ export default function MobileApp() {
   useStore();
   const { pathname } = useLocation();
   const showTabs = WITH_TABS.has(pathname);
-  const due = todayCount();
   const theme = state.theme === 'system' ? undefined : state.theme;
 
   useEffect(() => {
@@ -50,17 +69,7 @@ export default function MobileApp() {
           <div className="field-main">
             <Outlet />
           </div>
-          {showTabs && (
-            <nav className="tabbar" aria-label="Main">
-              {TABS.map(([id, label, icon]) => (
-                <NavLink key={id} to={`/mobile/${id}`} end={id !== 'projects' && id !== 'photos'} className={({ isActive }) => `tab${isActive ? ' on' : ''}`}>
-                  <Icon name={icon} />
-                  <span>{label}</span>
-                  {id === 'today' && due > 0 && <span className="badge">{due}</span>}
-                </NavLink>
-              ))}
-            </nav>
-          )}
+          {showTabs && <Tabs />}
         </div>
       </div>
     </FieldProvider>

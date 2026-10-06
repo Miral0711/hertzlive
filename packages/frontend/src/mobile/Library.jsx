@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { Page, Swatch, Note } from './frame';
+import Icon from './Icon';
+import { ThreadAvatar } from './faces';
 import {
-  photoItems, projectName, fmtDT, user, myThreads, threadTitle, postMessage, svc, can, render,
+  photoItems, projectName, fmtDT, user, myThreads, threadTitle, audience, postMessage, svc, can, render,
 } from './model';
 
 export function Photos() {
@@ -110,12 +112,17 @@ export function Markup() {
 export function Camera() {
   useStore();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const preset = params.get('thread');
   const videoRef = useRef(null);
   const [q, setQ] = useState('');
   const [shot, setShot] = useState('');
+  const [caption, setCaption] = useState('');
+  const [dest, setDest] = useState(preset || '');
   const [live, setLive] = useState(false);
   const [camNote, setCamNote] = useState('');
-  const threads = myThreads().filter(({ t }) => t.kind !== 'dm' && threadTitle(t).toLowerCase().includes(q.trim().toLowerCase()));
+  const all = myThreads();
+  const threads = all.filter(({ t }) => `${threadTitle(t)} ${audience(t)} ${t.name}`.toLowerCase().includes(q.trim().toLowerCase()));
 
   useEffect(() => {
     let stream;
@@ -149,43 +156,88 @@ export function Camera() {
 
   function onFile(e) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setShot(String(reader.result || ''));
+    reader.onload = () => {
+      setShot(String(reader.result || ''));
+      if (!dest && preset) setDest(preset);
+    };
     reader.readAsDataURL(file);
   }
 
-  function send(threadId) {
-    postMessage(threadId, {
-      text: 'Photo from site',
-      photo: shot ? { dataUrl: shot, hue: 28, seed: 4 } : { hue: 28, seed: 4 },
-      kind: 'photo',
-    });
-    navigate(`/mobile/chats/${threadId}`);
+  function who(thread) {
+    if (thread.kind === 'group') return thread.name;
+    return audience(thread);
   }
 
+  function goesTo(thread) {
+    const name = threadTitle(thread);
+    if (thread.kind === 'client') return `The client group for ${name} will see this photo.`;
+    if (thread.kind === 'internal') return `The office chat for ${name} will see this. The client will not.`;
+    if (thread.kind === 'site') return `The site team for ${name} will see this photo.`;
+    if (thread.kind === 'group') return `${thread.name} will see this photo.`;
+    return `${name} will see this photo.`;
+  }
+
+  function send() {
+    if (!dest) return;
+    const photo = shot.startsWith('data:') ? { dataUrl: shot, hue: 28, seed: 4 } : { hue: 28, seed: 4 };
+    postMessage(dest, { text: caption.trim() || 'Photo from site', photo, kind: 'photo' });
+    navigate(`/mobile/chats/${dest}`);
+  }
+
+  const chosen = all.find(({ t }) => t.id === dest)?.t;
   return (
-    <Page back="/mobile/chats" backLabel="Chats" title="Send photo to" bare>
-      {shot ? <img className="cam-view" src={shot} alt="Photo to send" /> : (
+    <Page
+      back={preset ? `/mobile/chats/${preset}` : '/mobile/chats'}
+      backLabel="Chats"
+      title={shot ? 'Send this photo' : 'Camera'}
+      bare
+      footer={shot ? (
+        <div className="cam-dock">
+          <p>{chosen ? goesTo(chosen) : 'Tap a chat below, then send.'}</p>
+          <button type="button" className="primary" disabled={!dest} onClick={send}>Send</button>
+        </div>
+      ) : null}
+    >
+      {shot ? <img className="cam-preview" src={shot} alt="The photo you are about to send" /> : (
         <video className="cam-view" ref={videoRef} autoPlay playsInline muted />
       )}
-      <div className="stack">
-        {live && !shot && <button type="button" className="primary" onClick={capture}>Take photo</button>}
-        {shot && <button type="button" className="ghost" onClick={() => setShot('')}>Retake</button>}
-        <label className="ghost file-pick">Choose a photo<input type="file" accept="image/*" capture="environment" onChange={onFile} /></label>
-        {camNote ? <p className="note">{camNote}</p> : null}
-      </div>
-      <label className="search">
-        <input type="search" value={q} placeholder="Search chats" aria-label="Search chats" onChange={(e) => setQ(e.target.value)} />
-      </label>
-      <p className="note">{shot ? 'Send this photo to a chat.' : 'Or send the sample photo to a chat.'}</p>
-      {threads.map(({ t }) => (
-        <button type="button" className="row" key={t.id} onClick={() => send(t.id)}>
-          <span className="av">{threadTitle(t).slice(0, 2).toUpperCase()}</span>
-          <span className="row-copy"><b>{threadTitle(t)}</b><span>{t.name}</span></span>
-        </button>
-      ))}
-      {!threads.length && <div className="empty"><h3>No chat matches</h3></div>}
+      {!shot && (
+        <div className="stack cam-start">
+          <p className="note">{preset ? 'This photo goes into the chat you opened. Take it or choose one, then press Send.' : 'After the photo, you choose the chat and press Send.'}</p>
+          {live && <button type="button" className="primary" onClick={capture}>Take photo</button>}
+          <label className="ghost file-pick">Choose a photo<input type="file" accept="image/*" onChange={onFile} /></label>
+          <button type="button" className="text-btn" onClick={() => setShot('/images/p01.jpg')}>Use a sample photo</button>
+          {camNote ? <p className="note">{camNote}</p> : null}
+        </div>
+      )}
+      {shot && (
+        <>
+          <label className="cam-caption">
+            Add a note
+            <input value={caption} placeholder="Optional" aria-label="Note on the photo" onChange={(e) => setCaption(e.target.value)} />
+          </label>
+          {preset && chosen ? null : (
+            <>
+              <p className="cam-ask">Who should see this?</p>
+              <label className="search">
+                <input type="search" value={q} placeholder="Find a chat" aria-label="Find a chat" onChange={(e) => setQ(e.target.value)} />
+              </label>
+              {threads.map(({ t }) => (
+                <button type="button" className={`row ${dest === t.id ? 'picked' : ''}`} key={t.id} onClick={() => setDest(t.id)}>
+                  <ThreadAvatar thread={t} />
+                  <span className="row-copy"><b>{threadTitle(t)}</b><span>{who(t)}</span></span>
+                  <span className="pick" aria-hidden="true">{dest === t.id ? <Icon name="check" /> : null}</span>
+                </button>
+              ))}
+              {!threads.length && <div className="empty"><h3>No chat matches</h3></div>}
+            </>
+          )}
+          <button type="button" className="text-btn cam-change" onClick={() => setShot('')}>Choose a different photo</button>
+        </>
+      )}
     </Page>
   );
 }

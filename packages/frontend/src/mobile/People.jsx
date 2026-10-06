@@ -7,6 +7,7 @@ import {
   state, svc, user, me, staff, PEOPLE, viewAs, phoneOf, firstName, fmtD, TODAY, persist, render, myThreads, postMessage, can,
 } from './model';
 import { resetDb, hh } from '../shared/core';
+import { Avatar } from './faces';
 
 const ORDER = ['partner', 'site_manager', 'designer', 'hr', 'contractor', 'client'];
 const LABEL = {
@@ -29,7 +30,7 @@ export function Who() {
             className="row"
             onClick={() => { viewAs(id); navigate('/mobile/chats'); }}
           >
-            <span className={`av ${u.role === 'client' ? 'client' : ''}`}>{u.ini}</span>
+            <Avatar person={u} />
             <span className="row-copy"><b>{u.name}</b><span>{u.title} · {hint}</span></span>
             {state.userId === id ? <span className="count">On</span> : <Icon name="chev" />}
           </button>
@@ -43,7 +44,13 @@ export function People() {
   useStore();
   const [q, setQ] = useState('');
   const query = q.trim().toLowerCase();
-  const list = state.db.USERS.filter((u) => u.id !== state.userId && (`${u.name} ${u.title}`).toLowerCase().includes(query));
+  const employee = staff();
+  const list = state.db.USERS.filter((u) => {
+    if (u.id === state.userId) return false;
+    if (!(`${u.name} ${u.title}`).toLowerCase().includes(query)) return false;
+    if (employee) return true;
+    return ['partner', 'site_manager'].includes(u.role) || svc.projects().some((p) => (p.teamIds || []).includes(u.id));
+  });
   const groups = ORDER.map((role) => [LABEL[role], list.filter((u) => u.role === role)]).filter(([, us]) => us.length);
   return (
     <Page back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
@@ -60,7 +67,7 @@ export function People() {
             const phone = phoneOf(u);
             return (
               <div className="row" key={u.id}>
-                <span className={`av ${u.role === 'client' ? 'client' : ''}`}>{u.ini}</span>
+                <Avatar person={u} />
                 <span className="row-copy"><b>{u.name}</b><span>{vendor ? vendor.trade || vendor.name : u.title} · {phone}</span></span>
                 {dm ? <Link className="icon-btn" to={`/mobile/chats/${dm.id}`} aria-label={`Chat with ${firstName(u.id)}`}><Icon name="chat" /></Link> : null}
                 <a className="icon-btn" href={`tel:${phone.replace(/\s/g, '')}`} aria-label={`Call ${firstName(u.id)}`}><Icon name="call" /></a>
@@ -176,6 +183,9 @@ export function Notice() {
   const ideas = ['Office closed tomorrow', 'Site visit Saturday, all hands', 'Salary credited today'];
   const [text, setText] = useState('');
   const threads = myThreads().filter(({ t }) => t.kind !== 'dm');
+  if (state.role !== 'partner') {
+    return <Page back="/mobile/profile" backLabel="Profile" title="Notice"><div className="empty"><h3>Only a partner can send a notice</h3></div></Page>;
+  }
   function send(e) {
     e.preventDefault();
     const value = text.trim();
@@ -221,7 +231,7 @@ export function Language() {
     <Page back="/mobile/profile" backLabel="Profile" title="Language">
       <Note>Menus and tabs only. Write or talk in any language.</Note>
       {langs.map((lang) => (
-        <button type="button" key={lang} className="row" onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); }}>
+        <button type="button" key={lang} className="row" onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }}>
           <span className="row-copy"><b>{lang}</b></span>
           {current === lang || sessionStorage.getItem('field-lang') === lang ? <span className="count">On</span> : null}
         </button>
@@ -300,6 +310,10 @@ export function Book() {
     } catch (err) {
       setError(err.message === 'forbidden' ? 'You cannot book from this login.' : err.message);
     }
+  }
+
+  if (!can('booking', 'w')) {
+    return <Page back="/mobile/today" backLabel="Today" title="Booking"><div className="empty"><h3>Booking isn’t available for this login</h3></div></Page>;
   }
 
   return (

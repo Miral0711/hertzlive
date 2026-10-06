@@ -3,8 +3,7 @@ import { render } from '../shared/store';
 import { NOTIFICATIONS } from '../shared/data2';
 import { FILE_KINDS, ROOM_WORDS } from '../shared/filing';
 import { TODAY } from '../shared/data';
-
-const KIND = { client: 'Client', internal: 'Studio', site: 'Site' };
+import { t } from './copy';
 
 export const stamp = () => {
   const d = new Date();
@@ -14,7 +13,26 @@ export const stamp = () => {
 
 export const firstName = (id) => (user(id).name || 'Someone').split(' ')[0];
 
-export const audience = (thread) => KIND[thread.kind] || 'Chat';
+export const audience = (thread) => {
+  if (!thread) return t('chat');
+  if (thread.kind === 'dm') {
+    const other = (thread.memberIds || []).find((id) => id !== state.userId);
+    return other ? (user(other).title || t('chat')) : t('chat');
+  }
+  return { client: t('clientGroup'), internal: t('office'), site: t('siteTeam') }[thread.kind] || t('chat');
+};
+
+export function dayLabel(iso) {
+  const day = (iso || '').slice(0, 10);
+  const today = stamp().slice(0, 10);
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const p = (n) => String(n).padStart(2, '0');
+  const yesterday = `${y.getFullYear()}-${p(y.getMonth() + 1)}-${p(y.getDate())}`;
+  if (day === today) return t('todayWord');
+  if (day === yesterday) return t('yesterday');
+  return fmtD(day);
+}
 
 export const projectOf = (id) => svc.project(id);
 
@@ -22,8 +40,13 @@ export const projectName = (id) => state.db.PROJECTS.find((p) => p.id === id)?.n
 
 export const siteFor = (projectId) => svc.sites().find((s) => s.projectId === projectId) || null;
 
+export function onPhone(projectId) {
+  return !projectId || !svc.phoneHides(projectId);
+}
+
 export function myThreads() {
   return svc.threads()
+    .filter((t) => onPhone(t.projectId))
     .map((t) => ({ t, last: [...svc.messages(t.id)].sort((a, b) => a.at.localeCompare(b.at)).at(-1) || null }))
     .sort((a, b) => ((b.last || {}).at || '').localeCompare((a.last || {}).at || ''));
 }
@@ -72,6 +95,7 @@ export function editMessage(message, text) {
 }
 
 export function unreadCount(threadId, readAt) {
+  if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`field-mute-${threadId}`) === '1') return 0;
   return svc.messages(threadId).filter((m) => m.by !== state.userId && (!readAt || m.at > readAt)).length;
 }
 
@@ -81,11 +105,13 @@ export function messagesOf(threadId) {
 
 export function siblings(thread) {
   if (!thread?.projectId || !['client', 'internal', 'site'].includes(thread.kind)) return [];
-  const list = svc.threads().filter((t) => t.projectId === thread.projectId && ['client', 'internal', 'site'].includes(t.kind));
+  const list = svc.threads().filter((t) => t.projectId === thread.projectId && onPhone(t.projectId) && ['client', 'internal', 'site'].includes(t.kind));
   return list.length > 1 ? list : [];
 }
 
 export function postMessage(threadId, fields) {
+  const thread = svc.thread(threadId);
+  if (!can('thread', 'w') || !thread || !onPhone(thread.projectId)) return null;
   state.db.MESSAGES.push({
     id: uid(),
     threadId,
@@ -95,6 +121,7 @@ export function postMessage(threadId, fields) {
   });
   persist();
   render();
+  return true;
 }
 
 const VOICE = {
@@ -113,8 +140,8 @@ export function postVoice(threadId) {
 
 export function attentionItems() {
   const id = state.userId;
-  const tasks = (state.db.TASKS || [])
-    .filter((t) => t.owner === id && t.status !== 'done' && t.status !== 'closed')
+  const tasks = (can('task', 'r') ? state.db.TASKS || [] : [])
+    .filter((t) => t.owner === id && t.status !== 'done' && t.status !== 'closed' && onPhone(t.projectId))
     .map((t) => ({
       key: `task:${t.id}`,
       kind: 'Your task',
@@ -124,7 +151,7 @@ export function attentionItems() {
       hot: t.critical || t.priority === 'critical',
     }));
   const issues = svc.issues()
-    .filter((i) => i.assignee === id && i.status !== 'closed')
+    .filter((i) => i.assignee === id && i.status !== 'closed' && onPhone(i.projectId))
     .map((i) => ({
       key: `issue:${i.id}`,
       kind: 'Needs your answer',
@@ -162,7 +189,7 @@ export function updates() {
   const notes = NOTIFICATIONS
     .filter((n) => !n.roles || n.roles.includes(role))
     .map((n) => ({ id: n.id, at: n.at, kind: n.kind, title: n.text, detail: 'Studio update', threadId: null }));
-  const decisions = svc.threads().flatMap((t) => messagesOf(t.id)
+  const decisions = svc.threads().filter((t) => onPhone(t.projectId)).flatMap((t) => messagesOf(t.id)
     .filter((m) => m.decision || m.issueId)
     .map((m) => ({
       id: m.id,
@@ -171,6 +198,8 @@ export function updates() {
       title: m.text,
       detail: `${projectName(t.projectId)} · ${audience(t)}`,
       threadId: t.id,
+      messageId: m.id,
+      issueId: m.issueId || null,
     })));
   return [...notes, ...decisions].sort((a, b) => b.at.localeCompare(a.at));
 }

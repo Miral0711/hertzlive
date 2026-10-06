@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
+import { Avatar, Face, FACE_COUNT, choosePortrait, faceIndex } from './faces';
 import { me, staff, state, svc, can, render, persist } from './model';
 import { logout } from '../desktop/session';
 import { setOnline } from '../shared/core';
@@ -10,6 +12,8 @@ export default function Profile() {
   useStore();
   const person = me();
   const navigate = useNavigate();
+  const [picking, setPicking] = useState(false);
+  const chosen = faceIndex(person);
   const inAt = state.db.checkedIn?.[person?.id];
   const quiet = state.gamify?.quiet || person?.quiet;
   const lang = sessionStorage.getItem('field-lang') || 'English';
@@ -25,12 +29,22 @@ export default function Profile() {
       </header>
       <div className="body canvas">
         <div className="prof">
-          <span className={`av lg ${person?.role === 'client' ? 'client' : ''}`}>{person?.ini}</span>
+          <Avatar person={person} size="lg" />
           <div>
             <b>{person?.name}</b>
             <span>{person?.title}</span>
+            <button type="button" className="text-btn" onClick={() => setPicking((v) => !v)}>Choose photo</button>
           </div>
         </div>
+        {picking && (
+          <div className="face-grid" role="listbox" aria-label="Dummy photos">
+            {Array.from({ length: FACE_COUNT }, (_, n) => (
+              <button type="button" key={n} className={n === chosen ? 'on' : ''} aria-label={`Photo ${n + 1}`} onClick={() => { choosePortrait(person.id, n); setPicking(false); }}>
+                <span className="av"><Face n={n} /></span>
+              </button>
+            ))}
+          </div>
+        )}
         {staff() && (
           <button type="button" className="primary" onClick={() => { if (inAt) svc.checkOut(); else svc.checkIn(); render(); }}>
             {inAt ? `Check out · in since ${inAt}` : 'Check in'}

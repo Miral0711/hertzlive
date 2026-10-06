@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
 import { updates, fmtD, me } from './model';
+import { t } from './copy';
+import { Avatar } from './faces';
 
 const ICONS = { decision: 'check', issue: 'warn', site: 'sites', client: 'chat', approval: 'check', enquiry: 'enquiries', people: 'people' };
 
@@ -13,9 +15,9 @@ export default function Updates() {
   return (
     <div className="screen">
       <header className="top">
-        <h1>Updates<span>What changed in your projects</span></h1>
+        <h1>{t('updates')}<span>What changed in your projects</span></h1>
         <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
-          <span className="av sm">{person?.ini}</span>
+          <Avatar person={person} size="sm" />
         </Link>
       </header>
       <div className="body">
@@ -31,13 +33,20 @@ export default function Updates() {
               </span>
             </>
           );
-          return u.threadId ? (
-            <Link key={u.id} className="row update" to={`/mobile/chats/${u.threadId}`}>{inner}</Link>
+          const to = u.issueId
+            ? `/mobile/issues/${u.issueId}`
+            : u.messageId
+              ? `/mobile/chats/${u.threadId}#${u.messageId}`
+              : u.threadId
+                ? `/mobile/chats/${u.threadId}`
+                : '';
+          return to ? (
+            <Link key={u.id} className="row update" to={to}>{inner}</Link>
           ) : (
             <div key={u.id} className="row update">{inner}</div>
           );
         })}
-        {!list.length && <div className="empty"><h3>No changes yet</h3><p>Office answers, drawing issues and decisions will land here.</p></div>}
+        {!list.length && <div className="empty"><h3>Nothing has changed yet</h3><p>Office answers, drawing issues and decisions will land here.</p></div>}
       </div>
     </div>
   );

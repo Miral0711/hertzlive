@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
+import { photoUrl } from '../ui/Ph';
 import Icon from './Icon';
 
-export function Page({ back, backLabel = 'Back', title, sub, children, bare = false }) {
+export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, footer = null }) {
   return (
     <div className="screen">
       <header className="top thread-top">
@@ -14,13 +15,13 @@ export function Page({ back, backLabel = 'Back', title, sub, children, bare = fa
         </div>
       </header>
       <div className={bare ? 'body' : 'body canvas'}>{children}</div>
+      {footer}
     </div>
   );
 }
 
 export function Swatch({ hue = 28, seed = 1 }) {
-  const light = 42 + ((seed || 1) % 5) * 6;
-  return <span className="swatch" style={{ background: `hsl(${hue || 28} 38% ${light}%)` }} aria-hidden="true" />;
+  return <img className="shot" src={photoUrl(hue, seed)} alt="" />;
 }
 
 export function Note({ children }) {

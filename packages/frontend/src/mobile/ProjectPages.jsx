@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
 import { Page, Note } from './frame';
+import { Avatar } from './faces';
 import {
   svc, can, projectOf, projectWork, fmtD, firstName, state, user, phoneOf, render,
 } from './model';
@@ -17,6 +18,9 @@ export function Materials() {
   const project = projectOf(projectId);
   const rows = project ? svc.materials({ projectId }) : [];
   if (!project) return <Missing id={projectId} />;
+  if (!can('material', 'r')) {
+    return <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials"><div className="empty"><h3>Materials aren’t available for this login</h3></div></Page>;
+  }
   return (
     <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
       <Note>Samples and decisions shared with you.</Note>
@@ -53,7 +57,7 @@ export function Contacts() {
             const known = state.db.USERS.some((x) => x.id === u.id);
             return (
               <div className="row" key={u.id}>
-                <span className="av">{(person.ini || u.name || '?').slice(0, 2)}</span>
+                {person?.id ? <Avatar person={person} /> : <span className="av">{(u.name || '?').slice(0, 2)}</span>}
                 <span className="row-copy"><b>{u.name}</b><span>{u.title}{u.last ? ` · last active ${fmtD(u.last)}` : ''}</span></span>
                 {known ? <a className="icon-btn" href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>Call</a> : null}
               </div>

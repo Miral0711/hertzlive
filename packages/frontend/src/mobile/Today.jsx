@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
-import { attentionItems, waitingItems, fmtD, myThreads, me, firstName, stamp, svc, state, can, user, render } from './model';
+import { attentionItems, waitingItems, fmtD, myThreads, me, firstName, stamp, svc, state, can, user, render, staff } from './model';
+import { t } from './copy';
+import { Avatar } from './faces';
 import { hh } from '../shared/core';
 
 export default function Today() {
@@ -17,9 +19,9 @@ export default function Today() {
   return (
     <div className="screen">
       <header className="top">
-        <h1>Today<span>{person ? firstName(person.id) : ''}</span></h1>
+        <h1>{t('today')}<span>{person ? firstName(person.id) : ''}</span></h1>
         <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
-          <span className="av sm">{person?.ini}</span>
+          <Avatar person={person} size="sm" />
         </Link>
       </header>
       <div className="body canvas">
@@ -27,9 +29,10 @@ export default function Today() {
           <h2>{actions.length ? `${actions.length} thing${actions.length === 1 ? '' : 's'} need you` : 'You’re up to date'}</h2>
           <span>{fmtD(stamp().slice(0, 10))}</span>
         </div>
+        {!state.online && <p className="banner">Your message will send when the network is back.</p>}
         {site && (
-          <Link className="primary" to={`/mobile/chats/${site.t.id}`}>
-            <Icon name="plus" /> Post a site update
+          <Link className="primary" to={`/mobile/camera?thread=${site.t.id}`}>
+            <Icon name="camera" /> {t('sendSitePhoto')}
           </Link>
         )}
         {actions.length ? actions.map((item, i) => (
@@ -46,20 +49,34 @@ export default function Today() {
             <Link to="/mobile/projects">Open projects</Link>
           </div>
         )}
-        {can('booking', 'w') && (
-          <section>
-            <h2>Meetings</h2>
-            {meetings.length ? meetings.map((b) => (
-              <div className="wait-row" key={b.id}>
-                <b>{fmtD(b.date)} {hh(b.start)} · {b.title}</b>
-                <span>{b.status === 'pending' ? 'Waiting for the studio' : 'Confirmed'}</span>
+        <details className="waiting">
+          <summary>{t('more')}</summary>
+          {can('booking', 'w') && (
+            <>
+              {meetings.length ? meetings.map((b) => (
+                <div className="wait-row" key={b.id}>
+                  <b>{fmtD(b.date)} {hh(b.start)} · {b.title}</b>
+                  <span>{b.status === 'pending' ? 'Waiting for the studio' : 'Confirmed'}</span>
+                </div>
+              )) : <p className="note">{state.role === 'client' ? 'No meeting booked. Pick a day and time, the studio confirms.' : 'Nothing booked by you this week.'}</p>}
+              <Link className="ghost" to={state.role === 'client' ? '/mobile/book?kind=meet' : '/mobile/book?kind=room'}>
+                {state.role === 'client' ? 'Book a meeting' : `Book ${(state.db.ROOMS?.[0]?.name || 'a room').toLowerCase()}`}
+              </Link>
+            </>
+          )}
+          {reminders.map((f) => (
+            <article className="task" key={f.id}>
+              <small>Reminder</small>
+              <b>{f.msg?.text || 'Message'}</b>
+              <div className="stack">
+                {f.msg ? <Link className="ghost" to={`/mobile/chats/${f.msg.threadId}#${f.msg.id}`}>Open</Link> : null}
+                <button type="button" className="ghost" onClick={() => { svc.doneFollowup(f.id); render(); }}>Done</button>
               </div>
-            )) : <p className="note">{state.role === 'client' ? 'No meeting booked. Pick a day and time, the studio confirms.' : 'Nothing booked by you this week.'}</p>}
-            <Link className="ghost" to={state.role === 'client' ? '/mobile/book?kind=meet' : '/mobile/book?kind=room'}>
-              {state.role === 'client' ? 'Book a meeting' : `Book ${(state.db.ROOMS?.[0]?.name || 'a room').toLowerCase()}`}
-            </Link>
-          </section>
-        )}
+            </article>
+          ))}
+          {svc.assistKinds().includes('ask') && <Link className="ghost" to="/mobile/assist?kind=ask">Ask</Link>}
+          <Link className="ghost" to="/mobile/holidays">{staff() ? 'Leave' : 'Holidays'}</Link>
+        </details>
         {pendingBooks.map((b) => (
           <article className="task hot" key={b.id}>
             <small>Client wants to meet</small>
@@ -68,16 +85,6 @@ export default function Today() {
             <div className="stack">
               <button type="button" className="primary" onClick={() => { svc.decideBooking(b.id, true); render(); }}>Confirm</button>
               <button type="button" className="ghost" onClick={() => { svc.decideBooking(b.id, false); render(); }}>Decline</button>
-            </div>
-          </article>
-        ))}
-        {reminders.map((f) => (
-          <article className="task" key={f.id}>
-            <small>Reminder</small>
-            <b>{f.msg?.text || 'Message'}</b>
-            <div className="stack">
-              {f.msg ? <Link className="ghost" to={`/mobile/chats/${f.msg.threadId}#${f.msg.id}`}>Open</Link> : null}
-              <button type="button" className="ghost" onClick={() => { svc.doneFollowup(f.id); render(); }}>Done</button>
             </div>
           </article>
         ))}

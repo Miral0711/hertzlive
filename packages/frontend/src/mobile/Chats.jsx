@@ -4,8 +4,10 @@ import { useStore } from '../shared/store';
 import Icon from './Icon';
 import { useField } from './FieldContext';
 import {
-  myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc,
+  myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc, user, phoneOf, state,
 } from './model';
+import { t } from './copy';
+import { Avatar, ThreadAvatar } from './faces';
 
 export default function Chats() {
   useStore();
@@ -21,7 +23,12 @@ export default function Chats() {
       return blob.includes(query);
     });
   }, [rows, query]);
-  const hits = query.length >= 2 ? svc.search(q) : [];
+  const hits = (query.length >= 2 ? svc.search(q) : []).filter((hit) => {
+    if (hit.kind === 'project') return !svc.phoneHides(hit.id);
+    if (!hit.threadId) return true;
+    const thread = svc.thread(hit.threadId);
+    return thread && !svc.phoneHides(thread.projectId);
+  });
   const groups = [
     ['Projects', filtered.filter(({ t }) => t.kind !== 'dm')],
     ['People', filtered.filter(({ t }) => t.kind === 'dm')],
@@ -30,12 +37,12 @@ export default function Chats() {
   return (
     <div className="screen">
       <header className="top">
-        <h1>Chats<span>Hertz · {person ? firstName(person.id) : ''}</span></h1>
+        <h1>{t('chats')}<span>Hertz · {person ? firstName(person.id) : ''}</span></h1>
         <Link className="icon-btn" to="/mobile/camera" aria-label="Send a photo">
           <Icon name="camera" />
         </Link>
         <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
-          <span className="av sm">{person?.ini}</span>
+          <Avatar person={person} size="sm" />
         </Link>
       </header>
       <div className="body">
@@ -49,6 +56,7 @@ export default function Chats() {
             aria-label="Search messages, photos, projects"
           />
         </label>
+        {!state.online && <p className="banner">Your message will send when the network is back.</p>}
         {hits.length > 0 && (
           <section>
             <h2 className="sect">In messages</h2>
@@ -87,10 +95,9 @@ export default function Chats() {
 
 function ChatRow({ thread, last, unread, draft }) {
   const title = threadTitle(thread);
-  const ini = thread.kind === 'dm' ? '··' : title.slice(0, 2).toUpperCase();
   return (
     <Link className="row" to={`/mobile/chats/${thread.id}`}>
-      <span className={`av ${thread.kind === 'client' ? 'client' : ''}`}>{ini}</span>
+      <ThreadAvatar thread={thread} />
       <span className="row-copy">
         <b className={unread ? 'unread' : ''}>
           <span>{title}</span>
@@ -113,22 +120,32 @@ function ChatRow({ thread, last, unread, draft }) {
 
 export function ThreadHeader({ thread }) {
   const navigate = useNavigate();
+  const otherId = thread.kind === 'dm' ? thread.memberIds.find((id) => id !== state.userId) : null;
+  const other = otherId ? user(otherId) : null;
   return (
     <header className="top thread-top">
       <button type="button" className="icon-btn" onClick={() => navigate('/mobile/chats')} aria-label="Back to chats">
         <Icon name="back" />
-        <span>Chats</span>
       </button>
-      <div className="thread-heading">
-        <h1>{threadTitle(thread)}</h1>
-        <span>{audience(thread)} · {thread.memberIds.length} people</span>
-      </div>
-      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/info`} aria-label="Group info">
-        <Icon name="people" />
+      <Link className="thread-heading" to={`/mobile/chats/${thread.id}/info`}>
+        <ThreadAvatar thread={thread} size="sm" />
+        <span className="thread-name">
+          <h1>{threadTitle(thread)}</h1>
+          <span>{audience(thread)}{thread.kind === 'dm' ? '' : ` · ${thread.memberIds.length} ${t('people')}`}</span>
+        </span>
       </Link>
-      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/call`} aria-label="Start video call">
-        <Icon name="call" />
+      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/call`} aria-label="Video call">
+        <Icon name="play" />
       </Link>
+      {other ? (
+        <a className="icon-btn" href={`tel:${phoneOf(other).replace(/\s/g, '')}`} aria-label={`Call ${other.name}`}>
+          <Icon name="call" />
+        </a>
+      ) : (
+        <Link className="icon-btn" to={`/mobile/chats/${thread.id}/info`} aria-label="Call someone in this chat">
+          <Icon name="call" />
+        </Link>
+      )}
     </header>
   );
 }
