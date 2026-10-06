@@ -257,16 +257,21 @@ button.av { border: 0; cursor: pointer; }
 .bubble {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   width: fit-content;
   max-width: 100%;
+  min-width: 8.5rem;
   margin: 0;
-  padding: 6px 8px 5px 10px;
+  padding: 6px 8px 4px 10px;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 1px 0.5px rgb(11 20 26 / 0.13);
   touch-action: pan-y;
 }
 .bubble.mine {
+  min-width: 10.75rem;
   background: #e7f4fb;
   color: var(--ink);
   border-top-right-radius: 4px;
@@ -282,36 +287,37 @@ button.av { border: 0; cursor: pointer; }
 .bubble.cont.theirs { border-top-left-radius: 12px; }
 .bubble p {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-end;
-  gap: 2px 8px;
-  width: max-content;
-  max-width: 100%;
+  gap: 6px;
+  width: 100%;
   margin: 0;
-  padding-right: 14px;
+  padding: 0;
   font-size: 15.5px;
   line-height: 1.35;
 }
-.bubble .say { flex: 1 1 auto; min-width: 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: break-word; }
+.bubble .say { flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: break-word; }
 .bubble time {
-  position: static;
-  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  margin: 0 14px 0 0;
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 1;
   color: var(--ink-3);
   white-space: nowrap;
 }
 .bubble-more {
   position: absolute;
-  top: 1px;
   right: 1px;
-  width: 22px;
-  height: 20px;
+  bottom: 2px;
+  width: 16px;
+  height: 16px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--ink-3);
   cursor: pointer;
@@ -710,20 +716,48 @@ a.drawing { color: inherit; text-decoration: none; }
 .swipe-reply .mi { width: 16px; height: 16px; }
 .fwd { display: block; margin-bottom: 2px; font-size: 12px; font-style: italic; color: var(--ink-3); }
 .bubble .quote {
+  position: relative;
   display: block;
-  margin: 0 14px 4px 0;
-  padding: 4px 8px;
-  border-left: 3px solid var(--accent-text);
+  margin: 0 0 4px;
+  padding: 4px 8px 4px 10px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  background: rgb(255 255 255 / 0.72);
   color: var(--ink-2);
   font-size: 13px;
-  line-height: 1.3;
+  line-height: 1.35;
+}
+.bubble .quote::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: var(--accent-text);
 }
 .bubble .quote b { display: block; color: var(--accent-text); font-size: 12px; }
-.bubble.mine .quote { background: color-mix(in srgb, var(--accent) 8%, #fff); }
-.bubble .tick { width: 14px; height: 14px; margin-left: 4px; vertical-align: -2px; }
-.bubble .tick.read { color: var(--accent); }
+.bubble .quote > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bubble.mine .quote { background: rgb(255 255 255 / 0.62); }
+[data-theme="dark"] .bubble .quote,
+[data-theme="dark"] .bubble.mine .quote { background: rgb(0 0 0 / 0.2); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .bubble .quote,
+  :root:not([data-theme="light"]) .bubble.mine .quote { background: rgb(0 0 0 / 0.2); }
+}
+.bubble .tick { width: 16px; height: 16px; margin-left: 2px; color: #8696a0; }
+.bubble .tick.seen { color: #53bdeb; }
+[data-theme="dark"] .bubble .tick { color: #aebac1; }
+[data-theme="dark"] .bubble .tick.seen { color: #53bdeb; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .bubble .tick { color: #aebac1; }
+  :root:not([data-theme="light"]) .bubble .tick.seen { color: #53bdeb; }
+}
 .bubble .swatch { display: block; height: 140px; border-radius: 8px; margin-bottom: 4px; }
 .replybar, .quick {
   display: flex;
@@ -861,7 +895,7 @@ button.primary.crit { background: var(--crit); }
   clip: rect(0 0 0 0);
 }
 .row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 13px; font-weight: 700; }
-.bubble.pinned { box-shadow: inset 3px 0 0 var(--accent); }
+.bubble.pinned { box-shadow: 0 1px 0.5px rgb(11 20 26 / 0.13); }
 .msg-actions { display: flex; flex-direction: column; }
 .msg-actions .emoji-row {
   justify-content: space-between;

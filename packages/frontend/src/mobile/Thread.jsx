@@ -370,6 +370,10 @@ export default function Thread() {
           const mine = m.by === state.userId;
           const same = prev && prev.by === m.by && prev.at.slice(0, 10) === day;
           const reacts = Object.entries(m.reactions || {}).filter(([, ids]) => ids.length);
+          const later = msgs.slice(i + 1).filter((x) => !x.deleted);
+          const seen = mine && later.some((x) => x.by !== m.by);
+          const delivered = mine && !seen && later.some((x) => x.by === m.by);
+          const receipt = !mine || m.deleted ? null : seen ? 'seen' : delivered ? 'delivered' : 'sent';
           return (
             <Fragment key={m.id}>
               {showDay && <div className="day">{dayLabel(m.at)}</div>}
@@ -389,7 +393,7 @@ export default function Thread() {
                     {m.forwarded && <span className="fwd">Forwarded</span>}
                     {m.replyTo && (() => {
                       const quoted = msgs.find((x) => x.id === m.replyTo);
-                      return <span className="quote"><b>{quoted ? firstName(quoted.by) : ''}</b>{preview(quoted)}</span>;
+                      return <span className="quote"><b>{quoted ? firstName(quoted.by) : ''}</b><span>{preview(quoted)}</span></span>;
                     })()}
                     {m.voice && <span className="voice"><Icon name="mic" /> {typeof m.voice === 'string' ? m.voice : m.voice.dur}</span>}
                     {m.photo?.dataUrl && <img className="shot" src={m.photo.dataUrl} alt="" />}
@@ -397,12 +401,12 @@ export default function Thread() {
                     {(m.kind && !m.photo) && !m.voice && <span className="chip">{({ drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill', material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in' })[m.kind] || m.kind}</span>}
                     <p>
                       {m.text ? <span className="say">{m.text}</span> : null}
-                      <time>
+                      <time title={receipt === 'seen' ? 'Seen' : receipt === 'delivered' ? 'Delivered' : receipt === 'sent' ? 'Sent' : undefined}>
                         {m.edited ? 'Edited · ' : ''}{fmtT(m.at)}
-                        {mine && !m.deleted && (
+                        {receipt && (
                           <Icon
-                            name={(thread.memberIds || []).some((id) => id !== m.by && id.charCodeAt(0) % 3 !== 0) ? 'checkcheck' : 'check'}
-                            className={(thread.memberIds || []).some((id) => id !== m.by && id.charCodeAt(0) % 3 !== 0) ? 'tick read' : 'tick'}
+                            name={receipt === 'sent' ? 'check' : 'checkcheck'}
+                            className={receipt === 'seen' ? 'tick seen' : 'tick'}
                           />
                         )}
                       </time>
