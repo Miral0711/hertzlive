@@ -1,0 +1,19 @@
+import { ICONS } from '../shared/icons';
+
+export default function Icon({ name, className = '' }) {
+  return (
+    <svg
+      className={`mi ${className}`}
+      viewBox="0 0 24 24"
+      width="22"
+      height="22"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: ICONS[name] || '' }}
+    />
+  );
+}
