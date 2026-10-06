@@ -201,7 +201,7 @@ export function Camera() {
         </div>
       ) : null}
     >
-      {shot ? <img className="cam-preview" src={shot} alt="The photo you are about to send" /> : (
+      {shot ? <img className="cam-preview" src={shot} alt="What you are about to send" /> : (
         <video className="cam-view" ref={videoRef} autoPlay playsInline muted />
       )}
       {!shot && (
