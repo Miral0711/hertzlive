@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { Page, Note } from './frame';
 import Icon from './Icon';
 import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
-  toggleReaction, deleteMessage, toggleDecision, editMessage, can, myThreads, preview,
+  toggleReaction, deleteMessage, hideMessage, toggleDecision, editMessage, can, myThreads, preview,
 } from './model';
 import { filingLabel } from '../shared/filing';
 import { Avatar, ThreadAvatar } from './faces';
@@ -44,39 +44,143 @@ export function GroupInfo() {
   );
 }
 
+let playingNote = null;
+
+export function VoicePlay({ src, dur = '' }) {
+  const id = useId();
+  const audioRef = useRef(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => () => {
+    if (playingNote?.id === id) {
+      playingNote.el.pause();
+      playingNote = null;
+    }
+  }, [id]);
+  function play(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = audioRef.current;
+    if (!el || !src) return;
+    if (on) {
+      el.pause();
+      el.currentTime = 0;
+      if (playingNote?.id === id) playingNote = null;
+      setOn(false);
+      return;
+    }
+    if (playingNote && playingNote.id !== id) {
+      playingNote.el.pause();
+      playingNote.el.currentTime = 0;
+      playingNote.setOn(false);
+    }
+    el.play().then(() => {
+      playingNote = { id, el, setOn };
+      setOn(true);
+    }).catch(() => setOn(false));
+  }
+  return (
+    <button type="button" className={`voice-play ${on ? 'on' : ''}`} onPointerDown={(e) => e.stopPropagation()} onClick={play} aria-label={on ? 'Stop voice note' : 'Play voice note'}>
+      <audio ref={audioRef} className="voice-audio" src={src || undefined} preload="none" onEnded={() => { if (playingNote?.id === id) playingNote = null; setOn(false); }} />
+      <span className="voice-go" aria-hidden="true">{on ? <i className="pause" /> : <Icon name="play" />}</span>
+      <span className="voice-track" />
+      <span className="voice-dur">{dur}</span>
+    </button>
+  );
+}
+
 export function Voice() {
   useStore();
   const { threadId } = useParams();
   const navigate = useNavigate();
   const thread = svc.thread(threadId);
-  const sample = {
-    site_manager: ['0:24', 'Bathroom tile batch came today, 40 boxes short. Vendor says balance Friday.'],
-    contractor: ['0:19', 'Column C4 rebar is ready. Need an engineer to check before we pour at 9 tomorrow.'],
-    designer: ['0:15', 'Sharing the latest drawing. Please confirm on site before the mason starts.'],
-    partner: ['0:12', 'Good work on the terrace. Send me the sample photo before Saturday.'],
-    client: ['0:14', 'Can we look at a darker wood for the pantry doors?'],
-  }[state.role] || ['0:15', 'Sharing the latest drawing. Please confirm on site before the mason starts.'];
-  const [text, setText] = useState(sample[1]);
-  const [heard, setHeard] = useState(false);
+  const [phase, setPhase] = useState('idle');
+  const [audio, setAudio] = useState('');
+  const [dur, setDur] = useState('0:00');
+  const [micNote, setMicNote] = useState('');
+  const recRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunks = useRef([]);
+  const timer = useRef(null);
+  const started = useRef(0);
+  useEffect(() => () => {
+    clearInterval(timer.current);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
   if (!thread) return <Page back="/mobile/chats" title="Voice"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
+
+  const clock = (ms) => {
+    const s = Math.max(0, Math.round(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  async function start() {
+    setMicNote('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = window.MediaRecorder?.isTypeSupported?.('audio/webm') ? 'audio/webm' : '';
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunks.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
+      rec.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(chunks.current, { type: rec.mimeType || 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = () => {
+          setAudio(String(reader.result || ''));
+          setPhase('ready');
+        };
+        reader.readAsDataURL(blob);
+      };
+      recRef.current = rec;
+      started.current = Date.now();
+      setDur('0:00');
+      timer.current = setInterval(() => setDur(clock(Date.now() - started.current)), 200);
+      rec.start();
+      setPhase('recording');
+    } catch {
+      setMicNote('The microphone did not open. Allow the microphone, then try again.');
+    }
+  }
+
+  function stop() {
+    clearInterval(timer.current);
+    setDur(clock(Date.now() - started.current));
+    if (recRef.current && recRef.current.state !== 'inactive') recRef.current.stop();
+  }
+
+  function again() {
+    setAudio('');
+    setDur('0:00');
+    setPhase('idle');
+  }
+
   return (
     <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Voice note" sub={threadTitle(thread)}>
-      {!heard ? (
+      {phase === 'idle' && (
         <div className="stack">
-          <Note>Tap once to record. You will see the words, fix them if needed, then send them into this chat.</Note>
-          <button type="button" className="primary" onClick={() => setHeard(true)}>Tap to record</button>
+          <Note>Tap once to record. You can listen to it, then send it into this chat.</Note>
+          <button type="button" className="primary" onClick={start}>Tap to record</button>
+          {micNote ? <p className="note">{micNote}</p> : null}
         </div>
-      ) : (
+      )}
+      {phase === 'recording' && (
+        <div className="stack">
+          <p className="voice-line">Recording · {dur}</p>
+          <button type="button" className="primary" onClick={stop}>Stop</button>
+        </div>
+      )}
+      {phase === 'ready' && (
         <form className="stack" onSubmit={(e) => {
           e.preventDefault();
-          postMessage(threadId, { text: text.trim() || sample[1], voice: sample[0] });
+          if (!audio) return;
+          postMessage(threadId, { voice: { dur, audio } });
           navigate(`/mobile/chats/${threadId}`);
         }}>
-          <p className="voice-line">Recorded · {sample[0]}</p>
-          <Note>These are the words. Change them if they are wrong, then send.</Note>
-          <label>Words<textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} aria-label="Words in the voice note" /></label>
+          <VoicePlay src={audio} dur={dur} />
+          <Note>Tap play to hear the recording, then send it.</Note>
           <button className="primary" type="submit">Send to this chat</button>
-          <button type="button" className="text-btn" onClick={() => setHeard(false)}>Record again</button>
+          <button type="button" className="text-btn" onClick={again}>Record again</button>
         </form>
       )}
     </Page>
@@ -109,6 +213,18 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
   const mine = message.by === state.userId;
   const canPin = !message.deleted && can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
   const others = (thread.memberIds || []).filter((id) => id !== message.by);
+  if (confirmDelete) {
+    return (
+      <div className="msg-actions">
+        <h2>Delete this message?</h2>
+        <button type="button" className="ghost warn-text" onClick={() => { hideMessage(message); onDeleted?.(); }}>Delete for me</button>
+        {mine && !message.deleted && (
+          <button type="button" className="ghost warn-text" onClick={() => { deleteMessage(message); onDeleted?.(); }}>Delete for everyone</button>
+        )}
+        <button type="button" className="ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+      </div>
+    );
+  }
   return (
     <div className="msg-actions">
       {!message.deleted && (
@@ -121,6 +237,7 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
       {filing && !message.deleted ? <p className="note">Filed · {filingLabel(filing) || 'this chat'}</p> : null}
       {!message.deleted && <button type="button" className="ghost" onClick={onReply}>Reply</button>}
       {!message.deleted && <button type="button" className="ghost" onClick={onForward}>Forward</button>}
+      <button type="button" className="ghost warn-text" onClick={() => setConfirmDelete(true)}>Delete</button>
       {!message.deleted && <Link className="ghost" to={`/mobile/chats/${thread.id}/messages/${message.id}/filing`}>Change where this is filed</Link>}
       {message.issueId ? <Link className="ghost" to={`/mobile/issues/${message.issueId}`}>Open linked issue</Link> : null}
       {!message.deleted && thread.projectId && svc.assistKinds().includes('followup') && (message.text || message.transcript) ? (
@@ -162,17 +279,6 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
           <label>Edit<textarea rows={3} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Edit message" /></label>
           <button className="primary" type="submit">Save</button>
         </form>
-      )}
-      {mine && !message.deleted && (
-        confirmDelete ? (
-          <>
-            <p>Everyone in this chat will see “This message was deleted”. The original stays in the studio log.</p>
-            <button type="button" className="primary crit" onClick={() => { deleteMessage(message); onDeleted?.(); }}>Delete for everyone</button>
-            <button type="button" className="ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-          </>
-        ) : (
-          <button type="button" className="ghost" onClick={() => setConfirmDelete(true)}>Delete for everyone</button>
-        )
       )}
     </div>
   );

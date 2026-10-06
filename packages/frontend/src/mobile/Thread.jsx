@@ -5,7 +5,7 @@ import Icon from './Icon';
 import { useField } from './FieldContext';
 import { Swatch } from './frame';
 import { ThreadHeader } from './Chats';
-import { ForwardPick, MessageActions } from './ChatPages';
+import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
@@ -395,12 +395,12 @@ export default function Thread() {
                       const quoted = msgs.find((x) => x.id === m.replyTo);
                       return <span className="quote"><b>{quoted ? firstName(quoted.by) : ''}</b><span>{preview(quoted)}</span></span>;
                     })()}
-                    {m.voice && <span className="voice"><Icon name="mic" /> {typeof m.voice === 'string' ? m.voice : m.voice.dur}</span>}
+                    {m.voice && <VoicePlay src={typeof m.voice === 'object' ? m.voice.audio : ''} dur={typeof m.voice === 'string' ? m.voice : (m.voice.dur || '')} />}
                     {m.photo?.dataUrl && <img className="shot" src={m.photo.dataUrl} alt="" />}
                     {m.photo && !m.photo.dataUrl && <Swatch hue={m.photo.hue} seed={m.photo.seed} />}
                     {(m.kind && !m.photo) && !m.voice && <span className="chip">{({ drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill', material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in' })[m.kind] || m.kind}</span>}
                     <p>
-                      {m.text ? <span className="say">{m.text}</span> : null}
+                      {m.text && !m.voice ? <span className="say">{m.text}</span> : null}
                       <time title={receipt === 'seen' ? 'Seen' : receipt === 'delivered' ? 'Delivered' : receipt === 'sent' ? 'Sent' : undefined}>
                         {m.edited ? 'Edited · ' : ''}{fmtT(m.at)}
                         {receipt && (

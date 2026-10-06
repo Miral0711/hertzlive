@@ -44,10 +44,12 @@ export function onPhone(projectId) {
   return !projectId || !svc.phoneHides(projectId);
 }
 
+export const hiddenFromMe = (m) => (m.hiddenFor || []).includes(state.userId);
+
 export function myThreads() {
   return svc.threads()
     .filter((t) => onPhone(t.projectId))
-    .map((t) => ({ t, last: [...svc.messages(t.id)].sort((a, b) => a.at.localeCompare(b.at)).at(-1) || null }))
+    .map((t) => ({ t, last: [...svc.messages(t.id)].filter((m) => !hiddenFromMe(m)).sort((a, b) => a.at.localeCompare(b.at)).at(-1) || null }))
     .sort((a, b) => ((b.last || {}).at || '').localeCompare((a.last || {}).at || ''));
 }
 
@@ -79,6 +81,12 @@ export function deleteMessage(message) {
   render();
 }
 
+export function hideMessage(message) {
+  message.hiddenFor = [...new Set([...(message.hiddenFor || []), state.userId])];
+  persist();
+  render();
+}
+
 export function toggleDecision(message) {
   message.decision = !message.decision;
   persist();
@@ -96,11 +104,11 @@ export function editMessage(message, text) {
 
 export function unreadCount(threadId, readAt) {
   if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`field-mute-${threadId}`) === '1') return 0;
-  return svc.messages(threadId).filter((m) => m.by !== state.userId && (!readAt || m.at > readAt)).length;
+  return svc.messages(threadId).filter((m) => m.by !== state.userId && !hiddenFromMe(m) && (!readAt || m.at > readAt)).length;
 }
 
 export function messagesOf(threadId) {
-  return [...svc.messages(threadId)].sort((a, b) => a.at.localeCompare(b.at));
+  return [...svc.messages(threadId)].filter((m) => !hiddenFromMe(m)).sort((a, b) => a.at.localeCompare(b.at));
 }
 
 export function siblings(thread) {
