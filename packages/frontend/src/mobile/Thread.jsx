@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
 import { useField } from './FieldContext';
@@ -162,6 +162,9 @@ export default function Thread() {
   const [menu, setMenu] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
   const location = useLocation();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : '/mobile/chats';
   const scroller = useRef(null);
   const text = drafts[threadId] || '';
 
@@ -333,7 +336,7 @@ export default function Thread() {
 
   return (
     <div className="screen">
-      <ThreadHeader thread={thread} />
+      <ThreadHeader thread={thread} backTo={backTo} />
       {related.length > 0 && (
         <div className="switcher" role="tablist" aria-label="Conversations in this project">
           {related.map((t) => (

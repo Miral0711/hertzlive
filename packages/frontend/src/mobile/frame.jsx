@@ -2,19 +2,19 @@ import { Link } from 'react-router-dom';
 import { photoUrl } from '../ui/Ph';
 import Icon from './Icon';
 
-export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, footer = null }) {
+export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, footer = null }) {
   return (
     <div className="screen">
-      <header className="top thread-top">
+      <header className={`top thread-top${sheet ? ' proj-top' : ''}`}>
         <Link className="icon-btn" to={back} aria-label={backLabel === 'Back' ? 'Back' : `Back to ${backLabel}`}>
-          <Icon name="back" /><span>{backLabel}</span>
+          <Icon name="back" />{sheet ? null : <span>{backLabel}</span>}
         </Link>
         <div className="thread-heading">
           <h1>{title}</h1>
           {sub ? <span>{sub}</span> : null}
         </div>
       </header>
-      <div className={bare ? 'body' : 'body canvas'}>{children}</div>
+      <div className={`${bare ? 'body' : 'body canvas'}${sheet ? ' proj' : ''}`}>{children}</div>
       {footer}
     </div>
   );

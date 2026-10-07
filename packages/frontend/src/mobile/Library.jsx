@@ -70,7 +70,7 @@ export function Photo() {
           </>
         ) : null}
         {!item.msgId && (item.kind === 'Photo' || item.kind === 'Video') && can('feed', 'w') ? (
-          <Link className="primary" to={`/mobile/photos/${item.id}/markup`}>Mark up</Link>
+          <Link className="primary" to={`/mobile/photos/${item.id}/markup${projectId ? `?project=${projectId}` : ''}`}>Mark up</Link>
         ) : null}
         {item.markupOf ? <Link className="ghost" to={`/mobile/photos/${item.markupOf}`}>View original</Link> : null}
       </div>
@@ -81,6 +81,8 @@ export function Photo() {
 export function Markup() {
   useStore();
   const { photoId } = useParams();
+  const [params] = useSearchParams();
+  const projectId = params.get('project') || '';
   const navigate = useNavigate();
   const [note, setNote] = useState('Check this on site');
   const [error, setError] = useState('');
@@ -98,7 +100,7 @@ export function Markup() {
   }
 
   return (
-    <Page back={`/mobile/photos/${photoId}`} backLabel="Photo" title="Mark up" sub={item?.title}>
+    <Page back={`/mobile/photos/${photoId}${projectId ? `?project=${projectId}` : ''}`} backLabel="Photo" title="Mark up" sub={item?.title}>
       <Note>The original photo stays as it is. This saves a new marked copy.</Note>
       <form className="stack" onSubmit={save}>
         <label>Note<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
@@ -114,6 +116,8 @@ export function Camera() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const preset = params.get('thread');
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : (preset ? `/mobile/chats/${preset}` : '/mobile/chats');
   const videoRef = useRef(null);
   const [q, setQ] = useState('');
   const [shot, setShot] = useState('');
@@ -190,8 +194,8 @@ export function Camera() {
   const chosen = all.find(({ t }) => t.id === dest)?.t;
   return (
     <Page
-      back={preset ? `/mobile/chats/${preset}` : '/mobile/chats'}
-      backLabel="Chats"
+      back={backTo}
+      backLabel={from && from.startsWith('/mobile/projects') ? 'Project' : 'Chats'}
       title={shot ? 'Send this photo' : 'Camera'}
       bare
       footer={shot ? (

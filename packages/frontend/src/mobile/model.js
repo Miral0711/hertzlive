@@ -190,6 +190,103 @@ export function projectWork(projectId) {
   return attentionItems().filter((x) => x.projectId === projectId);
 }
 
+export function projectNeeds(projectId) {
+  const rows = projectWork(projectId).map((item) => ({
+    key: item.key,
+    kind: item.kind,
+    title: item.title,
+    meta: item.meta,
+    to: item.issueId ? `/mobile/issues/${item.issueId}?from=${encodeURIComponent(`/mobile/projects/${projectId}`)}` : null,
+    taskId: item.key.startsWith('task:') ? item.key.slice(5) : null,
+  }));
+  if (state.role === 'client') {
+    svc.materials({ projectId }).filter((m) => m.status === 'client_pending').forEach((m) => {
+      rows.push({
+        key: `mat:${m.id}`,
+        kind: 'Your approval',
+        title: m.name,
+        meta: m.vendor || '',
+        to: `/mobile/projects/${projectId}/materials`,
+      });
+    });
+    (state.db.CHANGES || []).filter((c) => c.projectId === projectId && c.status === 'awaiting_client').forEach((c) => {
+      rows.push({
+        key: `chg:${c.id}`,
+        kind: 'Your approval',
+        title: c.title,
+        meta: c.no,
+        to: `/mobile/projects/${projectId}/changes`,
+      });
+    });
+  }
+  return rows;
+}
+
+export function nextDeadline(project) {
+  if (!project) return null;
+  const rows = [];
+  (project.milestones || []).forEach((m) => {
+    if (!m.done && m.date) rows.push({ title: m.name, date: m.date.slice(0, 10) });
+  });
+  if (can('issue', 'r')) {
+    openIssues(project.id).forEach((issue) => {
+      if (issue.due) rows.push({ title: issue.title, date: issue.due.slice(0, 10) });
+    });
+  }
+  if (can('task', 'r')) {
+    const all = state.role === 'partner';
+    (state.db.TASKS || []).forEach((task) => {
+      if (task.projectId === project.id && task.status === 'open' && task.due && (all || task.owner === state.userId)) {
+        rows.push({ title: task.title, date: task.due.slice(0, 10) });
+      }
+    });
+  }
+  if (['partner', 'client', 'designer'].includes(state.role)) {
+    svc.decisionsDue({ projectId: project.id }).forEach((d) => {
+      if (d.due) rows.push({ title: d.title, date: d.due.slice(0, 10) });
+    });
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+  return rows[0] || null;
+}
+
+const phoneDrawingKey = () => `archos-phone-drawings:${state.userId}:${state.role}`;
+
+export function phoneDrawings(projectId, kind) {
+  const project = projectOf(projectId);
+  if (!project || !can('drawing', 'r')) return [];
+  try {
+    const data = JSON.parse(localStorage.getItem(phoneDrawingKey()) || '{}');
+    return (Array.isArray(data[kind]) ? data[kind] : [])
+      .filter((x) => x && x.projectId === projectId && x.no)
+      .flatMap((x) => {
+        const drawing = (project.drawings || []).find((d) => d.no === x.no);
+        return drawing ? [{ ...x, d: drawing }] : [];
+      });
+  } catch (_) {
+    return [];
+  }
+}
+
+export function rememberPhoneDrawing(projectId, no, save = false) {
+  const project = projectOf(projectId);
+  const drawing = project?.drawings?.find((d) => d.no === no);
+  if (!drawing || !can('drawing', 'r')) return 'failed';
+  try {
+    const data = JSON.parse(localStorage.getItem(phoneDrawingKey()) || '{}');
+    const kind = save ? 'saved' : 'recent';
+    const old = Array.isArray(data[kind]) ? data[kind] : [];
+    const list = old.filter((x) => x && (x.projectId !== projectId || x.no !== no));
+    const removing = save && list.length !== old.length;
+    data[kind] = removing ? list : [{ projectId, no, rev: drawing.rev }, ...list];
+    if (!save) data[kind] = data[kind].slice(0, 12);
+    localStorage.setItem(phoneDrawingKey(), JSON.stringify(data));
+    return removing ? 'removed' : 'saved';
+  } catch (_) {
+    return 'failed';
+  }
+}
+
 export function openIssues(projectId) {
   return svc.issues({ projectId }).filter((i) => i.status !== 'closed');
 }

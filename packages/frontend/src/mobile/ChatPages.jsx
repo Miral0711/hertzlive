@@ -13,13 +13,16 @@ import { Avatar, ThreadAvatar } from './faces';
 export function GroupInfo() {
   useStore();
   const { threadId } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : '';
   const thread = svc.thread(threadId);
   if (!thread) return <Page back="/mobile/chats" title="Chat"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
   const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id);
   const muted = sessionStorage.getItem(`field-mute-${threadId}`) === '1';
   const pinned = messagesOf(threadId).filter((m) => m.decision && !m.deleted);
   return (
-    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title={threadTitle(thread)} sub={`${audience(thread)} · ${members.length} people`} bare>
+    <Page back={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`} backLabel="Chat" title={threadTitle(thread)} sub={`${audience(thread)} · ${members.length} people`} bare>
       {thread.kind === 'internal' ? <Note>Office only. The client never sees this.</Note> : null}
       <button type="button" className="row" onClick={() => {
         if (muted) sessionStorage.removeItem(`field-mute-${threadId}`);
@@ -398,13 +401,16 @@ export function Filing() {
 export function Issue() {
   useStore();
   const { issueId } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const back = from && from.startsWith('/mobile/') ? from : '/mobile/today';
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const detail = svc.siteIssueDetails(issueId);
-  if (!detail) return <Page back="/mobile/today" title="Issue"><div className="empty"><h3>This issue isn’t available</h3></div></Page>;
+  if (!detail) return <Page sheet back={back} backLabel={back === '/mobile/today' ? 'Today' : 'Back'} title="Issue"><div className="empty"><h3>This issue isn’t available</h3></div></Page>;
   const { issue } = detail;
   return (
-    <Page back="/mobile/today" backLabel="Today" title={issue.title} sub={`${issue.status}${issue.due ? ` · reply by ${fmtT(issue.due)}` : ''}`}>
+    <Page sheet back={back} backLabel={back === '/mobile/today' ? 'Today' : 'Back'} title={issue.title} sub={`${issue.status}${issue.due ? ` · reply by ${fmtT(issue.due)}` : ''}`}>
       <p className="note">{issue.type}{issue.drawing ? ` · ${issue.drawing}` : ''} · raised by {firstName(issue.raisedBy)}</p>
       <h2 className="sect">Linked site updates</h2>
       {detail.sources.map((m) => (

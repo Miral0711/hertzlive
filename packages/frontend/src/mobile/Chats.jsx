@@ -118,16 +118,17 @@ function ChatRow({ thread, last, unread, draft }) {
   );
 }
 
-export function ThreadHeader({ thread }) {
+export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
   const navigate = useNavigate();
   const otherId = thread.kind === 'dm' ? thread.memberIds.find((id) => id !== state.userId) : null;
   const other = otherId ? user(otherId) : null;
+  const infoTo = `/mobile/chats/${thread.id}/info${backTo.startsWith('/mobile/projects') ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   return (
     <header className="top thread-top">
-      <button type="button" className="icon-btn" onClick={() => navigate('/mobile/chats')} aria-label="Back to chats">
+      <button type="button" className="icon-btn" onClick={() => navigate(backTo)} aria-label={backTo.includes('/people') ? 'Back to people' : backTo.startsWith('/mobile/projects') ? 'Back to project' : 'Back to chats'}>
         <Icon name="back" />
       </button>
-      <Link className="thread-heading" to={`/mobile/chats/${thread.id}/info`}>
+      <Link className="thread-heading" to={infoTo}>
         <ThreadAvatar thread={thread} size="sm" />
         <span className="thread-name">
           <h1>{threadTitle(thread)}</h1>

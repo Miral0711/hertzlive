@@ -1,15 +1,46 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
+import { persist } from '../shared/core';
 import Icon from './Icon';
 import { Page, Note } from './frame';
 import { Avatar } from './faces';
 import {
-  svc, can, projectOf, projectWork, fmtD, firstName, state, user, phoneOf, render,
+  svc, can, projectOf, projectNeeds, fmtD, firstName, state, user, phoneOf, render, staff,
+  phoneDrawings, rememberPhoneDrawing,
 } from './model';
 
+export function WorkRow({ item, onDone }) {
+  const body = (
+    <div>
+      <small>{item.kind}</small>
+      <b>{item.title}</b>
+      {item.meta ? <span>{item.meta}</span> : null}
+    </div>
+  );
+  if (item.to) return <Link className="day-row" to={item.to}>{body}</Link>;
+  if (item.taskId) {
+    return (
+      <div className="day-row">
+        {body}
+        <div className="day-acts"><button type="button" onClick={() => onDone(item.taskId)}>Done</button></div>
+      </div>
+    );
+  }
+  return <div className="day-row">{body}</div>;
+}
+
+export function finishTask(taskId) {
+  const task = (state.db.TASKS || []).find((row) => row.id === taskId);
+  if (!task || task.owner !== state.userId) return;
+  const previous = task.status;
+  task.status = 'done';
+  if (!persist()) task.status = previous;
+  else render();
+}
+
 function Missing({ id }) {
-  return <Page back={`/mobile/projects/${id || ''}`} title="Project"><div className="empty"><h3>This project isn’t available</h3></div></Page>;
+  return <Page sheet back={`/mobile/projects/${id || ''}`} title="Project"><div className="empty"><h3>This project isn’t available</h3></div></Page>;
 }
 
 export function Materials() {
@@ -19,17 +50,25 @@ export function Materials() {
   const rows = project ? svc.materials({ projectId }) : [];
   if (!project) return <Missing id={projectId} />;
   if (!can('material', 'r')) {
-    return <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials"><div className="empty"><h3>Materials aren’t available for this login</h3></div></Page>;
+    return <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials"><div className="empty"><h3>Materials aren’t available for this login</h3></div></Page>;
   }
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
       <Note>Samples and decisions shared with you.</Note>
       {rows.map((m) => (
         <article key={m.id} className="view-card">
           <b>{m.name}</b>
           <span>{m.vendor || 'Supplier not recorded'}</span>
           <em className={m.status === 'approved' ? 'issued' : ''}>{(m.status || 'Status not recorded').replace(/_/g, ' ')}</em>
-          {m.status === 'client_pending' && state.role === 'client' ? <Link className="primary" to="/mobile/today">Review in Today</Link> : null}
+          {m.status === 'client_pending' && state.role === 'client' ? (
+            <div className="mat-acts">
+              <button type="button" onClick={() => { svc.approveMaterial(m.id, true); render(); }}>Approve</button>
+              <button type="button" className="quiet" onClick={() => { svc.approveMaterial(m.id, false); render(); }}>Not this one</button>
+            </div>
+          ) : null}
+          {m.status === 'client_pending' && staff() && project.clientId ? (
+            <span>Waiting on {firstName(project.clientId)}</span>
+          ) : null}
         </article>
       ))}
       {svc.assistKinds().includes('compare') && rows.length >= 2 ? (
@@ -47,7 +86,7 @@ export function Contacts() {
   const groups = project ? svc.peopleFolder(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name} bare>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name} bare>
       <Note>People in this project.</Note>
       {groups.filter((g) => g.people.length).map((g) => (
         <section key={g.name}>
@@ -55,11 +94,19 @@ export function Contacts() {
           {g.people.map((u) => {
             const person = user(u.id);
             const known = state.db.USERS.some((x) => x.id === u.id);
+            const dm = known
+              ? state.db.THREADS.find((t) => t.kind === 'dm' && (t.memberIds || []).includes(u.id) && (t.memberIds || []).includes(state.userId))
+              : null;
             return (
               <div className="row" key={u.id}>
                 {person?.id ? <Avatar person={person} /> : <span className="av">{(u.name || '?').slice(0, 2)}</span>}
                 <span className="row-copy"><b>{u.name}</b><span>{u.title}{u.last ? ` · last active ${fmtD(u.last)}` : ''}</span></span>
-                {known ? <a className="icon-btn" href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>Call</a> : null}
+                {known ? (
+                  <span className="person-acts">
+                    {dm ? <Link to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`}>Message</Link> : null}
+                    <a href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>Call</a>
+                  </span>
+                ) : null}
               </div>
             );
           })}
@@ -74,20 +121,12 @@ export function Attention() {
   useStore();
   const { projectId } = useParams();
   const project = projectOf(projectId);
-  const work = project ? projectWork(projectId) : [];
+  const work = project ? projectNeeds(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Needs attention" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Needs attention" sub={project.name}>
       <Note>Your actions and waiting items for this project. Shared with Today.</Note>
-      {work.map((item) => (
-        item.issueId ? (
-          <Link key={item.key} className="task hot" to={`/mobile/issues/${item.issueId}`}>
-            <small>{item.kind}</small><b>{item.title}</b><span>{item.meta}</span>
-          </Link>
-        ) : (
-          <div key={item.key} className="task"><small>{item.kind}</small><b>{item.title}</b><span>{item.meta}</span></div>
-        )
-      ))}
+      {work.map((item) => <WorkRow key={item.key} item={item} onDone={finishTask} />)}
       {!work.length && <div className="empty"><h3>Nothing needs you here</h3></div>}
     </Page>
   );
@@ -98,10 +137,34 @@ export function Changes() {
   const { projectId } = useParams();
   const project = projectOf(projectId);
   const rows = project ? svc.projectUpdates({ projectId }) : [];
+  const pending = project && state.role === 'client'
+    ? (state.db.CHANGES || []).filter((c) => c.projectId === projectId && c.status === 'awaiting_client')
+    : [];
   if (!project) return <Missing id={projectId} />;
+  function decide(id, ok) {
+    const change = (state.db.CHANGES || []).find((c) => c.id === id);
+    if (!change || state.role !== 'client') return;
+    change.status = ok ? 'approved' : 'declined';
+    change.signedAt = new Date().toISOString().slice(0, 16);
+    svc.log(`Change ${change.status} · ${change.no}`, `Change ${change.id}`);
+    if (ok) svc.recordApproval({ kind: 'change', projectId: change.projectId, value: change.no, instruction: change.title });
+    persist();
+    render();
+  }
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Important changes" sub={project.name} bare>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Important changes" sub={project.name} bare>
       <Note>Recorded changes with their original sources.</Note>
+      {pending.map((c) => (
+        <article className="view-card" key={c.id}>
+          <small>Your approval · {c.no}</small>
+          <b>{c.title}</b>
+          <span>{c.reason}</span>
+          <div className="mat-acts">
+            <button type="button" onClick={() => decide(c.id, true)}>Approve</button>
+            <button type="button" className="quiet" onClick={() => decide(c.id, false)}>Decline</button>
+          </div>
+        </article>
+      ))}
       {rows.map((u) => {
         const inner = (
           <>
@@ -110,12 +173,12 @@ export function Changes() {
           </>
         );
         return u.source?.threadId ? (
-          <Link key={u.id} className="row" to={`/mobile/chats/${u.source.threadId}`}>{inner}</Link>
+          <Link key={u.id} className="row" to={`/mobile/chats/${u.source.threadId}?from=${encodeURIComponent(`/mobile/projects/${projectId}/changes`)}`}>{inner}</Link>
         ) : (
           <div key={u.id} className="row">{inner}</div>
         );
       })}
-      {!rows.length && <div className="empty"><h3>No recorded changes</h3></div>}
+      {!rows.length && !pending.length && <div className="empty"><h3>No recorded changes</h3></div>}
     </Page>
   );
 }
@@ -138,7 +201,7 @@ export function Refs() {
     } catch (err) { setError(err.message); }
   }
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="References" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="References" sub={project.name}>
       <Note>Client references and inspiration links.</Note>
       {rows.map((r) => (
         <div className="row" key={r.id}>
@@ -171,7 +234,7 @@ export function Intake() {
   const rows = project ? svc.intake(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Client data checklist" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Client data checklist" sub={project.name}>
       {rows.map((i) => (
         <div className="row" key={i.id}>
           <span className="row-copy">
@@ -209,7 +272,7 @@ export function DrawingIndex() {
   const stages = [...new Set(rows.map((r) => r.stage))];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Drawing index" sub={project.name} bare>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Drawing index" sub={project.name} bare>
       <Note>Planned sheets per stage. Struck through once finalised.</Note>
       {stages.map((stage) => (
         <section key={stage}>
@@ -244,18 +307,43 @@ export function DrawingIndex() {
 export function Drawing() {
   useStore();
   const { projectId, drawingNo } = useParams();
+  const no = decodeURIComponent(drawingNo || '');
   const project = projectOf(projectId);
-  const drawing = (project?.drawings || []).find((d) => d.no === decodeURIComponent(drawingNo));
+  const drawing = (project?.drawings || []).find((d) => d.no === no);
+  const saved = phoneDrawings(projectId, 'saved').some((x) => x.no === no);
+  const related = drawing && can('issue', 'r')
+    ? svc.issues({ projectId }).filter((i) => i.status !== 'closed' && i.drawing === drawing.no)
+    : [];
+  useEffect(() => {
+    if (drawing) rememberPhoneDrawing(projectId, drawing.no, false);
+  }, [projectId, no, drawing]);
   if (!project || !drawing) return <Missing id={projectId} />;
   return (
-    <Page back={`/mobile/projects/${projectId}/drawings`} backLabel="Drawings" title={drawing.name} sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}/drawings`} backLabel="Drawings" title={drawing.name} sub={project.name}>
       <Note>Check the revision and purpose before anyone builds from it. This demo does not attach the original file.</Note>
       <article className="view-card">
         <span className="rev">{drawing.rev}</span>
         <b>{drawing.no}</b>
         <em className={drawing.status === 'Issued for construction' ? 'issued' : ''}>{drawing.status || 'Purpose not recorded'}</em>
         <p>{drawing.date ? `Dated ${fmtD(drawing.date)}` : 'Date not recorded'}{drawing.by ? ` · ${firstName(drawing.by)}` : ''}</p>
+        <button type="button" className="text-btn" onClick={() => { rememberPhoneDrawing(projectId, drawing.no, true); render(); }}>
+          {saved ? 'Saved on this phone' : 'Save on this phone'}
+        </button>
       </article>
+      {related.length > 0 && (
+        <section>
+          <h2 className="sect">Open on this sheet</h2>
+          {related.map((issue) => (
+            <Link key={issue.id} className="row" to={`/mobile/issues/${issue.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}`)}`}>
+              <span className="row-copy"><b>{issue.title}</b><span>{issue.status}</span></span>
+              <Icon name="chev" />
+            </Link>
+          ))}
+        </section>
+      )}
+      {svc.assistKinds().includes('ask') && (
+        <Link className="primary" to={`/mobile/projects/${projectId}/assist?kind=ask&q=${encodeURIComponent(`What is open on drawing ${drawing.no}?`)}`}>Ask about this sheet</Link>
+      )}
     </Page>
   );
 }
@@ -270,7 +358,7 @@ export function Share() {
   const links = project ? svc.shareLinks(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page back={`/mobile/projects/${projectId}`} backLabel="Project" title="Share a link" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Share a link" sub={project.name}>
       <Note>An expiring web link. Anyone with the link can view until it expires.</Note>
       {can('share', 'w') && (
         <form className="stack" onSubmit={(e) => {
