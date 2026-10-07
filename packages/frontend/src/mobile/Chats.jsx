@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
+import { backName } from './frame';
 import { useField } from './FieldContext';
 import {
   myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc, user, phoneOf, state,
@@ -122,10 +123,11 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
   const navigate = useNavigate();
   const otherId = thread.kind === 'dm' ? thread.memberIds.find((id) => id !== state.userId) : null;
   const other = otherId ? user(otherId) : null;
-  const infoTo = `/mobile/chats/${thread.id}/info${backTo.startsWith('/mobile/projects') ? `?from=${encodeURIComponent(backTo)}` : ''}`;
+  const query = backTo.startsWith('/mobile/') && backTo !== '/mobile/chats' ? `?from=${encodeURIComponent(backTo)}` : '';
+  const infoTo = `/mobile/chats/${thread.id}/info${query}`;
   return (
     <header className="top thread-top">
-      <button type="button" className="icon-btn" onClick={() => navigate(backTo)} aria-label={backTo.includes('/people') ? 'Back to people' : backTo.startsWith('/mobile/projects') ? 'Back to project' : 'Back to chats'}>
+      <button type="button" className="icon-btn" onClick={() => navigate(backTo)} aria-label={`Back to ${backName(backTo)}`}>
         <Icon name="back" />
       </button>
       <Link className="thread-heading" to={infoTo}>
@@ -135,7 +137,7 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
           <span>{audience(thread)}{thread.kind === 'dm' ? '' : ` · ${thread.memberIds.length} ${t('people')}`}</span>
         </span>
       </Link>
-      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/call`} aria-label="Video call">
+      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/call${query}`} aria-label="Video call">
         <Icon name="play" />
       </Link>
       {other ? (
@@ -143,7 +145,7 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
           <Icon name="call" />
         </a>
       ) : (
-        <Link className="icon-btn" to={`/mobile/chats/${thread.id}/info`} aria-label="Call someone in this chat">
+        <Link className="icon-btn" to={infoTo} aria-label="Call someone in this chat">
           <Icon name="call" />
         </Link>
       )}

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { persist } from '../shared/core';
 import Icon from './Icon';
-import { Page, Note } from './frame';
+import { Page, Note, backName } from './frame';
 import { Avatar } from './faces';
 import {
   svc, can, projectOf, projectNeeds, fmtD, firstName, state, user, phoneOf, render, staff,
@@ -135,6 +135,10 @@ export function Attention() {
 export function Changes() {
   useStore();
   const { projectId } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}`;
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Project';
   const project = projectOf(projectId);
   const rows = project ? svc.projectUpdates({ projectId }) : [];
   const pending = project && state.role === 'client'
@@ -152,7 +156,7 @@ export function Changes() {
     render();
   }
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Important changes" sub={project.name} bare>
+    <Page sheet back={back} backLabel={backLabel} title="Important changes" sub={project.name} bare>
       <Note>Recorded changes with their original sources.</Note>
       {pending.map((c) => (
         <article className="view-card" key={c.id}>
@@ -166,16 +170,30 @@ export function Changes() {
         </article>
       ))}
       {rows.map((u) => {
+        const here = `/mobile/projects/${projectId}/changes${from ? `?from=${encodeURIComponent(from)}` : ''}`;
+        const backQuery = `?from=${encodeURIComponent(here)}`;
+        const siteChat = u.source?.type === 'delivery' && u.source.siteId
+          ? svc.threads().find((t) => t.kind === 'site' && t.siteId === u.source.siteId)
+          : null;
+        const to = u.source?.threadId
+          ? `/mobile/chats/${u.source.threadId}${backQuery}`
+          : u.source?.type === 'drawing' && u.source.id
+            ? `/mobile/projects/${projectId}/drawings/${encodeURIComponent(u.source.id)}${backQuery}`
+            : siteChat
+              ? `/mobile/chats/${siteChat.id}${backQuery}`
+              : '';
         const inner = (
-          <>
-            <span className="row-copy"><small>{u.kind} · {fmtD(u.at)}</small><b>{u.title}</b><span>{u.detail}</span></span>
-            <Icon name="chev" />
-          </>
+          <div>
+            <small>{u.kind} · {fmtD(u.at)}</small>
+            <b>{u.title}</b>
+            <span>{u.detail}</span>
+            {!to ? <span>No conversation recorded for this.</span> : null}
+          </div>
         );
-        return u.source?.threadId ? (
-          <Link key={u.id} className="row" to={`/mobile/chats/${u.source.threadId}?from=${encodeURIComponent(`/mobile/projects/${projectId}/changes`)}`}>{inner}</Link>
+        return to ? (
+          <Link key={u.id} className="day-row" to={to}>{inner}</Link>
         ) : (
-          <div key={u.id} className="row">{inner}</div>
+          <div key={u.id} className="day-row">{inner}</div>
         );
       })}
       {!rows.length && !pending.length && <div className="empty"><h3>No recorded changes</h3></div>}
@@ -186,6 +204,10 @@ export function Changes() {
 export function Refs() {
   useStore();
   const { projectId } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}`;
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Project';
   const project = projectOf(projectId);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -201,7 +223,7 @@ export function Refs() {
     } catch (err) { setError(err.message); }
   }
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="References" sub={project.name}>
+    <Page sheet back={back} backLabel={backLabel} title="References" sub={project.name}>
       <Note>Client references and inspiration links.</Note>
       {rows.map((r) => (
         <div className="row" key={r.id}>
@@ -307,6 +329,10 @@ export function DrawingIndex() {
 export function Drawing() {
   useStore();
   const { projectId, drawingNo } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}/drawings`;
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Drawings';
   const no = decodeURIComponent(drawingNo || '');
   const project = projectOf(projectId);
   const drawing = (project?.drawings || []).find((d) => d.no === no);
@@ -319,7 +345,7 @@ export function Drawing() {
   }, [projectId, no, drawing]);
   if (!project || !drawing) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}/drawings`} backLabel="Drawings" title={drawing.name} sub={project.name}>
+    <Page sheet back={back} backLabel={backLabel} title={drawing.name} sub={project.name}>
       <Note>Check the revision and purpose before anyone builds from it. This demo does not attach the original file.</Note>
       <article className="view-card">
         <span className="rev">{drawing.rev}</span>
@@ -334,7 +360,7 @@ export function Drawing() {
         <section>
           <h2 className="sect">Open on this sheet</h2>
           {related.map((issue) => (
-            <Link key={issue.id} className="row" to={`/mobile/issues/${issue.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}`)}`}>
+            <Link key={issue.id} className="row" to={`/mobile/issues/${issue.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}${from ? `?from=${encodeURIComponent(from)}` : ''}`)}`}>
               <span className="row-copy"><b>{issue.title}</b><span>{issue.status}</span></span>
               <Icon name="chev" />
             </Link>
@@ -342,7 +368,10 @@ export function Drawing() {
         </section>
       )}
       {svc.assistKinds().includes('ask') && (
-        <Link className="primary" to={`/mobile/projects/${projectId}/assist?kind=ask&q=${encodeURIComponent(`What is open on drawing ${drawing.no}?`)}`}>Ask about this sheet</Link>
+        <Link className="day-row" to={`/mobile/projects/${projectId}/assist?kind=ask&drawing=${encodeURIComponent(drawing.no)}&q=${encodeURIComponent(`What is open on drawing ${drawing.no}?`)}&from=${encodeURIComponent(`/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}${from ? `?from=${encodeURIComponent(from)}` : ''}`)}`}>
+          <b>Ask about this sheet</b>
+          <span>{drawing.no}</span>
+        </Link>
       )}
     </Page>
   );

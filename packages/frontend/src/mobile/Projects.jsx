@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { TODAY } from '../shared/data';
 import Icon from './Icon';
+import { backName } from './frame';
 import { WorkRow, finishTask } from './ProjectPages';
 import {
   svc, projectOf, siteFor, openIssues, projectNeeds, nextDeadline, me, firstName, can, audience, state, onPhone,
@@ -75,6 +76,9 @@ export default function Projects() {
 export function Project() {
   useStore();
   const { projectId } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : '/mobile/projects';
   const project = projectOf(projectId);
   if (!project || !onPhone(project.id)) {
     return (
@@ -136,7 +140,7 @@ export function Project() {
   return (
     <div className="screen">
       <header className="top thread-top proj-top">
-        <Link className="icon-btn" to="/mobile/projects" aria-label="Back to projects">
+        <Link className="icon-btn" to={backTo} aria-label={`Back to ${from ? backName(backTo) : 'projects'}`}>
           <Icon name="back" />
         </Link>
         <div className="thread-heading">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { hh, inr, persist, AIProvider } from '../shared/core';
@@ -228,7 +228,7 @@ function DayCard({ item, act }) {
     const { enquiry } = item;
     const phone = (enquiry.phone || '').replace(/\D/g, '');
     return (
-      <article className={row}>
+      <article className={row} id={item.key}>
         <small>New enquiry{enquiry.source ? ` · ${enquiry.source}` : ''}</small>
         <b>{enquiry.name} · {svc.serviceType(enquiry.typeId)}</b>
         <span>{[enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</span>
@@ -367,6 +367,11 @@ export default function Today() {
   const laterItems = actions.filter((item) => laterKinds.has(item.kind)).sort(byRank);
   const leaves = laterItems.filter((item) => item.kind === 'leave');
   const enquiries = laterItems.filter((item) => item.kind === 'enquiry');
+  const opened = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+  useEffect(() => {
+    if (!opened) return;
+    document.getElementById(opened)?.scrollIntoView({ block: 'center' });
+  }, [opened]);
   const holidays = laterItems.filter((item) => item.kind === 'holiday');
   const reminders = laterItems.filter((item) => item.kind === 'followup');
   const waiting = (['site_manager', 'contractor'].includes(state.role) || built.waiting.length)
@@ -490,9 +495,9 @@ export default function Today() {
             <div>
               <h2>{focus ? focus.title : (nowItems.length ? 'Your day is open' : 'You’re up to date')}</h2>
               <p>{focus ? `${currentMeeting ? 'Now' : hh(focus.start)} · ${placeOf(focus)}` : (ahead || 'Nothing else on your calendar')}</p>
-            </div>
+        </div>
           </section>
-          {!state.online && <p className="banner">Your message will send when the network is back.</p>}
+        {!state.online && <p className="banner">Your message will send when the network is back.</p>}
           {siteThreads.length > 0 && can('thread', 'w') && (
             <div className="day-row">
               <Link to={postTo}>
@@ -526,9 +531,9 @@ export default function Today() {
           )}
           {!nowItems.length && !laterItems.length && (
             <div className="day-clear">
-              <h3>Nothing waiting on you</h3>
-              <Link to="/mobile/projects">Open projects</Link>
-            </div>
+            <h3>Nothing waiting on you</h3>
+            <Link to="/mobile/projects">Open projects</Link>
+          </div>
           )}
           {note ? <p className="note">{note}</p> : null}
           <div className="day-menu">
@@ -541,7 +546,7 @@ export default function Today() {
             </details>
           )}
           {enquiries.length > 0 && (
-            <details className="today-fold">
+            <details className="today-fold" open={enquiries.some((item) => item.key === opened)}>
               <summary><span>New enquiries</span><b>{enquiries.length}</b></summary>
               <div className="day-card">
                 {enquiries.map((item) => <DayCard key={item.key} item={item} act={act} />)}
@@ -553,7 +558,7 @@ export default function Today() {
               <summary><span>{holidays[0].holiday.name} · {fmtD(holidays[0].holiday.date)}</span></summary>
               <div className="day-card">
                 {holidays.map((item) => <DayCard key={item.key} item={item} act={act} />)}
-              </div>
+                </div>
             </details>
           )}
           {reminders.length > 0 && (
@@ -574,7 +579,7 @@ export default function Today() {
                   <Link to={`/mobile/issues/${item.issue.id}`}>Open linked issue</Link>
                 </div>
               ))}
-            </details>
+        </details>
           )}
           {away.length > 0 && (
             <div className="day-quiet">
@@ -634,15 +639,15 @@ export default function Today() {
                     <button type="button" onClick={() => shareWeekly(project, false)}>Share</button>
                     <button type="button" className="quiet" onClick={() => shareWeekly(project, true)}>Edit first</button>
                   </Acts>
-                </article>
-              ))}
+          </article>
+        ))}
               {chain.length > 0 && <p className="tool-label">Materials</p>}
               {chain.map((m) => (
                 <div className="day-row" key={m.id}>
                   <b>{m.name}</b>
                   <div className="day-acts"><span>{(m.status || 'open').replaceAll('_', ' ')}</span></div>
-                </div>
-              ))}
+              </div>
+            ))}
               {siteToday.length > 0 && <p className="tool-label">Site updates</p>}
               {siteToday.map((f) => {
                 const thread = svc.threads().find((th) => th.kind === 'site' && th.siteId === f.site.id);
@@ -677,8 +682,8 @@ export default function Today() {
                 <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ask about a drawing, date or decision" aria-label="Ask about your work" />
                 <button type="submit">Ask</button>
               </form>
-            </details>
-          )}
+          </details>
+        )}
           </div>
         </div>
       </div>

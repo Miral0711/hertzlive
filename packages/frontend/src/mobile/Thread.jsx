@@ -8,7 +8,7 @@ import { ThreadHeader } from './Chats';
 import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
-  svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
+  svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
   postMessage, toggleReaction, toggleDecision, projectOf, siteFor,
 } from './model';
 
@@ -340,7 +340,7 @@ export default function Thread() {
       {related.length > 0 && (
         <div className="switcher" role="tablist" aria-label="Conversations in this project">
           {related.map((t) => (
-            <Link key={t.id} role="tab" aria-selected={t.id === thread.id} className={t.id === thread.id ? 'on' : ''} to={`/mobile/chats/${t.id}`}>
+            <Link key={t.id} role="tab" aria-selected={t.id === thread.id} className={t.id === thread.id ? 'on' : ''} to={`/mobile/chats/${t.id}${from ? `?from=${encodeURIComponent(from)}` : ''}`}>
               {audience(t)}
             </Link>
           ))}
@@ -366,6 +366,14 @@ export default function Thread() {
         </div>
       )}
       <div className="body chat chat-wallpaper" ref={scroller}>
+        {svc.decisionsDue({ threadId: thread.id }).map((d) => (
+          <div className="day-row" id={`decision-${d.id}`} key={d.id}>
+            <div>
+              <small>Still open · due {fmtD(d.due)}</small>
+              <b>{d.title}</b>
+            </div>
+          </div>
+        ))}
         {msgs.map((m, i) => {
           const prev = msgs[i - 1];
           const day = m.at.slice(0, 10);

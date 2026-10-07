@@ -1,24 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
-import { Page, Swatch, Note } from './frame';
+import { Page, Swatch, Note, backName } from './frame';
 import Icon from './Icon';
 import { ThreadAvatar } from './faces';
 import {
   photoItems, projectName, fmtDT, user, myThreads, threadTitle, audience, postMessage, svc, can, render,
 } from './model';
 
+function photoSearch(projectId, from) {
+  const q = new URLSearchParams();
+  if (projectId) q.set('project', projectId);
+  if (from) q.set('from', from);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 export function Photos() {
   useStore();
   const [params] = useSearchParams();
   const projectId = params.get('project') || '';
+  const from = params.get('from');
+  const back = from && from.startsWith('/mobile/') ? from : (projectId ? `/mobile/projects/${projectId}` : '/mobile/projects');
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Back';
   const [filter, setFilter] = useState('all');
   const all = photoItems(projectId);
   const kinds = [...new Set(all.map((i) => i.kind))];
   const items = all.filter((i) => filter === 'all' || i.kind === filter);
 
   return (
-    <Page back={projectId ? `/mobile/projects/${projectId}` : '/mobile/projects'} backLabel="Back" title="Photos" sub={`${projectId ? projectName(projectId) : 'All projects'} · ${all.length} filed`}>
+    <Page back={back} backLabel={backLabel} title="Photos" sub={`${projectId ? projectName(projectId) : 'All projects'} · ${all.length} filed`}>
       <div className="filters">
         <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
         {kinds.map((k) => (
@@ -28,7 +39,7 @@ export function Photos() {
       {items.length ? (
         <div className="photo-grid">
           {items.map((i) => (
-            <Link key={i.id} to={`/mobile/photos/${i.id}${projectId ? `?project=${projectId}` : ''}`} aria-label={i.title}>
+            <Link key={i.id} to={`/mobile/photos/${i.id}${photoSearch(projectId, from)}`} aria-label={i.title}>
               {i.dataUrl ? <img className="shot" src={i.dataUrl} alt="" /> : <Swatch hue={i.hue} seed={i.seed} />}
               <b>{i.markupOf ? 'Marked up' : i.kind}</b>
               <span>{[projectName(i.projectId).split(' ')[0], i.room].filter(Boolean).join(' · ') || i.src}</span>
@@ -45,11 +56,12 @@ export function Photo() {
   const { photoId } = useParams();
   const [params] = useSearchParams();
   const projectId = params.get('project') || '';
+  const from = params.get('from');
   const item = photoItems(projectId).find((x) => x.id === photoId);
   if (!item) {
     return <Page back="/mobile/photos" title="Photo"><div className="empty"><h3>This photo isn’t available</h3></div></Page>;
   }
-  const back = `/mobile/photos${projectId ? `?project=${projectId}` : ''}`;
+  const back = `/mobile/photos${photoSearch(projectId, from)}`;
   return (
     <Page back={back} backLabel="Photos" title={item.kind} sub={`${item.src} · ${fmtDT(item.at)}`}>
       <div className="view-card">
@@ -70,7 +82,7 @@ export function Photo() {
           </>
         ) : null}
         {!item.msgId && (item.kind === 'Photo' || item.kind === 'Video') && can('feed', 'w') ? (
-          <Link className="primary" to={`/mobile/photos/${item.id}/markup${projectId ? `?project=${projectId}` : ''}`}>Mark up</Link>
+          <Link className="primary" to={`/mobile/photos/${item.id}/markup${photoSearch(projectId, from)}`}>Mark up</Link>
         ) : null}
         {item.markupOf ? <Link className="ghost" to={`/mobile/photos/${item.markupOf}`}>View original</Link> : null}
       </div>
@@ -83,6 +95,7 @@ export function Markup() {
   const { photoId } = useParams();
   const [params] = useSearchParams();
   const projectId = params.get('project') || '';
+  const from = params.get('from');
   const navigate = useNavigate();
   const [note, setNote] = useState('Check this on site');
   const [error, setError] = useState('');
@@ -100,7 +113,7 @@ export function Markup() {
   }
 
   return (
-    <Page back={`/mobile/photos/${photoId}${projectId ? `?project=${projectId}` : ''}`} backLabel="Photo" title="Mark up" sub={item?.title}>
+    <Page back={`/mobile/photos/${photoId}${photoSearch(projectId, from)}`} backLabel="Photo" title="Mark up" sub={item?.title}>
       <Note>The original photo stays as it is. This saves a new marked copy.</Note>
       <form className="stack" onSubmit={save}>
         <label>Note<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
@@ -195,7 +208,7 @@ export function Camera() {
   return (
     <Page
       back={backTo}
-      backLabel={from && from.startsWith('/mobile/projects') ? 'Project' : 'Chats'}
+      backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Chats'}
       title={shot ? 'Send this photo' : 'Camera'}
       bare
       footer={shot ? (

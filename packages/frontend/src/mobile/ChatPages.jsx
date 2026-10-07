@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
-import { Page, Note } from './frame';
+import { Page, Note, backName } from './frame';
 import Icon from './Icon';
 import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
@@ -32,7 +32,7 @@ export function GroupInfo() {
         <span className="row-copy"><b>{muted ? 'Unmute this chat' : 'Mute this chat'}</b><span>Stops the unread mark on this phone</span></span>
       </button>
       {pinned.map((m) => (
-        <Link className="row" key={m.id} to={`/mobile/chats/${threadId}#${m.id}`}>
+        <Link className="row" key={m.id} to={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}#${m.id}`}>
           <span className="row-copy"><b>Pinned decision</b><span>{(m.text || 'Decision').slice(0, 80)}</span></span>
         </Link>
       ))}
@@ -404,24 +404,33 @@ export function Issue() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : '/mobile/today';
+  const backLabel = backName(back);
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const detail = svc.siteIssueDetails(issueId);
-  if (!detail) return <Page sheet back={back} backLabel={back === '/mobile/today' ? 'Today' : 'Back'} title="Issue"><div className="empty"><h3>This issue isn’t available</h3></div></Page>;
+  if (!detail) return <Page sheet back={back} backLabel={backLabel} title="Issue"><div className="empty"><h3>This issue isn’t available</h3></div></Page>;
   const { issue } = detail;
+  const here = `/mobile/issues/${issueId}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
-    <Page sheet back={back} backLabel={back === '/mobile/today' ? 'Today' : 'Back'} title={issue.title} sub={`${issue.status}${issue.due ? ` · reply by ${fmtT(issue.due)}` : ''}`}>
+    <Page sheet stackTitle back={back} backLabel={backLabel} title={issue.title} sub={`${issue.status}${issue.due ? ` · reply by ${fmtT(issue.due)}` : ''}`}>
       <p className="note">{issue.type}{issue.drawing ? ` · ${issue.drawing}` : ''} · raised by {firstName(issue.raisedBy)}</p>
-      <h2 className="sect">Linked site updates</h2>
-      {detail.sources.map((m) => (
-        <Link key={m.id} className="row" to={`/mobile/chats/${m.threadId}`}>
-          <span className="row-copy"><b>{firstName(m.by)}</b><span>{m.text}</span></span>
-        </Link>
-      ))}
-      <h2 className="sect">Office answers</h2>
-      {detail.answers.length ? detail.answers.map((m) => (
-        <article key={m.id} className="view-card"><p>{m.text}</p></article>
-      )) : <p className="note">No answer yet.</p>}
+      <section>
+        <h2>Linked site updates</h2>
+        {detail.sources.map((m) => (
+          <Link key={m.id} className="day-row" to={`/mobile/chats/${m.threadId}?from=${encodeURIComponent(here)}#${m.id}`}>
+            <div>
+              <b>{firstName(m.by)}</b>
+              <span>{m.text}</span>
+            </div>
+          </Link>
+        ))}
+        {!detail.sources.length && <p className="note">No site update linked.</p>}
+      </section>
+      <section>
+        <h2>Office answers</h2>
+        {detail.answers.length ? detail.answers.map((m) => (
+          <div key={m.id} className="day-row"><div><b>{firstName(m.by)}</b><span>{m.text}</span></div></div>
+        )) : <p className="note">No answer yet.</p>}
       {detail.canAnswer && (
         <form className="stack" onSubmit={(e) => {
           e.preventDefault();
@@ -434,8 +443,12 @@ export function Issue() {
         </form>
       )}
       {svc.assistKinds().includes('ask') ? (
-        <Link className="ghost" to={`/mobile/projects/${issue.projectId}/assist?kind=ask&issue=${issueId}`}>Summarise this issue</Link>
+        <Link className="day-row" to={`/mobile/projects/${issue.projectId}/assist?kind=ask&issue=${issueId}&from=${encodeURIComponent(here)}`}>
+          <b>Summarise this issue</b>
+          <span>From the recorded history</span>
+        </Link>
       ) : null}
+      </section>
     </Page>
   );
 }
@@ -446,13 +459,17 @@ export function Assist() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const kind = params.get('kind') || 'ask';
+  const fromPage = params.get('from');
   const issueId = params.get('issue') || '';
+  const drawingNo = params.get('drawing') || '';
+  const sheetDrawing = drawingNo ? (svc.project(projectId)?.drawings || []).find((d) => d.no === drawingNo) : null;
   const messageId = params.get('message') || '';
   const projects = svc.projects();
   const sites = svc.sites();
   const [pid, setPid] = useState(params.get('project') || projectId || projects[0]?.id || '');
   const [siteId, setSiteId] = useState(params.get('site') || sites[0]?.id || '');
-  const [question, setQuestion] = useState(issueId ? '' : (params.get('q') || 'What is still open?'));
+  const brief = issueId ? svc.siteIssueDetails(issueId) : null;
+  const [question, setQuestion] = useState(issueId ? 'Summarise the recorded history of this issue.' : (params.get('q') || 'What is still open?'));
   const [picked, setPicked] = useState({});
   const [result, setResult] = useState(null);
   const [options, setOptions] = useState(null);
@@ -460,15 +477,49 @@ export function Assist() {
   const [due, setDue] = useState(stamp().slice(0, 10));
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
+  const [sendTo, setSendTo] = useState('');
   const allowed = svc.assistKinds().includes(kind);
   const materials = svc.materials({ projectId: pid });
   const clientThread = svc.threads().find((t) => t.projectId === pid && t.kind === 'client');
   const clientMessages = clientThread ? messagesOf(clientThread.id).filter((m) => !m.deleted && (m.text || m.transcript)).slice(-12) : [];
   const photos = svc.threads().filter((t) => !pid || t.projectId === pid).flatMap((t) => messagesOf(t.id).filter((m) => m.photo && !m.deleted).map((m) => ({ ...m, threadName: threadTitle(t) })));
-  const title = {
+  const title = issueId ? 'Summarise this issue' : drawingNo ? 'Ask about this sheet' : {
     ask: 'Ask about this project', compare: 'Compare materials', daily: 'Review day report',
     client: 'Client update', concept: 'Finish palette', followup: 'Suggested follow-up',
   }[kind] || 'Draft';
+
+  const chats = svc.threads().filter((t) => t.projectId === pid && ['client', 'internal', 'site'].includes(t.kind) && can('thread', 'w'));
+  const chosen = chats.some((t) => t.id === sendTo) ? sendTo : (chats.find((t) => t.kind === 'internal') || chats.find((t) => t.kind === 'site') || chats[0])?.id || '';
+
+  function sendQuestion() {
+    const thread = chats.find((t) => t.id === chosen);
+    const text = question.trim();
+    if (!thread || !text) {
+      setError('Write the question and choose who receives it.');
+      return;
+    }
+    if (!postMessage(thread.id, { text })) {
+      setError('This conversation is not available to send to.');
+      return;
+    }
+    const backTo = fromPage && fromPage.startsWith('/mobile/') ? fromPage : `/mobile/projects/${pid}`;
+    navigate(`/mobile/chats/${thread.id}?from=${encodeURIComponent(backTo)}`);
+  }
+
+  function sendPrepared() {
+    const thread = chats.find((t) => t.id === chosen);
+    const text = (result?.text || '').trim();
+    if (!thread || !text) {
+      setError('Choose who receives this draft.');
+      return;
+    }
+    if (!postMessage(thread.id, { text })) {
+      setError('This conversation is not available to send to.');
+      return;
+    }
+    const backTo = fromPage && fromPage.startsWith('/mobile/') ? fromPage : `/mobile/projects/${pid}`;
+    navigate(`/mobile/chats/${thread.id}?from=${encodeURIComponent(backTo)}`);
+  }
 
   async function run(e) {
     e.preventDefault();
@@ -519,11 +570,15 @@ export function Assist() {
   }
 
   return (
-    <Page back={messageId ? `/mobile/chats/${state.db.MESSAGES.find((m) => m.id === messageId)?.threadId || ''}/messages/${messageId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today'} title={title} sub={projectName(pid)}>
+    <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={fromPage && fromPage.startsWith('/mobile/') ? fromPage : messageId ? `/mobile/chats/${state.db.MESSAGES.find((m) => m.id === messageId)?.threadId || ''}/messages/${messageId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today'} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
+      {issueId && !brief && <div className="empty"><h3>This issue isn’t available</h3></div>}
+      {drawingNo && !sheetDrawing && <div className="empty"><h3>This sheet isn’t available</h3></div>}
       {!allowed && <div className="empty"><h3>This draft isn’t available for you</h3><p>Switch person if you need this action.</p></div>}
-      {allowed && (
+      {allowed && (!issueId || brief) && (!drawingNo || sheetDrawing) && (
         <form className="stack" onSubmit={run}>
-          {!['daily', 'followup', 'concept'].includes(kind) && (
+          {issueId && brief && <p className="note">{projectName(brief.issue.projectId)}. This uses the recorded history of this issue only.</p>}
+          {drawingNo && sheetDrawing && <p className="note">{projectName(projectId)} · {drawingNo}. This question is about this sheet.</p>}
+          {!['daily', 'followup', 'concept'].includes(kind) && !issueId && !drawingNo && (
             <label>Project
               <select value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label="Project">
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -540,6 +595,19 @@ export function Assist() {
           {kind === 'ask' && !issueId && (
             <label>Your question<textarea rows={3} value={question} onChange={(e) => setQuestion(e.target.value)} /></label>
           )}
+          {kind === 'ask' && (
+            <>
+              <h2>Who receives this</h2>
+              {chats.map((t) => (
+                <button key={t.id} type="button" className="day-row" aria-pressed={chosen === t.id} onClick={() => setSendTo(t.id)}>
+                  <b>{audience(t)}</b>
+                  <span>{t.name}{chosen === t.id ? ' · sending here' : ''}</span>
+                </button>
+              ))}
+              {!chats.length && <p className="note">No conversation you can send this to.</p>}
+              {!issueId && chats.length > 0 && <button type="button" className="primary" onClick={sendQuestion}>Send question</button>}
+            </>
+          )}
           {kind === 'compare' && materials.map((m) => (
             <label key={m.id} className="check"><input type="checkbox" checked={!!picked[m.id]} onChange={(e) => setPicked({ ...picked, [m.id]: e.target.checked })} /> {m.name}</label>
           ))}
@@ -554,7 +622,7 @@ export function Assist() {
             )) : <p className="note">Send a photo in a project chat first.</p>
           )}
           {error ? <p className="warn-text">{error}</p> : null}
-          <button className="primary" type="submit">Prepare draft</button>
+          <button className="primary" type="submit">{issueId ? 'Prepare issue brief' : 'Prepare draft'}</button>
         </form>
       )}
       {result && (
@@ -567,6 +635,9 @@ export function Assist() {
           {result.missing?.length ? <p className="warn-text">{result.missing.join(' ')}</p> : null}
           {['daily', 'client'].includes(kind) && (
             <button type="button" className="primary" onClick={sendDraft}>Send this draft</button>
+          )}
+          {kind === 'ask' && chats.length > 0 && (
+            <button type="button" className="primary" onClick={sendPrepared}>Send this draft to {audience(chats.find((t) => t.id === chosen))}</button>
           )}
         </article>
       )}
@@ -588,12 +659,15 @@ export function Assist() {
 export function Call() {
   useStore();
   const { threadId } = useParams();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : '';
   const [made, setMade] = useState(null);
   const [error, setError] = useState('');
   const thread = svc.thread(threadId);
   if (!thread) return <Page back="/mobile/chats" title="Video call"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
   return (
-    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Start video call" sub={threadTitle(thread)}>
+    <Page back={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`} backLabel="Chat" title="Start video call" sub={threadTitle(thread)}>
       <Note>Posts a call card into this chat. Meet for the studio.</Note>
       {error ? <p className="warn-text">{error}</p> : null}
       <button type="button" className="primary" onClick={() => {
