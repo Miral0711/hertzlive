@@ -83,8 +83,8 @@ export default function Profile() {
           <button type="button" className="set" onClick={() => { startOver(); navigate('/mobile/chats'); }}>
             <span><b>Start over</b><span>Clear this demo’s changes</span></span><span>Reset</span>
           </button>
-          <button type="button" className="set" onClick={() => { logout(); navigate('/login', { replace: true }); }}>
-            <span><b>Sign out</b><span>Return to the studio login</span></span><Icon name="logout" />
+          <button type="button" className="set" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }}>
+            <span><b>Sign out</b><span>Return to the phone sign-in</span></span><Icon name="logout" />
           </button>
         </div>
         <p className="note">Filing, transcripts and answers are simulated on this device. Updates stay in this browser.</p>

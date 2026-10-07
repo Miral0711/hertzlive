@@ -681,6 +681,22 @@ a.ghost, .ghost {
 }
 .stack { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .stack label, .check { display: flex; flex-direction: column; gap: 4px; font-weight: 650; }
+.field.phone-login {
+  background: var(--nav);
+  color: var(--nav-ink);
+}
+.field.phone-login h2 {
+  margin: 0;
+  font-family: Fraunces, Georgia, Cambria, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: inherit;
+}
+.phone-login .login-scroll {
+  scrollbar-width: none;
+}
+.phone-login .login-scroll::-webkit-scrollbar { display: none; }
 .stack input, .stack textarea, .stack select {
   min-height: 44px;
   padding: 10px 12px;
