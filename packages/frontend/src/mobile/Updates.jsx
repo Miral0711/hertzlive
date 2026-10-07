@@ -1,51 +1,95 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
-import { updates, fmtD, me } from './model';
+import { updates, fmtD, me, projectName } from './model';
 import { t } from './copy';
 import { Avatar } from './faces';
 
-const ICONS = { decision: 'check', issue: 'warn', site: 'sites', client: 'chat', approval: 'check', enquiry: 'enquiries', people: 'people' };
+const KIND = {
+  decision: 'Decision',
+  issue: 'Issue',
+  answer: 'Office answer',
+  approval: 'Approval',
+  drawing: 'Drawing',
+  delivery: 'Delivery',
+  site: 'Site',
+  client: 'Client',
+  enquiry: 'Enquiry',
+  people: 'People',
+};
 
 export default function Updates() {
   useStore();
   const list = updates();
   const person = me();
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('all');
+  const q = query.trim().toLowerCase();
+  const kinds = ['delivery', 'drawing', 'approval', 'decision', 'issue', 'answer', 'site', 'client', 'enquiry', 'people'].filter((item) => list.some((row) => row.kind === item));
+  const shown = list.filter((item) => {
+    if (kind !== 'all' && item.kind !== kind) return false;
+    if (!q) return true;
+    return [item.title, item.detail, item.projectId ? projectName(item.projectId) : '', KIND[item.kind] || item.kind]
+      .join(' ')
+      .toLowerCase()
+      .includes(q);
+  });
+  const groups = [];
+  const seen = new Map();
+  shown.forEach((item) => {
+    const key = item.projectId || 'studio';
+    if (!seen.has(key)) {
+      seen.set(key, groups.length);
+      groups.push({ key, title: item.projectId ? projectName(item.projectId) : 'Studio', items: [] });
+    }
+    groups[seen.get(key)].items.push(item);
+  });
 
   return (
     <div className="screen">
       <header className="top">
         <h1>{t('updates')}<span>What changed in your projects</span></h1>
-        <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fupdates" aria-label="Profile">
           <Avatar person={person} size="sm" />
         </Link>
       </header>
-      <div className="body">
-        <p className="note pad">Work that needs you stays on Today. This is the record of what already changed.</p>
-        {list.map((u) => {
-          const inner = (
-            <>
-              <span className="symbol"><Icon name={ICONS[u.kind] || 'bell'} /></span>
-              <span className="row-copy">
-                <small>{u.kind} · {fmtD(u.at)}</small>
-                <b>{u.title}</b>
-                <span>{u.detail}</span>
-              </span>
-            </>
-          );
-          const to = u.issueId
-            ? `/mobile/issues/${u.issueId}`
-            : u.messageId
-              ? `/mobile/chats/${u.threadId}#${u.messageId}`
-              : u.threadId
-                ? `/mobile/chats/${u.threadId}`
-                : '';
-          return to ? (
-            <Link key={u.id} className="row update" to={to}>{inner}</Link>
-          ) : (
-            <div key={u.id} className="row update">{inner}</div>
-          );
-        })}
+      <div className="body canvas proj">
+        <p className="note">The record of what already changed. Work that needs you stays on Today.</p>
+        {list.length > 6 && (
+          <label className="search">
+            <Icon name="search" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search updates" aria-label="Search updates" />
+          </label>
+        )}
+        {kinds.length > 1 && (
+          <div className="upd-kinds" role="tablist" aria-label="Update type">
+            <button type="button" aria-pressed={kind === 'all'} onClick={() => setKind('all')}>All</button>
+            {kinds.map((item) => (
+              <button key={item} type="button" aria-pressed={kind === item} onClick={() => setKind(item)}>{KIND[item] || item}</button>
+            ))}
+          </div>
+        )}
+        {groups.map((group) => (
+          <section key={group.key}>
+            <h2>{group.title}</h2>
+            {group.items.map((item) => {
+              const inner = (
+                <div>
+                  <small>{KIND[item.kind] || item.kind} · {fmtD(item.at)}</small>
+                  <b>{item.title}</b>
+                  {item.detail ? <span>{item.detail}</span> : null}
+                </div>
+              );
+              return item.to ? (
+                <Link key={item.id} className="day-row" to={item.to}>{inner}</Link>
+              ) : (
+                <div key={item.id} className="day-row">{inner}</div>
+              );
+            })}
+          </section>
+        ))}
+        {list.length > 0 && !shown.length && <div className="empty"><h3>No update matches</h3></div>}
         {!list.length && <div className="empty"><h3>Nothing has changed yet</h3><p>Office answers, drawing issues and decisions will land here.</p></div>}
       </div>
     </div>

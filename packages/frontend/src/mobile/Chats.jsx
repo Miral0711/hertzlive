@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
+import { backName } from './frame';
 import { useField } from './FieldContext';
 import {
   myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc, user, phoneOf, state,
@@ -41,7 +42,7 @@ export default function Chats() {
         <Link className="icon-btn" to="/mobile/camera" aria-label="Send a photo">
           <Icon name="camera" />
         </Link>
-        <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fchats" aria-label="Profile">
           <Avatar person={person} size="sm" />
         </Link>
       </header>
@@ -118,23 +119,26 @@ function ChatRow({ thread, last, unread, draft }) {
   );
 }
 
-export function ThreadHeader({ thread }) {
+export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
   const navigate = useNavigate();
   const otherId = thread.kind === 'dm' ? thread.memberIds.find((id) => id !== state.userId) : null;
   const other = otherId ? user(otherId) : null;
+  const query = backTo.startsWith('/mobile/') && backTo !== '/mobile/chats' ? `?from=${encodeURIComponent(backTo)}` : '';
+  const infoTo = `/mobile/chats/${thread.id}/info${query}`;
+  const voiceTo = `/mobile/chats/${thread.id}/call${query ? `${query}&voice=1` : '?voice=1'}`;
   return (
     <header className="top thread-top">
-      <button type="button" className="icon-btn" onClick={() => navigate('/mobile/chats')} aria-label="Back to chats">
+      <button type="button" className="icon-btn" onClick={() => navigate(backTo)} aria-label={`Back to ${backName(backTo)}`}>
         <Icon name="back" />
       </button>
-      <Link className="thread-heading" to={`/mobile/chats/${thread.id}/info`}>
+      <Link className="thread-heading" to={infoTo}>
         <ThreadAvatar thread={thread} size="sm" />
         <span className="thread-name">
           <h1>{threadTitle(thread)}</h1>
           <span>{audience(thread)}{thread.kind === 'dm' ? '' : ` · ${thread.memberIds.length} ${t('people')}`}</span>
         </span>
       </Link>
-      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/call`} aria-label="Video call">
+      <Link className="icon-btn" to={`/mobile/chats/${thread.id}/call${query}`} aria-label="Video call">
         <Icon name="play" />
       </Link>
       {other ? (
@@ -142,7 +146,7 @@ export function ThreadHeader({ thread }) {
           <Icon name="call" />
         </a>
       ) : (
-        <Link className="icon-btn" to={`/mobile/chats/${thread.id}/info`} aria-label="Call someone in this chat">
+        <Link className="icon-btn" to={voiceTo} aria-label="Voice call">
           <Icon name="call" />
         </Link>
       )}

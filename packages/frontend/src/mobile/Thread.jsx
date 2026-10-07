@@ -1,14 +1,15 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
 import { useField } from './FieldContext';
 import { Swatch } from './frame';
 import { ThreadHeader } from './Chats';
+import PhotoEdit from './PhotoEdit';
 import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
-  svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
+  svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
   postMessage, toggleReaction, toggleDecision, projectOf, siteFor,
 } from './model';
 
@@ -30,7 +31,7 @@ const MORE = [
   ['daylog', "Today's log", 'today', ['site_manager', 'partner', 'designer']],
 ];
 const STEP = {
-  photo: 'Choose a photo from this phone. It goes into this chat when you press Send.',
+  photo: 'Choose a photo. You can crop it, draw on it, and add a note before it is sent.',
   drawing: 'Pick a drawing. This chat gets its name and revision.',
   delivery: 'Say what arrived. This chat gets that line.',
   sample: 'Add a picture of a finish or material, and say what it is.',
@@ -161,7 +162,11 @@ export default function Thread() {
   const [replyTo, setReplyTo] = useState(null);
   const [menu, setMenu] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
+  const [editor, setEditor] = useState(null);
   const location = useLocation();
+  const [params] = useSearchParams();
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : '/mobile/chats';
   const scroller = useRef(null);
   const text = drafts[threadId] || '';
 
@@ -206,6 +211,21 @@ export default function Thread() {
     );
   }
 
+  if (editor) {
+    const ask = { sample: 'What is this sample?', delivery: 'What arrived?' }[editor.what];
+    return (
+      <div className="screen">
+        <PhotoEdit
+          src={editor.src}
+          noteLabel={ask || 'Add a note'}
+          noteRequired={Boolean(ask)}
+          onCancel={() => setEditor(null)}
+          onSend={sendEdited}
+        />
+      </div>
+    );
+  }
+
   const msgs = messagesOf(thread.id);
   const related = siblings(thread);
   const pinned = msgs.filter((m) => m.decision && !m.deleted);
@@ -236,7 +256,15 @@ export default function Thread() {
     e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setShot(String(reader.result || ''));
+    reader.onload = () => {
+      const src = String(reader.result || '');
+      if (sheet && ['photo', 'sample', 'delivery'].includes(sheet.what)) {
+        setEditor({ what: sheet.what, src });
+        setSheet(null);
+        return;
+      }
+      setShot(src);
+    };
     reader.readAsDataURL(file);
   }
 
@@ -281,6 +309,17 @@ export default function Thread() {
       return;
     }
     navigate(`/mobile/projects/${svc.site(siteId)?.projectId || thread.projectId}/assist?kind=daily&site=${siteId}`);
+  }
+
+  function sendEdited(dataUrl, words) {
+    const what = editor.what;
+    const fields = { kind: what, photo: { dataUrl, hue: 28, seed: 4 } };
+    if (what === 'sample') fields.text = `Sample: ${words}`;
+    else if (what === 'delivery') fields.text = `Delivery: ${words}`;
+    else fields.text = words || 'Photo';
+    postMessage(thread.id, fields);
+    setEditor(null);
+    markRead(thread.id);
   }
 
   function sendAttach(e) {
@@ -333,11 +372,11 @@ export default function Thread() {
 
   return (
     <div className="screen">
-      <ThreadHeader thread={thread} />
+      <ThreadHeader thread={thread} backTo={backTo} />
       {related.length > 0 && (
         <div className="switcher" role="tablist" aria-label="Conversations in this project">
           {related.map((t) => (
-            <Link key={t.id} role="tab" aria-selected={t.id === thread.id} className={t.id === thread.id ? 'on' : ''} to={`/mobile/chats/${t.id}`}>
+            <Link key={t.id} role="tab" aria-selected={t.id === thread.id} className={t.id === thread.id ? 'on' : ''} to={`/mobile/chats/${t.id}${from ? `?from=${encodeURIComponent(from)}` : ''}`}>
               {audience(t)}
             </Link>
           ))}
@@ -363,6 +402,14 @@ export default function Thread() {
         </div>
       )}
       <div className="body chat chat-wallpaper" ref={scroller}>
+        {svc.decisionsDue({ threadId: thread.id }).map((d) => (
+          <div className="day-row" id={`decision-${d.id}`} key={d.id}>
+            <div>
+              <small>Still open · due {fmtD(d.due)}</small>
+              <b>{d.title}</b>
+            </div>
+          </div>
+        ))}
         {msgs.map((m, i) => {
           const prev = msgs[i - 1];
           const day = m.at.slice(0, 10);
@@ -466,7 +513,7 @@ export default function Thread() {
             <Icon name="send" />
           </button>
         ) : (
-          <Link className="round" to={`/mobile/chats/${thread.id}/voice`} aria-label="Record a voice note">
+          <Link className="round mic" to={`/mobile/chats/${thread.id}/voice`} aria-label="Record a voice note">
             <Icon name="mic" />
           </Link>
         )}
@@ -505,7 +552,7 @@ export default function Thread() {
                     {shot ? <img className="cam-preview" src={shot} alt="" /> : null}
                     <label className="ghost file-pick">{shot ? 'Choose a different photo' : (sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo')}<input type="file" accept="image/*" onChange={readPhoto} /></label>
                     {sheet.what === 'sample' && !shot && (
-                      <button type="button" className="text-btn" onClick={() => setShot('/images/p01.jpg')}>Use a sample picture</button>
+                      <button type="button" className="text-btn" onClick={() => { setEditor({ what: 'sample', src: '/images/p01.jpg' }); setSheet(null); }}>Use a sample picture</button>
                     )}
                   </>
                 )}

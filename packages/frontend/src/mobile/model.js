@@ -181,6 +181,8 @@ export function waitingItems() {
       key: `wait:${i.id}`,
       title: i.title,
       meta: `${projectName(i.projectId)} · ${firstName(i.assignee)}`,
+      issueId: i.id,
+      projectId: i.projectId,
     }));
 }
 
@@ -188,28 +190,175 @@ export function projectWork(projectId) {
   return attentionItems().filter((x) => x.projectId === projectId);
 }
 
+export function projectNeeds(projectId) {
+  const rows = projectWork(projectId).map((item) => ({
+    key: item.key,
+    kind: item.kind,
+    title: item.title,
+    meta: item.meta,
+    to: item.issueId ? `/mobile/issues/${item.issueId}?from=${encodeURIComponent(`/mobile/projects/${projectId}`)}` : null,
+    taskId: item.key.startsWith('task:') ? item.key.slice(5) : null,
+  }));
+  if (state.role === 'client') {
+    svc.materials({ projectId }).filter((m) => m.status === 'client_pending').forEach((m) => {
+      rows.push({
+        key: `mat:${m.id}`,
+        kind: 'Your approval',
+        title: m.name,
+        meta: m.vendor || '',
+        to: `/mobile/projects/${projectId}/materials`,
+      });
+    });
+    (state.db.CHANGES || []).filter((c) => c.projectId === projectId && c.status === 'awaiting_client').forEach((c) => {
+      rows.push({
+        key: `chg:${c.id}`,
+        kind: 'Your approval',
+        title: c.title,
+        meta: c.no,
+        to: `/mobile/projects/${projectId}/changes`,
+      });
+    });
+  }
+  return rows;
+}
+
+export function nextDeadline(project) {
+  if (!project) return null;
+  const rows = [];
+  (project.milestones || []).forEach((m) => {
+    if (!m.done && m.date) rows.push({ title: m.name, date: m.date.slice(0, 10) });
+  });
+  if (can('issue', 'r')) {
+    openIssues(project.id).forEach((issue) => {
+      if (issue.due) rows.push({ title: issue.title, date: issue.due.slice(0, 10) });
+    });
+  }
+  if (can('task', 'r')) {
+    const all = state.role === 'partner';
+    (state.db.TASKS || []).forEach((task) => {
+      if (task.projectId === project.id && task.status === 'open' && task.due && (all || task.owner === state.userId)) {
+        rows.push({ title: task.title, date: task.due.slice(0, 10) });
+      }
+    });
+  }
+  if (['partner', 'client', 'designer'].includes(state.role)) {
+    svc.decisionsDue({ projectId: project.id }).forEach((d) => {
+      if (d.due) rows.push({ title: d.title, date: d.due.slice(0, 10) });
+    });
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+  return rows[0] || null;
+}
+
+const phoneDrawingKey = () => `archos-phone-drawings:${state.userId}:${state.role}`;
+
+export function phoneDrawings(projectId, kind) {
+  const project = projectOf(projectId);
+  if (!project || !can('drawing', 'r')) return [];
+  try {
+    const data = JSON.parse(localStorage.getItem(phoneDrawingKey()) || '{}');
+    return (Array.isArray(data[kind]) ? data[kind] : [])
+      .filter((x) => x && x.projectId === projectId && x.no)
+      .flatMap((x) => {
+        const drawing = (project.drawings || []).find((d) => d.no === x.no);
+        return drawing ? [{ ...x, d: drawing }] : [];
+      });
+  } catch (_) {
+    return [];
+  }
+}
+
+export function rememberPhoneDrawing(projectId, no, save = false) {
+  const project = projectOf(projectId);
+  const drawing = project?.drawings?.find((d) => d.no === no);
+  if (!drawing || !can('drawing', 'r')) return 'failed';
+  try {
+    const data = JSON.parse(localStorage.getItem(phoneDrawingKey()) || '{}');
+    const kind = save ? 'saved' : 'recent';
+    const old = Array.isArray(data[kind]) ? data[kind] : [];
+    const list = old.filter((x) => x && (x.projectId !== projectId || x.no !== no));
+    const removing = save && list.length !== old.length;
+    data[kind] = removing ? list : [{ projectId, no, rev: drawing.rev }, ...list];
+    if (!save) data[kind] = data[kind].slice(0, 12);
+    localStorage.setItem(phoneDrawingKey(), JSON.stringify(data));
+    return removing ? 'removed' : 'saved';
+  } catch (_) {
+    return 'failed';
+  }
+}
+
 export function openIssues(projectId) {
   return svc.issues({ projectId }).filter((i) => i.status !== 'closed');
 }
 
+const UPDATES_FROM = '/mobile/updates';
+
+function noteProject(ref) {
+  const text = ref || '';
+  const siteId = (text.match(/sites\/(s\d+)/) || [])[1];
+  if (siteId) {
+    const site = (state.db.SITES || []).find((s) => s.id === siteId);
+    if (site && onPhone(site.projectId)) return site.projectId;
+  }
+  const projectId = (text.match(/projects\/(p\d+)/) || [])[1];
+  return projectId && onPhone(projectId) ? projectId : '';
+}
+
 export function updates() {
   const role = state.role;
-  const notes = NOTIFICATIONS
-    .filter((n) => !n.roles || n.roles.includes(role))
-    .map((n) => ({ id: n.id, at: n.at, kind: n.kind, title: n.text, detail: 'Studio update', threadId: null }));
+  const from = encodeURIComponent(UPDATES_FROM);
+  const recorded = svc.projectUpdates().filter((u) => onPhone(u.projectId)).map((u) => {
+    const message = u.source?.type === 'message' ? u.source : null;
+    const drawingNo = u.source?.type === 'drawing' ? u.source.id : '';
+    let to = '';
+    if (message) to = `/mobile/chats/${message.threadId}?from=${from}#${message.id}`;
+    else if (drawingNo) to = `/mobile/projects/${u.projectId}/drawings/${encodeURIComponent(drawingNo)}?from=${from}`;
+    else if (u.kind === 'delivery') to = `/mobile/projects/${u.projectId}/changes?from=${from}`;
+    else to = `/mobile/projects/${u.projectId}`;
+    return {
+      id: u.id, at: u.at, kind: u.kind, title: u.title, detail: u.detail, projectId: u.projectId, to,
+    };
+  });
+  const sourced = new Set(recorded.map((u) => {
+    const hash = (u.to || '').split('#')[1];
+    return hash || '';
+  }).filter(Boolean));
   const decisions = svc.threads().filter((t) => onPhone(t.projectId)).flatMap((t) => messagesOf(t.id)
-    .filter((m) => m.decision || m.issueId)
+    .filter((m) => (m.decision || m.issueId) && !sourced.has(m.id))
     .map((m) => ({
       id: m.id,
       at: m.at,
       kind: m.decision ? 'decision' : 'issue',
       title: m.text,
-      detail: `${projectName(t.projectId)} · ${audience(t)}`,
-      threadId: t.id,
-      messageId: m.id,
-      issueId: m.issueId || null,
+      detail: audience(t),
+      projectId: t.projectId,
+      to: m.issueId
+        ? `/mobile/issues/${m.issueId}?from=${from}`
+        : `/mobile/chats/${t.id}?from=${from}#${m.id}`,
     })));
-  return [...notes, ...decisions].sort((a, b) => b.at.localeCompare(a.at));
+  const notes = NOTIFICATIONS
+    .filter((n) => !n.roles || n.roles.includes(role))
+    .map((n) => {
+      const projectId = noteProject(n.ref);
+      const refs = n.ref || '';
+      let to = '';
+      if (refs.includes('enquiries')) {
+        const named = svc.myEnquiries().find((e) => (n.text || '').includes(e.name));
+        to = named ? `/mobile/today#enq-${named.id}` : '/mobile/today';
+      }
+      else if (projectId && refs.includes('tab=decisions')) {
+        const open = svc.decisionsDue({ projectId }).filter((d) => svc.thread(d.threadId));
+        const words = (n.text || '').toLowerCase();
+        const match = open.find((d) => d.title.toLowerCase().split(/\W+/).filter((w) => w.length > 4).some((w) => words.includes(w))) || open[0];
+        to = match ? `/mobile/chats/${match.threadId}?from=${from}#decision-${match.id}` : `/mobile/projects/${projectId}?from=${from}`;
+      }
+      else if (projectId && refs.includes('moodboard')) to = `/mobile/projects/${projectId}/refs?from=${from}`;
+      else if (projectId && n.kind === 'site' && /photo/i.test(n.text)) to = `/mobile/photos?project=${projectId}&from=${from}`;
+      else if (projectId && n.kind === 'site') to = `/mobile/projects/${projectId}/changes?from=${from}`;
+      else if (projectId) to = `/mobile/projects/${projectId}?from=${from}`;
+      return { id: n.id, at: n.at, kind: n.kind, title: n.text, detail: '', projectId, to };
+    });
+  return [...recorded, ...decisions, ...notes].sort((a, b) => (b.at || '').localeCompare(a.at || ''));
 }
 
 export function todayCount() {

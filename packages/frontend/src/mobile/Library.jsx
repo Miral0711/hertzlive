@@ -1,24 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
-import { Page, Swatch, Note } from './frame';
+import { Page, Swatch, Note, backName } from './frame';
 import Icon from './Icon';
+import PhotoEdit from './PhotoEdit';
 import { ThreadAvatar } from './faces';
 import {
   photoItems, projectName, fmtDT, user, myThreads, threadTitle, audience, postMessage, svc, can, render,
 } from './model';
 
+function photoSearch(projectId, from) {
+  const q = new URLSearchParams();
+  if (projectId) q.set('project', projectId);
+  if (from) q.set('from', from);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 export function Photos() {
   useStore();
   const [params] = useSearchParams();
   const projectId = params.get('project') || '';
+  const from = params.get('from');
+  const back = from && from.startsWith('/mobile/') ? from : (projectId ? `/mobile/projects/${projectId}` : '/mobile/projects');
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Back';
   const [filter, setFilter] = useState('all');
   const all = photoItems(projectId);
   const kinds = [...new Set(all.map((i) => i.kind))];
   const items = all.filter((i) => filter === 'all' || i.kind === filter);
 
   return (
-    <Page back={projectId ? `/mobile/projects/${projectId}` : '/mobile/projects'} backLabel="Back" title="Photos" sub={`${projectId ? projectName(projectId) : 'All projects'} · ${all.length} filed`}>
+    <Page back={back} backLabel={backLabel} title="Photos" sub={`${projectId ? projectName(projectId) : 'All projects'} · ${all.length} filed`}>
       <div className="filters">
         <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
         {kinds.map((k) => (
@@ -28,7 +40,7 @@ export function Photos() {
       {items.length ? (
         <div className="photo-grid">
           {items.map((i) => (
-            <Link key={i.id} to={`/mobile/photos/${i.id}${projectId ? `?project=${projectId}` : ''}`} aria-label={i.title}>
+            <Link key={i.id} to={`/mobile/photos/${i.id}${photoSearch(projectId, from)}`} aria-label={i.title}>
               {i.dataUrl ? <img className="shot" src={i.dataUrl} alt="" /> : <Swatch hue={i.hue} seed={i.seed} />}
               <b>{i.markupOf ? 'Marked up' : i.kind}</b>
               <span>{[projectName(i.projectId).split(' ')[0], i.room].filter(Boolean).join(' · ') || i.src}</span>
@@ -45,11 +57,12 @@ export function Photo() {
   const { photoId } = useParams();
   const [params] = useSearchParams();
   const projectId = params.get('project') || '';
+  const from = params.get('from');
   const item = photoItems(projectId).find((x) => x.id === photoId);
   if (!item) {
     return <Page back="/mobile/photos" title="Photo"><div className="empty"><h3>This photo isn’t available</h3></div></Page>;
   }
-  const back = `/mobile/photos${projectId ? `?project=${projectId}` : ''}`;
+  const back = `/mobile/photos${photoSearch(projectId, from)}`;
   return (
     <Page back={back} backLabel="Photos" title={item.kind} sub={`${item.src} · ${fmtDT(item.at)}`}>
       <div className="view-card">
@@ -70,7 +83,7 @@ export function Photo() {
           </>
         ) : null}
         {!item.msgId && (item.kind === 'Photo' || item.kind === 'Video') && can('feed', 'w') ? (
-          <Link className="primary" to={`/mobile/photos/${item.id}/markup`}>Mark up</Link>
+          <Link className="primary" to={`/mobile/photos/${item.id}/markup${photoSearch(projectId, from)}`}>Mark up</Link>
         ) : null}
         {item.markupOf ? <Link className="ghost" to={`/mobile/photos/${item.markupOf}`}>View original</Link> : null}
       </div>
@@ -81,6 +94,9 @@ export function Photo() {
 export function Markup() {
   useStore();
   const { photoId } = useParams();
+  const [params] = useSearchParams();
+  const projectId = params.get('project') || '';
+  const from = params.get('from');
   const navigate = useNavigate();
   const [note, setNote] = useState('Check this on site');
   const [error, setError] = useState('');
@@ -98,7 +114,7 @@ export function Markup() {
   }
 
   return (
-    <Page back={`/mobile/photos/${photoId}`} backLabel="Photo" title="Mark up" sub={item?.title}>
+    <Page back={`/mobile/photos/${photoId}${photoSearch(projectId, from)}`} backLabel="Photo" title="Mark up" sub={item?.title}>
       <Note>The original photo stays as it is. This saves a new marked copy.</Note>
       <form className="stack" onSubmit={save}>
         <label>Note<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
@@ -114,9 +130,12 @@ export function Camera() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const preset = params.get('thread');
+  const from = params.get('from');
+  const backTo = from && from.startsWith('/mobile/') ? from : (preset ? `/mobile/chats/${preset}` : '/mobile/chats');
   const videoRef = useRef(null);
   const [q, setQ] = useState('');
   const [shot, setShot] = useState('');
+  const [editing, setEditing] = useState(false);
   const [caption, setCaption] = useState('');
   const [dest, setDest] = useState(preset || '');
   const [live, setLive] = useState(false);
@@ -152,6 +171,7 @@ export function Camera() {
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     setShot(canvas.toDataURL('image/jpeg', 0.72));
+    setEditing(true);
   }
 
   function onFile(e) {
@@ -161,6 +181,7 @@ export function Camera() {
     const reader = new FileReader();
     reader.onload = () => {
       setShot(String(reader.result || ''));
+      setEditing(true);
       if (!dest && preset) setDest(preset);
     };
     reader.readAsDataURL(file);
@@ -188,10 +209,21 @@ export function Camera() {
   }
 
   const chosen = all.find(({ t }) => t.id === dest)?.t;
+  if (editing && shot) {
+    return (
+      <div className="screen">
+        <PhotoEdit
+          src={shot}
+          onCancel={() => { setShot(''); setEditing(false); }}
+          onSend={(dataUrl, words) => { setShot(dataUrl); setCaption(words); setEditing(false); }}
+        />
+      </div>
+    );
+  }
   return (
     <Page
-      back={preset ? `/mobile/chats/${preset}` : '/mobile/chats'}
-      backLabel="Chats"
+      back={backTo}
+      backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Chats'}
       title={shot ? 'Send this photo' : 'Camera'}
       bare
       footer={shot ? (
@@ -209,7 +241,7 @@ export function Camera() {
           <p className="note">{preset ? 'This photo goes into the chat you opened. Take it or choose one, then press Send.' : 'After the photo, you choose the chat and press Send.'}</p>
           {live && <button type="button" className="primary" onClick={capture}>Take photo</button>}
           <label className="ghost file-pick">Choose a photo<input type="file" accept="image/*" onChange={onFile} /></label>
-          <button type="button" className="text-btn" onClick={() => setShot('/images/p01.jpg')}>Use a sample photo</button>
+          <button type="button" className="text-btn" onClick={() => { setShot('/images/p01.jpg'); setEditing(true); }}>Use a sample photo</button>
           {camNote ? <p className="note">{camNote}</p> : null}
         </div>
       )}
@@ -235,6 +267,7 @@ export function Camera() {
               {!threads.length && <div className="empty"><h3>No chat matches</h3></div>}
             </>
           )}
+          <button type="button" className="text-btn cam-change" onClick={() => setEditing(true)}>Edit photo</button>
           <button type="button" className="text-btn cam-change" onClick={() => setShot('')}>Choose a different photo</button>
         </>
       )}

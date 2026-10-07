@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import DesktopApp from './desktop/DesktopApp';
 import MobileApp from './mobile/MobileApp';
+import MobileLogin, { MobileRequireAuth } from './mobile/Login';
 import Login from './auth/Login';
 import RequireAuth from './auth/RequireAuth';
 import Chats from './mobile/Chats';
@@ -19,13 +20,14 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/mobile/login" element={<MobileLogin />} />
         <Route path="/" element={<Navigate to="/desktop/dashboard" replace />} />
         <Route
           path="/mobile"
           element={(
-            <RequireAuth>
+            <MobileRequireAuth>
               <MobileApp />
-            </RequireAuth>
+            </MobileRequireAuth>
           )}
         >
           <Route index element={<Navigate to="chats" replace />} />

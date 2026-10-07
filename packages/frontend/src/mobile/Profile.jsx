@@ -1,39 +1,65 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
+import { backName } from './frame';
 import { Avatar, Face, FACE_COUNT, choosePortrait, faceIndex } from './faces';
 import { me, staff, state, svc, can, render, persist } from './model';
 import { logout } from '../desktop/session';
 import { setOnline } from '../shared/core';
 import { startOver } from './People';
 
+const ORIGIN = 'field-profile-from';
+
+function Row({ to, onClick, title, detail, value }) {
+  const body = (
+    <>
+      <div><b>{title}</b>{detail ? <span>{detail}</span> : null}</div>
+      {value ? <span className="day-acts">{value}</span> : null}
+    </>
+  );
+  if (to) return <Link className="day-row" to={to}>{body}</Link>;
+  return <button type="button" className="day-row" onClick={onClick}>{body}</button>;
+}
+
 export default function Profile() {
   useStore();
   const person = me();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const from = params.get('from');
   const [picking, setPicking] = useState(false);
   const chosen = faceIndex(person);
-  const inAt = state.db.checkedIn?.[person?.id];
   const quiet = state.gamify?.quiet || person?.quiet;
   const lang = sessionStorage.getItem('field-lang') || 'English';
   const look = { system: 'Phone', light: 'Light', dark: 'Dark' }[state.theme] || 'Phone';
+  const stored = sessionStorage.getItem(ORIGIN);
+  const back = from && from.startsWith('/mobile/') ? from : (stored && stored.startsWith('/mobile/') ? stored : '/mobile/chats');
+
+  useEffect(() => {
+    if (from && from.startsWith('/mobile/')) sessionStorage.setItem(ORIGIN, from);
+  }, [from]);
+
+  const bookTo = `${state.role === 'client' ? '/mobile/book?kind=meet' : '/mobile/book?kind=room'}&from=${encodeURIComponent('/mobile/profile')}`;
 
   return (
     <div className="screen">
-      <header className="top thread-top">
-        <Link className="icon-btn" to="/mobile/chats" aria-label="Back">
-          <Icon name="back" /><span>Back</span>
+      <header className="top thread-top proj-top">
+        <Link className="icon-btn" to={back} aria-label={`Back to ${backName(back)}`}>
+          <Icon name="back" />
         </Link>
-        <h1>Profile</h1>
+        <div className="thread-heading">
+          <h1>Profile</h1>
+        </div>
       </header>
-      <div className="body canvas">
-        <div className="prof">
+      <div className="body canvas proj profile">
+        <div className="who">
           <Avatar person={person} size="lg" />
           <div>
             <b>{person?.name}</b>
             <span>{person?.title}</span>
-            <button type="button" className="text-btn" onClick={() => setPicking((v) => !v)}>Choose photo</button>
+            {staff() && !quiet && <span>{person?.streak || 0} days on time · {(person?.pts || 0).toLocaleString('en-IN')} points</span>}
+            <button type="button" className="photo-pick" onClick={() => setPicking((v) => !v)}>{picking ? 'Close photos' : 'Choose photo'}</button>
           </div>
         </div>
         {picking && (
@@ -45,48 +71,39 @@ export default function Profile() {
             ))}
           </div>
         )}
+        <h2 className="sect">This phone</h2>
         {staff() && (
-          <button type="button" className="primary" onClick={() => { if (inAt) svc.checkOut(); else svc.checkIn(); render(); }}>
-            {inAt ? `Check out · in since ${inAt}` : 'Check in'}
-          </button>
+          <Row to="/mobile/punches" title="This month" detail={`${svc.punches().late} late · ${svc.punches().hours}h`} value={`${svc.punches().days} days`} />
         )}
         {staff() && (
-          <Link className="row" to="/mobile/punches">
-            <span className="row-copy"><b>This month</b><span>{svc.punches().days} days · {svc.punches().late} late · {svc.punches().hours}h</span></span>
-            <Icon name="chev" />
-          </Link>
+          <Row
+            title="Quiet mode"
+            detail="Hides the streak and points"
+            value={quiet ? 'On' : 'Off'}
+            onClick={() => { state.gamify.quiet = !quiet; persist(); render(); }}
+          />
         )}
-        <div className="setl">
-          {staff() && (
-            <button type="button" className="set" onClick={() => { state.gamify.quiet = !quiet; persist(); render(); }}>
-              <span><b>Quiet mode</b><span>Hide streaks and points</span></span>
-              <span className={`count ${quiet ? '' : 'off'}`}>{quiet ? 'On' : 'Off'}</span>
-            </button>
-          )}
-          <button type="button" className="set" onClick={() => setOnline(!state.online)}>
-            <span><b>Pretend no signal</b><span>See how sending works on site</span></span>
-            <span className="count">{state.online ? 'Off' : 'On'}</span>
-          </button>
-          <Link className="set" to="/mobile/appearance"><span><b>Appearance</b><span>Light, dark or follow phone</span></span><span>{look}</span></Link>
-          <Link className="set" to="/mobile/language"><span><b>Language</b><span>Menus only</span></span><span>{lang}</span></Link>
-        </div>
-        <div className="setl">
-          <Link className="set" to="/mobile/people"><span><b>People and contractors</b><span>Phone numbers, one tap to call</span></span><Icon name="call" /></Link>
-          <Link className="set" to="/mobile/holidays"><span><b>Holidays{staff() ? ' and my leave' : ''}</b><span>Office closed days</span></span><Icon name="cal" /></Link>
-          {can('booking', 'w') && <Link className="set" to={state.role === 'client' ? '/mobile/book?kind=meet' : '/mobile/book?kind=room'}><span><b>{state.role === 'client' ? 'Book a meeting' : 'Book a room'}</b><span>Pick a day and time</span></span><Icon name="cal" /></Link>}
-          {state.role === 'partner' && <Link className="set" to="/mobile/notice"><span><b>Notice to everyone</b><span>One message, every project chat</span></span><Icon name="bell" /></Link>}
-          {staff() && can('review', 'r') && <Link className="set" to="/mobile/reviews"><span><b>My reviews</b><span>Monthly score, strengths and growth</span></span><Icon name="check" /></Link>}
-        </div>
-        <div className="setl">
-          <Link className="set" to="/desktop/dashboard"><span><b>Open desktop studio</b><span>Planning, drawings and coordination</span></span><Icon name="desktop" /></Link>
-          <Link className="set" to="/mobile/who"><span><b>Switch person</b><span>Try the app as someone else</span></span><span>Switch</span></Link>
-          <button type="button" className="set" onClick={() => { startOver(); navigate('/mobile/chats'); }}>
-            <span><b>Start over</b><span>Clear this demo’s changes</span></span><span>Reset</span>
-          </button>
-          <button type="button" className="set" onClick={() => { logout(); navigate('/login', { replace: true }); }}>
-            <span><b>Sign out</b><span>Return to the studio login</span></span><Icon name="logout" />
-          </button>
-        </div>
+        <Row
+          title="Pretend no signal"
+          detail={state.online ? 'Messages send straight away' : 'Messages wait for a signal'}
+          value={state.online ? 'Off' : 'On'}
+          onClick={() => setOnline(!state.online)}
+        />
+        <Row to="/mobile/appearance" title="Appearance" detail={look === 'Phone' ? 'Follows this phone' : 'Chosen on this phone'} value={look} />
+        <Row to="/mobile/language" title="Language" detail="Menus only" value={lang} />
+
+        <h2 className="sect">Studio</h2>
+        <Row to="/mobile/people" title="People and contractors" detail="Phone numbers, one tap to call" />
+        <Row to="/mobile/holidays" title={staff() ? 'Holidays and my leave' : 'Holidays'} detail="Office closed days" />
+        {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? 'Book a meeting' : 'Book a room'} detail="Pick a day and time" />}
+        {state.role === 'partner' && <Row to="/mobile/notice" title="Notice to everyone" detail="One message, every project chat" />}
+        {staff() && can('review', 'r') && <Row to="/mobile/reviews" title="My reviews" detail="Monthly score, strengths and growth" />}
+
+        <h2 className="sect">This demo</h2>
+        <Row to="/desktop/dashboard" title="Open desktop studio" detail="Planning, drawings and coordination" />
+        <Row to="/mobile/who" title="Switch person" detail="Try the app as someone else" />
+        <Row title="Start over" detail="Clear this demo’s changes" onClick={() => { startOver(); navigate('/mobile/chats'); }} />
+        <Row title="Sign out" detail="Return to the phone sign-in" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
         <p className="note">Filing, transcripts and answers are simulated on this device. Updates stay in this browser.</p>
       </div>
     </div>
