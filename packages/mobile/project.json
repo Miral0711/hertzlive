@@ -1,0 +1,20 @@
+{
+  "name": "mobile",
+  "root": "packages/mobile",
+  "sourceRoot": "packages/mobile",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-script",
+      "options": { "script": "start" }
+    },
+    "ios": {
+      "executor": "nx:run-script",
+      "options": { "script": "ios" }
+    },
+    "android": {
+      "executor": "nx:run-script",
+      "options": { "script": "android" }
+    }
+  }
+}

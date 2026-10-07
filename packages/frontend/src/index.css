@@ -115,13 +115,6 @@
   progress::-webkit-progress-value { background: var(--secondary); border-radius: var(--r-1); }
   progress::-moz-progress-bar { background: var(--secondary); border-radius: var(--r-1); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  /* Faint doodle behind a conversation, the same idea as a WhatsApp wallpaper. */
-  .chat-out { background-color: color-mix(in srgb, var(--accent) 30%, var(--surface)); }
-  .chat-wallpaper {
-    background-color: var(--chat);
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' fill='none' stroke='%237a8b96' stroke-opacity='0.16' stroke-width='1.15' stroke-linecap='round' stroke-linejoin='round'><circle cx='24' cy='28' r='9'/><path d='M58 18v18M49 27h18'/><rect x='96' y='16' width='22' height='16' rx='3'/><path d='M150 18c8 6 8 16 0 22'/><path d='M22 96h18l-9 16z'/><circle cx='78' cy='104' r='7'/><path d='M118 92v22M109 103h18'/><rect x='148' y='94' width='16' height='20' rx='8'/><circle cx='36' cy='164' r='8'/><path d='M72 154h24v18H72z'/><path d='M124 158c10 0 10 14 0 14s-10-14 0-14'/><path d='M160 150l12 22'/></svg>");
-    background-size: 200px 200px;
-  }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
   }

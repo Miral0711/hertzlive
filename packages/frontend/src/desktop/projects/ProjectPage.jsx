@@ -89,31 +89,6 @@ function ProjectCards({ projects }) {
   );
 }
 
-function milestoneOf(p) {
-  const nm = projectMilestones(p).find((m) => !m.done);
-  if (!nm) return <span className="text-ink-3">No upcoming milestone</span>;
-  return (
-    <>
-      {nm.name}
-      <small className="block text-ink-3">
-        {fmtD(nm.date)}{nm.date < TODAY && <> · <span className="text-crit">Overdue</span></>}
-      </small>
-    </>
-  );
-}
-
-function attentionOf(p, budget) {
-  const issues = openIssues(p.id);
-  return (
-    <div className="flex flex-col items-start gap-1.5">
-      {issues.length
-        ? <DLink to={`#/sites/${p.siteId}?tab=${role() === 'contractor' ? 'feed' : 'issues'}`} className="text-accent-text underline">{issues.length} open issue{issues.length === 1 ? '' : 's'}</DLink>
-        : <span>No open issues</span>}
-      {budget && <ProjectBudgetStatus p={p} />}
-    </div>
-  );
-}
-
 function ProjectList({ status }) {
   const all = svc.projects();
   const ps = status === 'all' ? all : all.filter((p) => (p.status || 'active') === status);
@@ -132,10 +107,12 @@ function ProjectList({ status }) {
       <ProjectCards projects={ps} />
       <details className="group mb-3.5 rounded-r3 border border-line bg-surface px-card">
         <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 font-semibold text-ink-2 hover:text-accent-text [&::-webkit-details-marker]:hidden"><svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>Project list · owners and deadlines</summary>
-        <div className="min-w-0 pb-card">
+        <div className="pb-card">
         <DataTable
           cols={['Project', 'Owner', 'Next milestone', 'Needs attention']}
           rows={ps.map((p) => {
+            const nm = projectMilestones(p).find((m) => !m.done);
+            const issues = openIssues(p.id);
             const finished = p.status === 'finished';
             return [
               <>
@@ -143,8 +120,20 @@ function ProjectList({ status }) {
                 <small className="block text-ink-3">{p.code} · {PHASES[p.phase]}{finished ? ' · Finished ' + fmtD(p.finishedAt) : ''}</small>
               </>,
               <ProjectOwner p={p} />,
-              milestoneOf(p),
-              attentionOf(p, budget),
+              nm ? (
+                <>
+                  {nm.name}
+                  <small className="block text-ink-3">
+                    {fmtD(nm.date)}{nm.date < TODAY && <> · <span className="text-crit">Overdue</span></>}
+                  </small>
+                </>
+              ) : <span className="text-ink-3">No upcoming milestone</span>,
+              <>
+                {issues.length
+                  ? <DLink to={`#/sites/${p.siteId}?tab=${role() === 'contractor' ? 'feed' : 'issues'}`} className="text-accent-text underline">{issues.length} open issue{issues.length === 1 ? '' : 's'}</DLink>
+                  : 'No open issues'}
+                {budget && <small className="block"><ProjectBudgetStatus p={p} /></small>}
+              </>,
             ];
           })}
         />
@@ -155,7 +144,7 @@ function ProjectList({ status }) {
           <svg viewBox="0 0 24 24" className="h-4 w-4 flex-none text-ink-3 transition group-open:rotate-90" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
           Compare project details{budget ? ' · team and budget' : ' · team and phase'}
         </summary>
-        <div className="min-w-0 pb-card">
+        <div className="pb-card">
         <DataTable
           cols={['Project', 'Phase', 'Team', ...(budget ? ['₹Budget', '₹Spent', 'Budget status'] : []), 'Status']}
           rows={ps.map((p) => [
@@ -200,19 +189,15 @@ const PTAB = {
   team: TeamTab, decisions: DecisionsTab, moodboard: MoodboardTab, handover: HandoverTab,
 };
 
-const navLink = '-mb-px flex min-h-11 flex-none items-center whitespace-nowrap border-b-2 px-3.5 py-2.5 font-medium no-underline hover:text-accent-text';
+const navLink = '-mb-px flex min-h-11 items-center whitespace-nowrap border-b-2 px-3.5 py-2.5 font-medium no-underline hover:text-accent-text';
 function ProjectTabs({ projectId, list, current }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
-  const bar = useRef(null);
   const frequent = ['overview', 'tasks', 'drawings', 'files', 'decisions'];
   const direct = [...frequent, ...(!frequent.includes(current) ? [current] : [])]
     .map((key) => list.find(([id]) => id === key)).filter(Boolean);
   // Close the menu after choosing a tool, on Escape, and on a click anywhere else.
   useEffect(() => { setOpen(false); }, [current, projectId]);
-  useEffect(() => {
-    bar.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
-  }, [current, projectId]);
   useEffect(() => {
     if (!open) return undefined;
     const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
@@ -245,34 +230,24 @@ function ProjectTabs({ projectId, list, current }) {
     sizes[i] += g.entries.length + 1;
   });
   const used = balanced.filter((c) => c.length);
-  const menuBox = () => {
-    const r = box.current?.getBoundingClientRect();
-    const top = (r?.bottom ?? 0) + 6;
-    const phone = window.innerWidth < 768;
-    const maxHeight = Math.max(160, window.innerHeight - top - (phone ? 68 : 16));
-    if (phone) return { top, left: 16, right: 16, maxHeight, overflowY: 'auto' };
-    const width = Math.min(720, window.innerWidth - 32);
-    const left = Math.max(16, Math.min(r?.left ?? 16, window.innerWidth - width - 16));
-    return { top, left, width, maxHeight, overflowY: 'auto' };
-  };
   return (
-    <nav className="mb-5" aria-label="Project sections">
-      <div ref={bar} className="flex items-stretch gap-1 overflow-x-auto border-b border-line">
+    <nav className="mb-5 border-b border-line" aria-label="Project sections">
+      <div className="flex flex-wrap items-stretch gap-1">
         {direct.map(destination)}
         {more.length > 0 && (
-          <div ref={box} className="relative flex-none">
+          <div ref={box} className="relative">
             <button
               type="button"
               aria-haspopup="true"
               aria-expanded={open}
               onClick={() => setOpen((o) => !o)}
-              className={`-mb-px flex min-h-11 flex-none cursor-pointer items-center gap-1.5 whitespace-nowrap border-0 border-b-2 border-transparent bg-transparent px-3.5 py-2.5 font-medium hover:text-accent-text ${open ? 'text-accent-text' : 'text-ink-2'}`}
+              className={`-mb-px flex min-h-11 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-3.5 py-2.5 font-medium hover:text-accent-text ${open ? 'text-accent-text' : 'text-ink-2'}`}
             >
               More project tools
               <svg viewBox="0 0 24 24" className={`h-4 w-4 transition ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
             </button>
             {open && (
-              <div className="fixed z-20 rounded-r3 border border-line bg-surface p-3 shadow-s2" style={menuBox()}>
+              <div className="absolute left-0 top-full z-20 mt-1.5 w-[min(720px,calc(100vw-2rem))] max-md:fixed max-md:inset-x-4 max-md:top-auto max-md:w-auto rounded-r3 border border-line bg-surface p-3 shadow-s2">
                 <div className="grid gap-3 md:grid-cols-3">
                   {used.map((col, ci) => (
                     <div key={ci} className="flex min-w-0 flex-col gap-3">

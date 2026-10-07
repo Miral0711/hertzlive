@@ -419,7 +419,7 @@ function Services() {
   const owners = svc.people();
   const routeVal = (r) => (r ? (r.mode === 'reject' ? 'reject' : r.mode + ':' + r.to) : '');
   const RouteSelect = ({ type, rule, label, isDefault }) => (
-    <Select aria-label={label} defaultValue={routeVal(rule)} key={type + routeVal(rule)} onChange={(e) => rrSet(type, e.target.value)}>
+    <Select className="w-full min-w-[14rem] max-w-[18rem]" aria-label={label} defaultValue={routeVal(rule)} key={type + routeVal(rule)} onChange={(e) => rrSet(type, e.target.value)}>
       {!isDefault && <option value="">Use default</option>}
       <option value="pool:partner">Round robin · {state.db.ROLES.partner.label}s</option>
       <option value="pool:designer">Round robin · {state.db.ROLES.designer.label}s</option>
@@ -429,7 +429,7 @@ function Services() {
   );
   const def = state.db.ROUTING_RULES.find((r) => r.typeId === '*');
   return (
-    <Grid2>
+    <Grid2 className="xl:!grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <Card title="Service types">
         <Sub>What a prospect picks on the enquiry form.</Sub>
         <DataTable
