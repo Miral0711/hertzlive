@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
-import { Page, Note, backName } from './frame';
+import { Page, Note, Swatch, backName } from './frame';
 import Icon from './Icon';
 import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
@@ -10,37 +10,152 @@ import {
 import { filingLabel } from '../shared/filing';
 import { Avatar, ThreadAvatar } from './faces';
 
+const SAMPLE_MEDIA = {
+  site: [
+    { title: 'Shuttering A to D', hue: 30, seed: 45 },
+    { title: 'Rebar at C4', hue: 28, seed: 23 },
+    { title: 'Slab 2 from grid A', hue: 30, seed: 46 },
+    { title: 'Cement delivery', hue: 28, seed: 31 },
+    { title: 'Workers on site', hue: 28, seed: 21 },
+    { title: 'Kitchen north wall', hue: 28, seed: 43 },
+  ],
+  client: [
+    { title: 'Kitchen island reference', hue: 20, seed: 8 },
+    { title: 'Fluted oak pantry', hue: 32, seed: 12 },
+    { title: 'Terrace sample', hue: 18, seed: 61 },
+  ],
+  internal: [
+    { title: 'Window opening sketch', hue: 18, seed: 61 },
+    { title: 'Kitchen north wall', hue: 28, seed: 41 },
+    { title: 'Slab from grid A', hue: 30, seed: 44 },
+    { title: 'Column C4', hue: 28, seed: 23 },
+    { title: 'Pantry door sample', hue: 32, seed: 12 },
+    { title: 'Terrace from the road', hue: 30, seed: 46 },
+  ],
+  dm: [
+    { title: 'Site photo', hue: 28, seed: 21 },
+    { title: 'Drawing markup', hue: 200, seed: 2 },
+    { title: 'Sample on site', hue: 32, seed: 12 },
+  ],
+};
+
+const SAMPLE_DOCS = {
+  site: [
+    { kind: 'File', title: 'HA-2401-S-301 R1.pdf' },
+    { kind: 'Voice note', title: '0:19 · Column C4 rebar is ready for the check.' },
+  ],
+  client: [
+    { kind: 'File', title: 'Pantry door sample.pdf' },
+  ],
+  internal: [
+    { kind: 'File', title: 'HA-2401-A-101 R4.pdf' },
+    { kind: 'Voice note', title: '0:15 · Confirm the window before the mason starts.' },
+  ],
+  dm: [
+    { kind: 'File', title: 'Cab bill.pdf' },
+  ],
+};
+
 export function GroupInfo() {
   useStore();
   const { threadId } = useParams();
   const [params] = useSearchParams();
   const from = params.get('from');
   const backTo = from && from.startsWith('/mobile/') ? from : '';
+  const [sample, setSample] = useState(null);
   const thread = svc.thread(threadId);
   if (!thread) return <Page back="/mobile/chats" title="Chat"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
   const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id);
+  const other = thread.kind === 'dm' ? members.find((u) => u.id !== state.userId) : null;
   const muted = sessionStorage.getItem(`field-mute-${threadId}`) === '1';
-  const pinned = messagesOf(threadId).filter((m) => m.decision && !m.deleted);
+  const msgs = messagesOf(threadId).filter((m) => !m.deleted);
+  const media = msgs.filter((m) => m.photo || m.link);
+  const docs = msgs.filter((m) => !m.photo && !m.link && (m.voice || m.kind === 'file'));
+  const samples = media.length ? [] : (SAMPLE_MEDIA[thread.kind] || SAMPLE_MEDIA.internal);
+  const sampleDocs = docs.length ? [] : (SAMPLE_DOCS[thread.kind] || SAMPLE_DOCS.internal);
+  const pinned = msgs.filter((m) => m.decision);
+  const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
+  const about = {
+    internal: 'Office only. The client never sees this.',
+    client: 'The client is in this conversation.',
+    site: 'Notes and photos for the site team.',
+    dm: other ? `${other.title || 'Direct message'} · ${phoneOf(other)}` : 'Direct message',
+  }[thread.kind] || audience(thread);
   return (
-    <Page back={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`} backLabel="Chat" title={threadTitle(thread)} sub={`${audience(thread)} · ${members.length} people`} bare>
-      {thread.kind === 'internal' ? <Note>Office only. The client never sees this.</Note> : null}
-      <button type="button" className="row" onClick={() => {
+    <Page sheet stackTitle back={chatTo} backLabel="Chat" title={threadTitle(thread)} sub={thread.kind === 'dm' ? 'Direct message' : `${audience(thread)} · ${members.length} people`}>
+      <div className="wa-id">
+        <ThreadAvatar thread={thread} size="lg" />
+        <b>{threadTitle(thread)}</b>
+        <span>{about}</span>
+      </div>
+      <h2 className="sect">Media, links and docs</h2>
+      {sample ? (
+        <button type="button" className="media-open" onClick={() => setSample(null)}>
+          <Swatch hue={sample.hue} seed={sample.seed} />
+          <span>{sample.title}</span>
+        </button>
+      ) : null}
+      {media.length ? (
+        <div className="media-strip">
+          {media.map((m) => (
+            <Link key={m.id} to={`${chatTo}#${m.id}`} aria-label={m.link?.title || m.text || 'Photo'}>
+              {m.photo?.dataUrl ? <img src={m.photo.dataUrl} alt="" /> : <Swatch hue={m.photo?.hue ?? m.link?.hue} seed={m.photo?.seed ?? m.link?.seed} />}
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="media-strip">
+          {samples.map((item) => (
+            <button type="button" key={item.title} onClick={() => setSample(item)} aria-label={item.title} aria-pressed={sample?.title === item.title}>
+              <Swatch hue={item.hue} seed={item.seed} />
+            </button>
+          ))}
+        </div>
+      )}
+      {sampleDocs.map((item) => (
+        <div className="day-row" key={item.title}>
+          <div>
+            <b>{item.kind}</b>
+            <span>{item.title}</span>
+          </div>
+        </div>
+      ))}
+      {docs.map((m) => (
+        <Link key={m.id} className="day-row" to={`${chatTo}#${m.id}`}>
+          <div>
+            <b>{m.voice ? 'Voice note' : 'File'}</b>
+            <span>{m.text || (typeof m.voice === 'string' ? m.voice : m.voice?.dur) || 'Shared in this chat'}</span>
+          </div>
+        </Link>
+      ))}
+      <h2 className="sect">Options</h2>
+      <button type="button" className="day-row" onClick={() => {
         if (muted) sessionStorage.removeItem(`field-mute-${threadId}`);
         else sessionStorage.setItem(`field-mute-${threadId}`, '1');
         render();
       }}>
-        <span className="row-copy"><b>{muted ? 'Unmute this chat' : 'Mute this chat'}</b><span>Stops the unread mark on this phone</span></span>
+        <div>
+          <b>Mute notifications</b>
+          <span>Stops the unread mark on this phone</span>
+        </div>
+        <span className="day-acts">{muted ? 'On' : 'Off'}</span>
       </button>
       {pinned.map((m) => (
-        <Link className="row" key={m.id} to={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}#${m.id}`}>
-          <span className="row-copy"><b>Pinned decision</b><span>{(m.text || 'Decision').slice(0, 80)}</span></span>
+        <Link className="day-row" key={m.id} to={`${chatTo}#${m.id}`}>
+          <div>
+            <b>Pinned decision</b>
+            <span>{m.text || 'Decision'}</span>
+          </div>
         </Link>
       ))}
+      <h2 className="sect">{thread.kind === 'dm' ? 'Contact' : `${members.length} people`}</h2>
       {members.map((u) => (
-        <div className="row" key={u.id}>
-          <Avatar person={u} />
-          <span className="row-copy"><b>{u.name}</b><span>{u.title} · {phoneOf(u)}</span></span>
-          {u.id !== state.userId ? <a className="icon-btn" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a> : <span className="chip-status">You</span>}
+        <div className="day-row" key={u.id}>
+          <div className="person-line">
+            <Avatar person={u} />
+            <span className="row-copy"><b>{u.name}</b><span>{u.title} · {phoneOf(u)}</span></span>
+          </div>
+          {u.id !== state.userId ? <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a> : <span className="day-acts">You</span>}
         </div>
       ))}
     </Page>

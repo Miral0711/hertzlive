@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useStore } from '../shared/store';
 import { Page, Swatch, Note, backName } from './frame';
 import Icon from './Icon';
+import PhotoEdit from './PhotoEdit';
 import { ThreadAvatar } from './faces';
 import {
   photoItems, projectName, fmtDT, user, myThreads, threadTitle, audience, postMessage, svc, can, render,
@@ -134,6 +135,7 @@ export function Camera() {
   const videoRef = useRef(null);
   const [q, setQ] = useState('');
   const [shot, setShot] = useState('');
+  const [editing, setEditing] = useState(false);
   const [caption, setCaption] = useState('');
   const [dest, setDest] = useState(preset || '');
   const [live, setLive] = useState(false);
@@ -169,6 +171,7 @@ export function Camera() {
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
     setShot(canvas.toDataURL('image/jpeg', 0.72));
+    setEditing(true);
   }
 
   function onFile(e) {
@@ -178,6 +181,7 @@ export function Camera() {
     const reader = new FileReader();
     reader.onload = () => {
       setShot(String(reader.result || ''));
+      setEditing(true);
       if (!dest && preset) setDest(preset);
     };
     reader.readAsDataURL(file);
@@ -205,6 +209,17 @@ export function Camera() {
   }
 
   const chosen = all.find(({ t }) => t.id === dest)?.t;
+  if (editing && shot) {
+    return (
+      <div className="screen">
+        <PhotoEdit
+          src={shot}
+          onCancel={() => { setShot(''); setEditing(false); }}
+          onSend={(dataUrl, words) => { setShot(dataUrl); setCaption(words); setEditing(false); }}
+        />
+      </div>
+    );
+  }
   return (
     <Page
       back={backTo}
@@ -226,7 +241,7 @@ export function Camera() {
           <p className="note">{preset ? 'This photo goes into the chat you opened. Take it or choose one, then press Send.' : 'After the photo, you choose the chat and press Send.'}</p>
           {live && <button type="button" className="primary" onClick={capture}>Take photo</button>}
           <label className="ghost file-pick">Choose a photo<input type="file" accept="image/*" onChange={onFile} /></label>
-          <button type="button" className="text-btn" onClick={() => setShot('/images/p01.jpg')}>Use a sample photo</button>
+          <button type="button" className="text-btn" onClick={() => { setShot('/images/p01.jpg'); setEditing(true); }}>Use a sample photo</button>
           {camNote ? <p className="note">{camNote}</p> : null}
         </div>
       )}
@@ -252,6 +267,7 @@ export function Camera() {
               {!threads.length && <div className="empty"><h3>No chat matches</h3></div>}
             </>
           )}
+          <button type="button" className="text-btn cam-change" onClick={() => setEditing(true)}>Edit photo</button>
           <button type="button" className="text-btn cam-change" onClick={() => setShot('')}>Choose a different photo</button>
         </>
       )}
