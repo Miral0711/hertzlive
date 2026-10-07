@@ -14,7 +14,6 @@ export default function Profile() {
   const navigate = useNavigate();
   const [picking, setPicking] = useState(false);
   const chosen = faceIndex(person);
-  const inAt = state.db.checkedIn?.[person?.id];
   const quiet = state.gamify?.quiet || person?.quiet;
   const lang = sessionStorage.getItem('field-lang') || 'English';
   const look = { system: 'Phone', light: 'Light', dark: 'Dark' }[state.theme] || 'Phone';
@@ -44,11 +43,6 @@ export default function Profile() {
               </button>
             ))}
           </div>
-        )}
-        {staff() && (
-          <button type="button" className="primary" onClick={() => { if (inAt) svc.checkOut(); else svc.checkIn(); render(); }}>
-            {inAt ? `Check out · in since ${inAt}` : 'Check in'}
-          </button>
         )}
         {staff() && (
           <Link className="row" to="/mobile/punches">

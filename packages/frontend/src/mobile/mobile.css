@@ -475,10 +475,195 @@ button.av { border: 0; cursor: pointer; }
   cursor: pointer;
 }
 
-.day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 12px 2px; }
-.day-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
-.day-head span { color: var(--ink-3); font-size: 14px; font-weight: 650; }
-.today-h { margin: 16px 2px 6px; font-size: 13px; font-weight: 750; color: var(--ink-2); }
+.body.canvas.day-body { background: var(--surface); padding: 6px 18px 28px; }
+.day-sheet { display: flex; flex-direction: column; }
+.day-now {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 0 18px;
+}
+.day-sheet .day-now h2 {
+  margin: 0;
+  font-family: Fraunces, "Iowan Old Style", Palatino, serif;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-transform: none;
+  color: var(--ink);
+}
+.day-now p { margin: 6px 0 0; color: var(--ink-2); font-size: 14px; }
+.day-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  box-shadow: none;
+}
+.day-row > :not(.day-acts) { grid-column: 1; min-width: 0; color: inherit; text-decoration: none; }
+.day-row > .day-acts { grid-column: 2; grid-row: 1 / span 8; align-self: center; }
+.day-row small {
+  display: block;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.day-row b { display: block; font-size: 15px; font-weight: 650; line-height: 1.3; }
+.day-row span { display: block; margin-top: 1px; color: var(--ink-2); font-size: 13px; line-height: 1.35; }
+.day-acts { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin: 0; }
+.day-acts button, .day-acts a {
+  flex: none;
+  width: auto;
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.day-acts .quiet { color: var(--ink-3); font-weight: 600; }
+.day-clear { padding: 8px 0 16px; }
+.day-clear h3 { margin: 0 0 4px; font-size: 15px; }
+.day-clear a { color: var(--accent-text); font-size: 13px; font-weight: 700; }
+.day-menu { margin-top: 8px; border-top: 1px solid var(--line); }
+.day-menu > .today-fold, .day-menu > .day-quiet, .day-menu > .day-report {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+}
+.day-quiet, .day-menu > .day-report {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.day-quiet span { display: flex; align-items: center; gap: 8px; }
+.day-quiet .mi { width: 16px; height: 16px; color: var(--ink-3); }
+.today-fold { overflow: hidden; }
+.today-fold > summary {
+  min-height: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.today-fold > summary::-webkit-details-marker { display: none; }
+.today-fold > summary span { flex: 1; min-width: 0; }
+.today-fold > summary b { color: var(--ink-3); font-size: 13px; font-weight: 650; }
+.today-fold > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(-45deg);
+}
+.today-fold[open] > summary::after { transform: rotate(45deg); }
+.today-fold .day-card { border: 0; border-radius: 0; padding: 0 0 8px 12px; }
+.today-fold > .wait-row, .today-fold > a.wait-row, .today-fold > .task, .today-fold > .note, .today-fold > .day-report {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 0 10px 12px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  text-decoration: none;
+  color: inherit;
+}
+.today-fold .wait-row b, .today-fold .task b { font-size: 14px; }
+.today-fold .wait-row span, .today-fold .task span { font-size: 13px; color: var(--ink-2); }
+.sites-mini { margin: 4px 0 0; padding-left: 16px; }
+.sites-mini li { margin: 4px 0; font-size: 13px; line-height: 1.4; }
+.chain-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.chain-row b { font-size: 13px; }
+.ask-chips { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0 0 8px; }
+.ask-chips a {
+  border-radius: 0;
+  padding: 4px 0;
+  background: none;
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.ask-row, .snag-line { display: flex; gap: 8px; }
+.ask-row { padding: 0 0 12px; }
+.ask-row input, .snag-line input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+.ask-row button, .snag-line button {
+  flex: none;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-2);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tool-list { padding: 2px 0 8px; }
+.tool-label {
+  margin: 4px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 650;
+}
+.tool-list > .day-row:first-child,
+.tool-label + .day-row { border-top: 0; }
+.tool-list > .note { margin: 0; padding: 12px 0 4px; font-size: 13px; line-height: 1.4; }
+.tool-link b { color: var(--accent-text); }
+.day-row.past b, .day-row.past span { color: var(--ink-3); }
+.meet-people { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 8px; }
+.meet-people a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.meet-people .av { width: 28px; height: 28px; }
+button.task { width: 100%; font: inherit; cursor: pointer; text-align: left; }
 .primary {
   display: flex;
   align-items: center;

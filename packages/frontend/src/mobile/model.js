@@ -181,6 +181,8 @@ export function waitingItems() {
       key: `wait:${i.id}`,
       title: i.title,
       meta: `${projectName(i.projectId)} · ${firstName(i.assignee)}`,
+      issueId: i.id,
+      projectId: i.projectId,
     }));
 }
 

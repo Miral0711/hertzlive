@@ -446,7 +446,7 @@ export function Assist() {
   const sites = svc.sites();
   const [pid, setPid] = useState(params.get('project') || projectId || projects[0]?.id || '');
   const [siteId, setSiteId] = useState(params.get('site') || sites[0]?.id || '');
-  const [question, setQuestion] = useState(issueId ? '' : 'What is still open?');
+  const [question, setQuestion] = useState(issueId ? '' : (params.get('q') || 'What is still open?'));
   const [picked, setPicked] = useState({});
   const [result, setResult] = useState(null);
   const [options, setOptions] = useState(null);
