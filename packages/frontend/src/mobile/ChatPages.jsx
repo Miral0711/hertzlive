@@ -779,8 +779,27 @@ export function Call() {
   const backTo = from && from.startsWith('/mobile/') ? from : '';
   const [made, setMade] = useState(null);
   const [error, setError] = useState('');
+  const voice = params.get('voice') === '1';
   const thread = svc.thread(threadId);
-  if (!thread) return <Page back="/mobile/chats" title="Video call"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
+  if (!thread) return <Page back="/mobile/chats" title="Call"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
+  const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
+  if (voice) {
+    const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id && u.id !== state.userId);
+    return (
+      <Page sheet stackTitle back={chatTo} backLabel="Chat" title="Call" sub={threadTitle(thread)}>
+        <p className="note">Phone someone in this chat.</p>
+        {members.map((u) => (
+          <div className="day-row" key={u.id}>
+            <div className="person-line">
+              <Avatar person={u} />
+              <span className="row-copy"><b>{u.name}</b><span>{u.title} · {phoneOf(u)}</span></span>
+            </div>
+            <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a>
+          </div>
+        ))}
+      </Page>
+    );
+  }
   return (
     <Page back={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`} backLabel="Chat" title="Start video call" sub={threadTitle(thread)}>
       <Note>Posts a call card into this chat. Meet for the studio.</Note>

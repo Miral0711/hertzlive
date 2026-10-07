@@ -125,6 +125,7 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
   const other = otherId ? user(otherId) : null;
   const query = backTo.startsWith('/mobile/') && backTo !== '/mobile/chats' ? `?from=${encodeURIComponent(backTo)}` : '';
   const infoTo = `/mobile/chats/${thread.id}/info${query}`;
+  const voiceTo = `/mobile/chats/${thread.id}/call${query ? `${query}&voice=1` : '?voice=1'}`;
   return (
     <header className="top thread-top">
       <button type="button" className="icon-btn" onClick={() => navigate(backTo)} aria-label={`Back to ${backName(backTo)}`}>
@@ -145,7 +146,7 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }) {
           <Icon name="call" />
         </a>
       ) : (
-        <Link className="icon-btn" to={infoTo} aria-label="Call someone in this chat">
+        <Link className="icon-btn" to={voiceTo} aria-label="Voice call">
           <Icon name="call" />
         </Link>
       )}
