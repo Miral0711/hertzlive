@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import Icon from './Icon';
-import { Page, Note } from './frame';
+import { Page, Note, backName } from './frame';
 import {
   state, svc, user, me, staff, PEOPLE, viewAs, phoneOf, firstName, fmtD, TODAY, persist, render, myThreads, postMessage, can,
 } from './model';
@@ -19,7 +19,7 @@ export function Who() {
   useStore();
   const navigate = useNavigate();
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
       <Note>This changes whose records you see. It does not change the desktop login.</Note>
       {PEOPLE.map(({ id, hint }) => {
         const u = user(id);
@@ -32,7 +32,7 @@ export function Who() {
           >
             <Avatar person={u} />
             <span className="row-copy"><b>{u.name}</b><span>{u.title} · {hint}</span></span>
-            {state.userId === id ? <span className="count">On</span> : <Icon name="chev" />}
+            {state.userId === id ? <span className="chip-status">You</span> : null}
           </button>
         );
       })}
@@ -53,7 +53,7 @@ export function People() {
   });
   const groups = ORDER.map((role) => [LABEL[role], list.filter((u) => u.role === role)]).filter(([, us]) => us.length);
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
       <label className="search">
         <Icon name="search" />
         <input type="search" value={q} placeholder="Search people" aria-label="Search people" onChange={(e) => setQ(e.target.value)} />
@@ -99,18 +99,20 @@ export function Holidays() {
   const pending = can('leave', 'a') ? (state.db.LEAVES || []).filter((l) => l.status === 'pending') : [];
   const team = staff() ? (state.db.LEAVES || []).filter((l) => l.userId !== state.userId && l.status === 'approved' && l.to >= TODAY).slice(0, 5) : [];
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
+    <Page sheet back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
       {pending.length > 0 && (
         <section>
           <h2 className="sect">Leave requests</h2>
           {pending.map((l) => (
-            <div className="view-card" key={l.id}>
-              <b>{user(l.userId).name} · {l.days} day{l.days > 1 ? 's' : ''}</b>
-              <span>{l.type} · {fmtD(l.from)} to {fmtD(l.to)} · {l.reason}</span>
-              <div className="stack">
-                <button type="button" className="primary" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
-                <button type="button" className="ghost" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
-                <Link className="ghost" to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
+            <div className="day-row" key={l.id}>
+              <div>
+                <b>{user(l.userId).name} · {l.days} day{l.days > 1 ? 's' : ''}</b>
+                <span>{l.type} · {fmtD(l.from)} to {fmtD(l.to)} · {l.reason}</span>
+                <div className="mat-acts">
+                  <button type="button" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
+                  <button type="button" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
+                  <Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
+                </div>
               </div>
             </div>
           ))}
@@ -144,7 +146,7 @@ export function Punches() {
   useStore();
   const month = svc.punches();
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
       {month.rows.map((r) => (
         <div className="row" key={r.date + r.in}>
           <span className="row-copy">
@@ -162,14 +164,15 @@ export function Reviews() {
   useStore();
   const rows = svc.reviews(state.userId);
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
       {rows.map((r) => (
-        <article key={r.id} className="view-card">
-          <b>{r.month} · {r.score}/5</b>
-          <span>From {user(r.by).name}</span>
-          <p>{r.reason}</p>
-          <p>Strengths: {r.strengths.join(', ')}</p>
-          <p>Grow: {r.growth}</p>
+        <article key={r.id} className="day-row">
+          <div>
+            <small>{r.month} · {r.score}/5 · {user(r.by).name}</small>
+            <b>{r.reason}</b>
+            <span>Strengths: {r.strengths.join(', ')}</span>
+            <span>Grow: {r.growth}</span>
+          </div>
         </article>
       ))}
       {!rows.length && <div className="empty"><h3>No review for you yet</h3></div>}
@@ -184,7 +187,7 @@ export function Notice() {
   const [text, setText] = useState('');
   const threads = myThreads().filter(({ t }) => t.kind !== 'dm');
   if (state.role !== 'partner') {
-    return <Page back="/mobile/profile" backLabel="Profile" title="Notice"><div className="empty"><h3>Only a partner can send a notice</h3></div></Page>;
+    return <Page sheet back="/mobile/profile" backLabel="Profile" title="Notice"><div className="empty"><h3>Only a partner can send a notice</h3></div></Page>;
   }
   function send(e) {
     e.preventDefault();
@@ -194,7 +197,7 @@ export function Notice() {
     navigate('/mobile/chats');
   }
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
       <Note>Goes to every project chat you are in, marked as a notice.</Note>
       <div className="filters">
         {ideas.map((idea) => <button type="button" key={idea} onClick={() => setText(idea)}>{idea}</button>)}
@@ -211,11 +214,10 @@ export function Appearance() {
   useStore();
   const options = [['system', 'Phone'], ['light', 'Light'], ['dark', 'Dark']];
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Appearance">
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="Appearance">
       {options.map(([id, label]) => (
-        <button type="button" key={id} className="row" onClick={() => { state.theme = id; persist(); render(); }}>
-          <span className="row-copy"><b>{label}</b></span>
-          {state.theme === id ? <span className="count">On</span> : null}
+        <button type="button" key={id} className="day-row" aria-pressed={state.theme === id} onClick={() => { state.theme = id; persist(); render(); }}>
+          <div><b>{label}</b>{state.theme === id ? <span>Using this</span> : null}</div>
         </button>
       ))}
     </Page>
@@ -228,12 +230,11 @@ export function Language() {
   const langs = ['English', 'हिन्दी', 'ગુજરાતી'];
   const [, setTick] = useState(current);
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Language">
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="Language">
       <Note>Menus and tabs only. Write or talk in any language.</Note>
       {langs.map((lang) => (
-        <button type="button" key={lang} className="row" onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }}>
-          <span className="row-copy"><b>{lang}</b></span>
-          {current === lang || sessionStorage.getItem('field-lang') === lang ? <span className="count">On</span> : null}
+        <button type="button" key={lang} className="day-row" aria-pressed={current === lang} onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }}>
+          <div><b>{lang}</b>{current === lang ? <span>Using this</span> : null}</div>
         </button>
       ))}
     </Page>
@@ -256,6 +257,7 @@ function upcomingDays() {
 export function Book() {
   useStore();
   const [params] = useSearchParams();
+  const from = params.get('from');
   const meet = params.get('kind') === 'meet' || state.role === 'client';
   const hours = svc.cfg().hours || { start: 9, end: 18 };
   const days = upcomingDays();
@@ -317,7 +319,7 @@ export function Book() {
   }
 
   return (
-    <Page back="/mobile/today" backLabel="Today" title={meet ? 'Book a meeting' : `Book the ${room.toLowerCase()}`}>
+    <Page sheet back={from && from.startsWith('/mobile/') ? from : '/mobile/today'} backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Today'} title={meet ? 'Book a meeting' : `Book the ${room.toLowerCase()}`}>
       {meet && <Note>The studio confirms. You get a WhatsApp the day before and one hour before.</Note>}
       <form className="stack" onSubmit={save}>
         <span className="lab">Day</span>

@@ -16,6 +16,7 @@ export function backName(url) {
   if (path.startsWith('/mobile/photos')) return 'Photos';
   if (path.startsWith('/mobile/chats/')) return 'Chat';
   if (path.startsWith('/mobile/projects/')) return 'Project';
+  if (path === '/mobile/profile') return 'Profile';
   if (path.startsWith('/mobile/chats')) return 'Chats';
   return 'Back';
 }

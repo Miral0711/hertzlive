@@ -920,6 +920,37 @@ a.site-card { text-decoration: none; color: inherit; }
 .proj .day-row[aria-pressed="true"] b { color: var(--accent-text); }
 .proj .note { margin: 8px 0 0; font-size: 13px; color: var(--ink-3); }
 
+.profile .who {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 6px 0 2px;
+}
+.profile .who b { display: block; font-size: 18px; font-weight: 650; line-height: 1.25; }
+.profile .who span { display: block; margin-top: 1px; color: var(--ink-2); font-size: 14px; line-height: 1.35; }
+.profile .photo-pick {
+  display: block;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+.profile a.day-row,
+.profile button.day-row,
+.profile a.day-row b,
+.profile button.day-row b {
+  color: var(--ink);
+  text-decoration: none;
+}
+.profile .day-acts { color: var(--ink-3); font-size: 14px; font-weight: 600; }
+.body.profile { padding-bottom: 40px; }
 .prof { display: flex; align-items: center; gap: 14px; margin: 16px 0; }
 .prof b, .prof span { display: block; }
 .prof span { color: var(--ink-2); }

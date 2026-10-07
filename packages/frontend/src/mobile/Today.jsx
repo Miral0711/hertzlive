@@ -485,7 +485,7 @@ export default function Today() {
     <div className="screen">
       <header className="top">
         <h1>{t('today')}<span>{fmtD(day)}</span></h1>
-        <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Ftoday" aria-label="Profile">
           <Avatar person={person} size="sm" />
         </Link>
       </header>

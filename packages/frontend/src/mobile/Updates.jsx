@@ -50,7 +50,7 @@ export default function Updates() {
     <div className="screen">
       <header className="top">
         <h1>{t('updates')}<span>What changed in your projects</span></h1>
-        <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fupdates" aria-label="Profile">
           <Avatar person={person} size="sm" />
         </Link>
       </header>

@@ -42,7 +42,7 @@ export default function Chats() {
         <Link className="icon-btn" to="/mobile/camera" aria-label="Send a photo">
           <Icon name="camera" />
         </Link>
-        <Link className="icon-btn" to="/mobile/profile" aria-label="Profile">
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fchats" aria-label="Profile">
           <Avatar person={person} size="sm" />
         </Link>
       </header>
