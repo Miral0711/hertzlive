@@ -84,7 +84,7 @@ export default function Shell() {
     applyAgencyTheme();
   });
 
-  const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio'].includes(page);
+  const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio', 'toolkit'].includes(page);
   const workspace = page === 'chats' && allowed;
   const focusedWork = page === 'review';
   // Opening a conversation on the Chats page un-hides the side pane. Put the pane back the way it was when you leave Chats,
@@ -144,13 +144,23 @@ export default function Shell() {
           )}
         </DLink>
         {phone && workspace ? <div className="min-w-0 flex-1" /> : <NavSearch />}
+        <DLink
+          to="#/toolkit"
+          aria-current={page === 'toolkit' ? 'page' : undefined}
+          aria-label="Architect's Calculator"
+          title="Architect's Calculator"
+          className={`ml-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-r1 border px-3 no-underline sm:px-3.5 ${page === 'toolkit' ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-line-2 bg-surface font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text'}`}
+        >
+          <Icon name="calc" small />
+          <span className="max-sm:hidden">Toolkit</span>
+        </DLink>
         {!phone && !(workspace || focusedWork) && (
           <button
             type="button"
             onClick={toggleChatPane}
             aria-expanded={!state.desk.chatHidden}
             aria-controls="conversation"
-            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3 sm:px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3 sm:px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text"
           >
             <Icon name="chat" small /> <span className="max-sm:hidden">Chats</span>
           </button>

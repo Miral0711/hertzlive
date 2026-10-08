@@ -55,6 +55,9 @@ function pageResults(q) {
   const allowed = navFor();
   const label = (k) => allowed.find(([id]) => id === k)?.[1];
   const mods = allowed.filter(([, l]) => l.toLowerCase().includes(n)).map(([k, l]) => ({ kind: 'page', id: `m-${k}`, title: l, sub: 'Page', ref: `#/${k}` }));
+  if (n.length >= 2 && ['toolkit', 'calculator', 'architect'].some((k) => k.startsWith(n))) {
+    mods.unshift({ kind: 'page', id: 'm-toolkit', title: "Architect's Calculator", sub: 'Toolkit', ref: '#/toolkit' });
+  }
   const subs = SECTIONS.filter(([k, t, , kw]) => label(k) && `${t} ${kw}`.toLowerCase().includes(n))
     .map(([k, t, ref]) => ({ kind: 'page', id: ref, title: t, sub: `${label(k)} section`, ref }));
   return [...mods, ...subs].filter((r, i, a) => a.findIndex((x) => x.ref === r.ref) === i).slice(0, 8);

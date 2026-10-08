@@ -5,8 +5,9 @@ import * as sites from './pages/sites';
 import * as studio from './pages/studio';
 import * as money from './pages/money';
 import * as resources from './pages/resources';
+import * as toolkit from './pages/toolkit';
 
 // Each feature module exports `pages` ({ routeName: Component }) and `dialogs` ({ kind: Component }).
-const modules = [home, chat, projects, sites, studio, money, resources];
+const modules = [home, chat, projects, sites, studio, money, resources, toolkit];
 export const PAGES = Object.assign({}, ...modules.map((m) => m.pages || {}));
 export const DIALOGS = Object.assign({}, ...modules.map((m) => m.dialogs || {}));
