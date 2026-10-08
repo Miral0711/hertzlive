@@ -193,7 +193,7 @@ export default function Shell() {
           tabIndex={-1}
           data-page={page}
           className={`min-h-0 min-w-0 focus:outline-none ${phone && !inChatThread
-            ? `pb-[calc(4.75rem+env(safe-area-inset-bottom))] ${workspace ? 'flex flex-col overflow-hidden bg-surface' : 'overflow-auto px-3 pt-3'}`
+            ? `pb-[calc(4.75rem+env(safe-area-inset-bottom))] ${workspace ? 'flex flex-col overflow-hidden bg-surface' : page === 'toolkit' ? 'flex flex-col overflow-hidden px-3 pt-3' : 'overflow-auto px-3 pt-3'}`
             : 'overflow-auto px-page-x pb-16 pt-page-y'}`}
         >
           {(state.storageError || state.desk.draftStorageError) && (

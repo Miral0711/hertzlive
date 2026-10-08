@@ -130,7 +130,7 @@ function LiveResult({ calc, mode, outcome, onCopy }) {
           {rest.map((line) => (
             <div key={line.label} className="flex items-baseline justify-between gap-4 py-1">
               <dt className="text-[13px] text-ink-3">{line.label}</dt>
-              <dd className="m-0 text-right text-[13px] font-medium [overflow-wrap:anywhere]">{line.value}</dd>
+              <dd className="m-0 min-w-0 text-right text-[13px] font-medium [overflow-wrap:anywhere]">{line.value}</dd>
             </div>
           ))}
         </dl>
@@ -316,7 +316,7 @@ function Row({ id, active, title, detail, aside, mark, onClick, onHover }) {
             {mark && <Icon name="star" small className="fill-current text-accent-text" />}
             <span className="truncate">{title}</span>
           </span>
-          {aside && <span className="shrink-0 text-[13px] font-semibold text-accent-text">{aside}</span>}
+          {aside && <span className="max-w-[46%] shrink-0 truncate text-right text-[13px] font-semibold text-accent-text">{aside}</span>}
         </span>
         {detail && <span className="mt-0.5 block truncate text-[13px] text-ink-3">{detail}</span>}
       </span>
@@ -544,13 +544,13 @@ export default function ToolkitPage({ q = {} }) {
   const facts = reading?.result?.facts || [];
 
   return (
-    <div className="mx-auto w-full max-w-[840px]">
-      <header className="mb-3">
-        <h1 className="m-0 text-lg font-semibold leading-tight tracking-tight">Architect's Toolkit</h1>
+    <div className="mx-auto flex w-full max-w-[840px] flex-col max-md:min-h-0 max-md:flex-1">
+      <header className="mb-2 shrink-0 md:mb-3">
+        <h1 className="m-0 text-base font-semibold leading-tight tracking-tight md:text-lg">Architect's Toolkit</h1>
         <p className="m-0 mt-0.5 text-[13px] text-ink-3">Calculate, convert, estimate, or check anything.</p>
       </header>
-      <div className="overflow-hidden rounded-r3 border border-line bg-surface shadow-s2 focus-within:border-accent">
-        <div className="flex items-center gap-3 border-b border-line px-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-r3 border border-line bg-surface shadow-s2 focus-within:border-accent md:block md:flex-none">
+        <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 sm:gap-3 sm:px-4">
           <Icon name="search" className="text-accent-text" />
           <input
             ref={field}
@@ -572,12 +572,12 @@ export default function ToolkitPage({ q = {} }) {
               setTool(null);
             }}
             onKeyDown={onKey}
-            className="min-h-[56px] w-full border-0 bg-transparent py-3 text-base text-ink placeholder:text-ink-3 focus:outline-none focus:ring-0"
+            className="min-h-[52px] w-full min-w-0 border-0 bg-transparent py-3 text-base text-ink placeholder:text-ink-3 focus:outline-none focus:ring-0 sm:min-h-[56px]"
           />
           {(phrase || browse || showSaved) && !calc && <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-ink-3">esc</span>}
         </div>
 
-        <div className="max-h-[min(36rem,calc(100dvh-12rem))] overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto max-md:overscroll-contain md:max-h-[min(36rem,calc(100dvh-12rem))] md:flex-none">
           {calc && (
             <Calculator
               key={`${calc.id}:${saved?.id || 'new'}:${tool?.mode || ''}`}
@@ -601,7 +601,7 @@ export default function ToolkitPage({ q = {} }) {
                       <div className="my-1 text-[13px] text-ink-3" aria-hidden="true">↓</div>
                     </>
                   )}
-                  <div className={`${reading.result.lead ? '' : 'mt-1 '}text-hero font-semibold leading-none tracking-tight text-ink [overflow-wrap:anywhere]`}>{view.value}</div>
+                  <div className={`${reading.result.lead ? '' : 'mt-1 '}text-hero font-semibold leading-tight tracking-tight text-ink [overflow-wrap:anywhere]`}>{view.value}</div>
                   {view.hint && <div className="mt-1.5 text-[13px] text-ink-2">{view.hint}</div>}
                   {reading.result.note && <div className="mt-1.5 text-[13px] text-ink-3">{reading.result.note}</div>}
                 </div>
