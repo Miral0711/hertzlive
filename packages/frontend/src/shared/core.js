@@ -5,6 +5,12 @@ import { render } from './store.js';
 import * as SEED_MAIN from './data.js';
 import * as SEED_MORE from './data2.js';
 import { shiftSeedExports, shiftDates, daysBetween, monthDelta, addDays, SEED_TODAY } from './liveDates.js';
+import {
+  ensurePerformance, applyTaskCompletion, applyTaskReopen, applyIssueClose, applyMilestone,
+  localStamp, currentStreak, evaluateBadges, metricsFor, teamSnapshot, ledgerEntries,
+  periodById, suggestIncentive, attendanceTrend, fyOf, grant, periodPoints, syncPoints,
+  canViewPerson, applyWeightTable, performanceAccess, canSeeTeamPerformance, canSeeReviewScore,
+} from './performance.js';
 // Move the sample data from its fixed day to the real current date (see liveDates.js).
 shiftSeedExports(SEED_MAIN);
 shiftSeedExports(SEED_MORE);
@@ -228,9 +234,16 @@ export function loadDb() {
     if (agency.accent?.toLowerCase() === "#0a6b4f") agency.accent = AGENCY.accent;
     agency.paletteVersion = 1;
   }
-  if (agency && agency.paletteVersion < 2) {
+    if (agency && agency.paletteVersion < 2) {
     if (["#b1552f", "#945543"].includes(agency.accent?.toLowerCase())) agency.accent = AGENCY.accent;
     agency.paletteVersion = 2;
+  }
+  ensurePerformance(state.db, TODAY, uid);
+  if (state.gamify?.optOut || state.gamify?.quiet) {
+    const person = state.db.USERS.find((x) => x.id === state.userId);
+    if (person && person.ptsOptOut == null) person.ptsOptOut = true;
+    state.gamify.optOut = false;
+    state.gamify.quiet = false;
   }
 }
 export function persist() {
@@ -291,7 +304,7 @@ export const RBAC = {
     salary: "r",
     holiday: "r",
     booking: "rwa",
-    achievement: "r",
+    achievement: "rw",
     audit: "r",
     nas: "rw",
     ai: "rw",
@@ -416,6 +429,12 @@ Object.assign(RBAC.site_manager, { share: "r", review: "r", ref: "-", intake: "r
 Object.assign(RBAC.hr, { share: "-", review: "r", ref: "-", intake: "-" });
 Object.assign(RBAC.client, { share: "-", review: "-", ref: "rw", intake: "r" });
 Object.assign(RBAC.contractor, { share: "-", review: "-", ref: "-", intake: "-" });
+Object.assign(RBAC.partner, { performance: "ra", goal: "rwa", recognition: "rw", incentive: "rwa" });
+Object.assign(RBAC.designer, { performance: "r", goal: "r", recognition: "r", incentive: "-" });
+Object.assign(RBAC.site_manager, { performance: "r", goal: "r", recognition: "rw", incentive: "-" });
+Object.assign(RBAC.hr, { performance: "ra", goal: "rwa", recognition: "rw", incentive: "rw" });
+Object.assign(RBAC.client, { performance: "-", goal: "-", recognition: "-", incentive: "-" });
+Object.assign(RBAC.contractor, { performance: "-", goal: "-", recognition: "-", incentive: "-" });
 export const can = (entity, action, role = state.role) =>
   (RBAC[role]?.[entity] || "-").includes(action);
 export const me = () => state.db.USERS.find((u) => u.id === state.userId);
@@ -910,11 +929,10 @@ export const svc = {
       toast("Closure needs verification by someone other than the raiser");
       return;
     }
-    i.status = "closed";
-    i.closedAt = new Date().toISOString().slice(0, 16);
-    i.verifiedBy = state.userId;
-    award(i.assignee, 40, "Issue closed within SLA");
-    this.log("Issue closure verified · " + id, "Issue " + id);
+    if (i.status === "closed") return;
+    const { sla } = applyIssueClose(state.db, i, localStamp(), state.userId, uid);
+    if (i.assignee) evaluateBadges(state.db, i.assignee, TODAY, uid);
+    this.log("Issue closure verified · " + id + (sla ? " · within SLA" : " · outside SLA"), "Issue " + id);
     persist();
   },
   addMessage(threadId, m) {
@@ -1372,7 +1390,9 @@ export const svc = {
       if (firstIn) rec.mark = late ? "late" : "ontime";
     }
     state.db.checkedIn[state.userId] = t;
-    if (!late && firstIn) award(state.userId, 5, "On-time check-in");
+    const person = state.db.USERS.find((x) => x.id === state.userId);
+    if (person) person.streak = currentStreak(state.db, state.userId, TODAY);
+    evaluateBadges(state.db, state.userId, TODAY, uid);
     persist();
     return { t, late };
   },
@@ -1466,10 +1486,11 @@ export const svc = {
     const hours = rows.reduce((n, r) => n + (r.out ? (mins(r.out) - mins(r.in)) / 60 : 0), 0);
     return { rows, days: rows.length, late: rows.filter((r) => r.late).length, hours: Math.round(hours) };
   },
-  // Reviews: partners see all, everyone else sees only their own. Never a public leaderboard.
+  // Reviews: partners and HR see all. Everyone else sees only their own.
   reviews(userId) {
     if (!can("review", "r")) return [];
-    const mine = state.role === "partner" ? state.db.REVIEWS : state.db.REVIEWS.filter((r) => r.userId === state.userId);
+    const seeAll = state.role === "partner" || state.role === "hr";
+    const mine = seeAll ? state.db.REVIEWS : state.db.REVIEWS.filter((r) => r.userId === state.userId);
     return mine.filter((r) => !userId || r.userId === userId).sort((a, b) => b.month.localeCompare(a.month));
   },
   saveReview(r) {
@@ -1734,17 +1755,231 @@ export const svc = {
     if (c) c.done = !c.done;
     persist();
   },
+  completeTask(id, by = state.userId) {
+    if (!can("task", "w")) throw new Error("forbidden");
+    const t = state.db.TASKS.find((x) => x.id === id);
+    if (!t) throw new Error("not found");
+    if (t.status === "done") return t;
+    const prior = { status: t.status, stage: t.stage, completedAt: t.completedAt, completedBy: t.completedBy };
+    const ledger = (state.db.POINTS_LEDGER || []).slice();
+    const awards = (state.db.BADGE_AWARDS || []).slice();
+    applyTaskCompletion(state.db, t, localStamp(), by, uid);
+    if (t.owner) evaluateBadges(state.db, t.owner, TODAY, uid);
+    this.log(`Task completed · ${t.title}`, "Task " + t.id);
+    if (!persist()) {
+      if (state.db.AUDIT?.[0]?.entity === "Task " + t.id) state.db.AUDIT.shift();
+      t.status = prior.status;
+      t.stage = prior.stage;
+      if (prior.completedAt) t.completedAt = prior.completedAt; else delete t.completedAt;
+      if (prior.completedBy) t.completedBy = prior.completedBy; else delete t.completedBy;
+      state.db.POINTS_LEDGER = ledger;
+      state.db.BADGE_AWARDS = awards;
+      if (t.owner) syncPoints(state.db, t.owner);
+      throw new Error("Could not save that. Try again.");
+    }
+    return t;
+  },
+  setTaskStage(id, stage) {
+    if (!can("task", "w")) return null;
+    const t = state.db.TASKS.find((x) => x.id === id);
+    if (!t) return null;
+    if (stage === "done") return this.completeTask(id);
+    if (t.status === "done") applyTaskReopen(state.db, t, stage);
+    else {
+      t.stage = stage;
+      t.status = "open";
+    }
+    persist();
+    return t;
+  },
+  completeMilestone(projectId, milestoneId) {
+    if (!can("project", "w")) throw new Error("forbidden");
+    const p = state.db.PROJECTS.find((x) => x.id === projectId);
+    const m = p?.milestones?.find((x) => x.id === milestoneId);
+    if (!m || m.done) return null;
+    applyMilestone(state.db, m, localStamp(), state.userId, uid);
+    evaluateBadges(state.db, state.userId, TODAY, uid);
+    this.log(`Milestone completed · ${m.name}`, "Project " + projectId);
+    persist();
+    return m;
+  },
+  performancePeriod(id) {
+    return periodById(id, TODAY);
+  },
+  personMetrics(userId, periodId) {
+    if (!can("performance", "r")) return null;
+    if (!canViewPerson(state.db, me(), userId)) return null;
+    const includeReviews = canSeeReviewScore(me(), userId);
+    return metricsFor(state.db, userId, periodById(periodId, TODAY), TODAY, { includeReviews });
+  },
+  teamPerformance(periodId) {
+    const viewer = me();
+    if (!viewer || !can("performance", "r") || !canSeeTeamPerformance(viewer)) return null;
+    return teamSnapshot(state.db, periodById(periodId, TODAY), TODAY, viewer);
+  },
+  pointsHistory(userId, periodId) {
+    if (!can("performance", "r") || !canViewPerson(state.db, me(), userId)) return [];
+    return ledgerEntries(state.db, userId, periodById(periodId, TODAY));
+  },
+  attendanceTrend() {
+    return ["partner", "hr", "site_manager"].includes(state.role) && can("performance", "r") ? attendanceTrend(state.db, TODAY) : [];
+  },
+  addRecognition(input) {
+    if (!can("recognition", "w")) throw new Error("forbidden");
+    if (!canViewPerson(state.db, me(), input.userId)) throw new Error("forbidden");
+    const text = (input.message || "").trim();
+    if (!text) throw new Error("Write a note");
+    const person = user(input.userId);
+    if (!person || ["client", "contractor"].includes(person.role)) throw new Error("Choose a team member");
+    const rec = { id: uid(), userId: input.userId, message: text, by: state.userId, at: localStamp(), projectId: input.projectId || null };
+    state.db.RECOGNITIONS.unshift(rec);
+    evaluateBadges(state.db, input.userId, TODAY, uid);
+    this.log(`Recognition · ${person.name}`, "Recognition " + rec.id);
+    persist();
+    return rec;
+  },
+  addGoal(g) {
+    if (!can("goal", "w")) throw new Error("forbidden");
+    const name = (g.name || "").trim();
+    if (!name) throw new Error("Name the goal");
+    const period = periodById(g.periodId, TODAY);
+    const rec = {
+      id: uid(),
+      name,
+      description: (g.description || "").trim(),
+      scope: g.scope === "individual" ? "individual" : "team",
+      userId: g.scope === "individual" ? g.userId : null,
+      metric: g.metric === "issue_sla_pct" ? "issue_sla_pct" : "task_ontime_pct",
+      target: Math.max(1, Math.min(100, Number(g.target) || 90)),
+      start: period.start,
+      end: period.end,
+    };
+    if (rec.scope === "individual" && !rec.userId) throw new Error("Choose a person");
+    state.db.GOALS.unshift(rec);
+    this.log(`Goal added · ${rec.name}`, "Goal " + rec.id);
+    persist();
+    return rec;
+  },
+  savePointRules(list) {
+    if (!can("achievement", "w")) throw new Error("forbidden");
+    state.db.POINT_RULES = (state.db.POINT_RULES || []).map((r) => {
+      const next = (list || []).find((x) => x.id === r.id);
+      if (!next) return r;
+      const points = Math.max(0, Number(next.points) || 0);
+      return { ...r, points, enabled: points > 0 && next.enabled !== false };
+    });
+    persist();
+  },
+  saveBadgeThreshold(id, threshold) {
+    if (!can("achievement", "w")) throw new Error("forbidden");
+    const badge = (state.db.BADGES || []).find((x) => x.id === id);
+    if (badge) badge.threshold = Math.max(1, Number(threshold) || 1);
+    state.db.USERS.filter((u) => ["partner", "designer", "site_manager", "hr"].includes(u.role)).forEach((u) => evaluateBadges(state.db, u.id, TODAY, uid));
+    persist();
+  },
+  savePerformanceWeights(table) {
+    if (!can("achievement", "w")) throw new Error("forbidden");
+    const next = {};
+    ["designer", "site_manager", "hr", "partner"].forEach((role) => {
+      next[role] = {};
+      ["delivery", "reliability", "quality", "contribution", "goals"].forEach((key) => {
+        next[role][key] = Math.max(0, Number(table?.[role]?.[key]) || 0);
+      });
+    });
+    state.db.PERFORMANCE_WEIGHTS = applyWeightTable(state.db, next, TODAY);
+    persist();
+  },
+  leaderboard(periodId) {
+    if (state.role !== "partner" || state.db.LEADERBOARD?.on === false) return [];
+    const period = periodById(periodId, TODAY);
+    return state.db.USERS
+      .filter((u) => ["partner", "designer", "site_manager", "hr"].includes(u.role) && !u.ptsOptOut)
+      .map((u) => ({ user: u, points: periodPoints(state.db, u.id, period), streak: currentStreak(state.db, u.id, TODAY) }))
+      .sort((a, b) => b.points - a.points);
+  },
+  setLeaderboard(on) {
+    if (!can("performance", "a")) throw new Error("forbidden");
+    state.db.LEADERBOARD = { on: !!on };
+    persist();
+  },
+  setOptOut(on) {
+    const person = me();
+    if (!person) return;
+    person.ptsOptOut = !!on;
+    state.gamify.optOut = false;
+    state.gamify.quiet = false;
+    persist();
+  },
+  saveIncentiveRules(bands) {
+    if (!can("incentive", "w")) throw new Error("forbidden");
+    state.db.INCENTIVE_RULES = {
+      bands: (bands || []).map((b) => ({ ...b, minIndex: Number(b.minIndex) || 0, suggested: Math.max(0, Number(b.suggested) || 0) })),
+    };
+    persist();
+  },
+  incentivePlan(id) {
+    if (!can("incentive", "r")) return null;
+    const period = id ? periodById(id, TODAY) : fyOf(TODAY);
+    let plan = (state.db.INCENTIVE_PLANS || []).find((p) => p.id === period.id);
+    if (!plan) plan = { id: period.id, name: period.label, start: period.start, end: period.end, lines: {} };
+    return { plan, period };
+  },
+  suggestFor(userId, periodId) {
+    if (!can("incentive", "r")) return null;
+    const period = periodById(periodId, TODAY);
+    const metrics = metricsFor(state.db, userId, period, TODAY);
+    return { metrics, suggestion: suggestIncentive(state.db.INCENTIVE_RULES, metrics) };
+  },
+  saveIncentiveLine(planId, userId, patch) {
+    if (!can("incentive", "w")) throw new Error("forbidden");
+    const period = periodById(planId, TODAY);
+    let plan = state.db.INCENTIVE_PLANS.find((p) => p.id === period.id);
+    if (!plan) {
+      plan = { id: period.id, name: period.label, start: period.start, end: period.end, lines: {} };
+      state.db.INCENTIVE_PLANS.push(plan);
+    }
+    plan.lines = plan.lines || {};
+    const line = plan.lines[userId] || { adjustment: null, status: "draft", note: "", reason: "", approvedBy: null, approvedAt: null };
+    const metrics = metricsFor(state.db, userId, period, TODAY, { includeReviews: true });
+    const suggestion = suggestIncentive(state.db.INCENTIVE_RULES, metrics.performance);
+    line.performance = {
+      score: metrics.performance.score,
+      formula: metrics.performance.formula,
+      dimensions: metrics.performance.dimensions.map((d) => ({ id: d.id, label: d.label, score: d.score, weight: d.weight })),
+    };
+    line.recommended = suggestion.suggested;
+    if ("adjustment" in patch) {
+      const raw = patch.adjustment;
+      line.adjustment = raw === "" || raw == null ? null : Math.max(0, Number(raw) || 0);
+    }
+    if ("reason" in patch) line.reason = String(patch.reason || "").slice(0, 500);
+    if ("note" in patch) line.note = String(patch.note || "").slice(0, 500);
+    if (patch.status) {
+      if (!performanceAccess(state.role).incentiveApprove) throw new Error("forbidden");
+      line.status = patch.status;
+      if (patch.status === "approved") {
+        line.approvedBy = state.userId;
+        line.approvedAt = localStamp();
+        if (!line.reason) line.reason = suggestion.reason;
+      }
+      this.log(`Incentive ${line.status} · ${user(userId)?.name || userId}`, "Incentive " + plan.id);
+    }
+    plan.lines[userId] = line;
+    persist();
+    return line;
+  },
 };
-// gamification: rate-limited, never self-award from UI, quiet mode respected
-export const awardLog = {};
+// Compatibility wrapper. New awards go through the ledger and do not depend on leaderboard opt-out.
 export function award(userId, pts, why) {
-  if (state.gamify.optOut) return;
-  const k = userId + ":" + why;
-  const n = (awardLog[k] || 0) + 1;
-  awardLog[k] = n;
-  if (n > 3) return; // ponytail: per-session rate limit; production = per-day per-reason cap in the service
-  const u = state.db.USERS.find((x) => x.id === userId);
-  if (u) u.pts = (u.pts || 0) + pts;
+  if (!userId || !pts || !state.db) return;
+  grant(state.db, {
+    userId,
+    points: pts,
+    reason: why || "Points",
+    sourceType: "manual",
+    sourceId: `${userId}:${why || "points"}:${uid()}`,
+    at: localStamp(),
+  }, uid);
 }
 
 // ---------- sync queue (offline-first outbox) ----------

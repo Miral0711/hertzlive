@@ -33,10 +33,8 @@ export function WorkRow({ item, onDone }) {
 export function finishTask(taskId) {
   const task = (state.db.TASKS || []).find((row) => row.id === taskId);
   if (!task || task.owner !== state.userId) return;
-  const previous = task.status;
-  task.status = 'done';
-  if (!persist()) task.status = previous;
-  else render();
+  try { svc.completeTask(task.id); } catch (err) { return; }
+  render();
 }
 
 function Missing({ id }) {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Ph from '../../ui/Ph';
 import {
-  state, svc, can, persist, toast, render, hh, fmtD, uid, AIProvider,
+  state, svc, can, persist, toast, render, hh, fmtD, uid, AIProvider, me,
 } from '../../shared/core.js';
 import { ROLES } from '../../shared/data.js';
 import { DEFERRED } from '../data';
@@ -35,7 +35,12 @@ const submit = (fn) => (e) => {
 // ---------- ACT handlers used by settings ----------
 export const themeToggle = () => cycleTheme();
 export const motionToggle = () => { state.motion = !state.motion; persist(); render(); };
-export const quietToggle = () => { state.gamify.optOut = !state.gamify.optOut; persist(); render(); };
+export const quietToggle = () => {
+  const person = me();
+  if (!person) return;
+  svc.setOptOut(!person.ptsOptOut);
+  render();
+};
 export const previewToggle = () => togglePreviewAsClient();
 
 const DEFAULT_BG = '#f2f3f5';
@@ -250,7 +255,7 @@ function Prefs() {
           </div>
           <div className="flex flex-col gap-2.5">
             <Switch label="Reduce motion" sub="Fewer animations and transitions." on={!!state.motion} onClick={motionToggle} />
-            <Switch label="Quiet mode" sub="No points or badges." on={!!state.gamify.optOut} onClick={quietToggle} />
+            <Switch label="Hide me from the optional points list" sub="Your work is still recorded. This does not change your performance score." on={!!me()?.ptsOptOut} onClick={quietToggle} />
             {staff() && <Switch label="Preview as client" sub="See the app the way a client sees it." on={!!state.previewAsClient} onClick={previewToggle} />}
           </div>
         </Card>

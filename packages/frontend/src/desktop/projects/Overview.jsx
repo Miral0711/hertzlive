@@ -216,7 +216,15 @@ export function OverviewTab({ p }) {
       rows={rows.map((m) => [
         <>{m.name}{m.muhurat && <> <Pill>muhurat</Pill></>}</>,
         fmtD(m.date),
-        <StatusPill status={m.done ? 'done' : m.date < TODAY ? 'overdue' : 'planned'} />,
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <StatusPill status={m.done ? 'done' : m.date < TODAY ? 'overdue' : 'planned'} />
+          {!m.done && staff() && can('project', 'w') && (
+            <Btn sm onClick={() => {
+              const done = svc.completeMilestone(p.id, m.id);
+              toast(done ? 'Milestone completed.' : 'Could not complete that milestone.');
+            }}>Mark complete</Btn>
+          )}
+        </span>,
         ...(staff() ? [m.clientVisible ? 'Yes' : 'No'] : []),
       ])}
     />

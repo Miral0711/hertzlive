@@ -1,4 +1,4 @@
-import { state, svc, can, toast, persist, render, uid, fmtD, fmtDT, inr, parseRoute, award } from '../../shared/core.js';
+import { state, svc, can, toast, persist, render, uid, fmtD, fmtDT, inr, parseRoute } from '../../shared/core.js';
 import { TODAY, NAS_TREE } from '../../shared/data.js';
 import { seedFilings } from '../../shared/filing.js';
 import { Btn, Card, DataTable, Empty, Input, Item, Select, List, Pill, StatusPill } from '../../ui/ui';
@@ -209,10 +209,7 @@ function addTask(e, projectId) {
   toast('Task added.');
 }
 function taskDone(id) {
-  const t = state.db.TASKS.find((x) => x.id === id);
-  t.status = 'done';
-  award(state.userId, 5, 'Task closed');
-  persist();
+  try { svc.completeTask(id); } catch (err) { return toast(err.message === 'forbidden' ? 'You can’t close this task.' : err.message); }
   toast('Done.');
 }
 function TaskLine({ t }) {

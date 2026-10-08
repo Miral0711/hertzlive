@@ -435,9 +435,7 @@ export default function Today() {
     } else if (name === 'task') {
       const task = (state.db.TASKS || []).find((row) => row.id === a);
       if (!task || task.owner !== state.userId) return;
-      const previous = task.status;
-      task.status = 'done';
-      if (!persist()) { task.status = previous; setNote('Could not save that. Try again.'); return; }
+      try { svc.completeTask(task.id); render(); } catch (err) { setNote('Could not save that. Try again.'); return; }
     } else if (name === 'enquiry') svc.decideEnquiry(a, b);
     else if (name === 'booking') svc.decideBooking(a, b);
     else if (name === 'close') svc.closeIssue(a);
