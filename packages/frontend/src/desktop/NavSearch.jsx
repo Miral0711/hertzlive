@@ -23,7 +23,8 @@ const SECTIONS = [
   ['people', 'Timesheets', '#/people?tab=timesheets', 'hours'],
   ['people', 'Salary', '#/people?tab=salary', 'pay tally'],
   ['people', 'Expense claims', '#/people?tab=expenses', ''],
-  ['people', 'Points and badges', '#/people?tab=points', 'leaderboard goal'],
+  ['people', 'Performance', '#/people?tab=performance', 'points badges goals recognition'],
+  ['people', 'Incentives', '#/people?tab=incentives', 'bonus year end'],
   ['people', 'Reviews', '#/people?tab=reviews', 'score'],
   ['people', 'Contacts', '#/people?tab=contacts', 'phone'],
   ['people', 'Folders', '#/people?tab=folders', 'nas'],
@@ -54,6 +55,9 @@ function pageResults(q) {
   const allowed = navFor();
   const label = (k) => allowed.find(([id]) => id === k)?.[1];
   const mods = allowed.filter(([, l]) => l.toLowerCase().includes(n)).map(([k, l]) => ({ kind: 'page', id: `m-${k}`, title: l, sub: 'Page', ref: `#/${k}` }));
+  if (n.length >= 2 && ['toolkit', 'calculator', 'architect'].some((k) => k.startsWith(n))) {
+    mods.unshift({ kind: 'page', id: 'm-toolkit', title: "Architect's Calculator", sub: 'Toolkit', ref: '#/toolkit' });
+  }
   const subs = SECTIONS.filter(([k, t, , kw]) => label(k) && `${t} ${kw}`.toLowerCase().includes(n))
     .map(([k, t, ref]) => ({ kind: 'page', id: ref, title: t, sub: `${label(k)} section`, ref }));
   return [...mods, ...subs].filter((r, i, a) => a.findIndex((x) => x.ref === r.ref) === i).slice(0, 8);

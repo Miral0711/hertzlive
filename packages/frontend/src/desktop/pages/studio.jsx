@@ -2,7 +2,7 @@
 import Schedule, { BookSlotDialog } from '../studio/Schedule';
 import Enquiries from '../studio/Enquiries';
 import People from '../studio/People';
-import { EnquiryDialog, LeaveApproveDialog, OrgLeaveApproveDialog, ImportContactsDialog, HolidayDialog } from '../studio/dialogs';
+import { EnquiryDialog, LeaveApproveDialog, OrgLeaveApproveDialog, ImportContactsDialog, HolidayDialog, RecognitionDialog, GoalDialog } from '../studio/dialogs';
 import MeetingsCard from '../studio/MeetingsCard';
 
 export { MeetingsCard };
@@ -18,4 +18,6 @@ export const dialogs = {
   'import-contacts': ImportContactsDialog,
   'holiday-edit': HolidayDialog,
   'book-slot': BookSlotDialog,
+  recognition: RecognitionDialog,
+  goal: GoalDialog,
 };

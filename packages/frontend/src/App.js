@@ -11,7 +11,7 @@ import Projects, { Project, Drawings } from './mobile/Projects';
 import Updates from './mobile/Updates';
 import Profile from './mobile/Profile';
 import { Photos, Photo, Markup, Camera, Portfolio } from './mobile/Library';
-import { Who, People, Holidays, Punches, Reviews, Notice, Appearance, Language, Book, StandIn } from './mobile/People';
+import { Who, People, Holidays, Punches, Reviews, Notice, Appearance, Language, Book, StandIn, MyPerformance } from './mobile/People';
 import { Materials, Contacts, Attention, Changes, Refs, Intake, DrawingIndex, Drawing, Share } from './mobile/ProjectPages';
 import { GroupInfo, Voice, MessagePage, Filing, Issue, Assist, Call } from './mobile/ChatPages';
 
@@ -65,6 +65,7 @@ function App() {
           <Route path="people" element={<People />} />
           <Route path="holidays" element={<Holidays />} />
           <Route path="punches" element={<Punches />} />
+          <Route path="performance" element={<MyPerformance />} />
           <Route path="reviews" element={<Reviews />} />
           <Route path="notice" element={<Notice />} />
           <Route path="who" element={<Who />} />

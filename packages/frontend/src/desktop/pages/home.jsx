@@ -49,17 +49,18 @@ const DueText = ({ t }) => {
   return <span>{fmtD(t.due)}</span>;
 };
 
-// Same convention as the task-completion write already in projects/TabsA.jsx (taskDone): find the
-// record on state.db.TASKS, mutate it directly, persist(), toast(). Not routed through svc.* only
-// because none of this page's siblings route page-local writes through svc.* either.
+// Completion goes through svc.completeTask so desktop, project and mobile record the same facts.
 function setTaskStage(id, stage) {
   if (!can('task', 'w')) return;
   const t = state.db.TASKS.find((x) => x.id === id);
   if (!t) return;
-  t.stage = stage;
-  t.status = stage === 'done' ? 'done' : 'open';
-  toast(stage === 'done' ? 'Task marked complete.' : `Moved to ${STAGES.find(([k]) => k === stage)[1]}.`);
-  persist();
+  if (stage === 'done') {
+    try { svc.completeTask(id); } catch (err) { return toast(err.message === 'forbidden' ? 'You can’t close this task.' : err.message); }
+    toast('Task marked complete.');
+    return;
+  }
+  svc.setTaskStage(id, stage);
+  toast(`Moved to ${STAGES.find(([k]) => k === stage)[1]}.`);
 }
 function reassignTask(id, owner) {
   if (!can('task', 'w')) return;

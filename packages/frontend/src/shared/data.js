@@ -17,8 +17,8 @@ export const USERS = [
     title: "Principal Partner",
     ini: "HP",
     skills: ["residential", "concept"],
-    pts: 1240,
-    streak: 31,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -28,8 +28,8 @@ export const USERS = [
     title: "Partner · Business",
     ini: "RK",
     skills: ["commercial", "approvals"],
-    pts: 980,
-    streak: 12,
+    pts: 0,
+    streak: 0,
     quiet: true,
   },
   {
@@ -39,8 +39,8 @@ export const USERS = [
     title: "Partner · Interiors",
     ini: "TM",
     skills: ["interiors", "materials"],
-    pts: 1105,
-    streak: 22,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -50,8 +50,8 @@ export const USERS = [
     title: "Partner · Execution",
     ini: "ZN",
     skills: ["execution", "structure"],
-    pts: 870,
-    streak: 5,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -61,8 +61,8 @@ export const USERS = [
     title: "Senior Designer",
     ini: "PS",
     skills: ["interiors", "kitchen", "joinery"],
-    pts: 1460,
-    streak: 44,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -72,8 +72,8 @@ export const USERS = [
     title: "Architect",
     ini: "NJ",
     skills: ["structure", "drawings", "concept"],
-    pts: 1320,
-    streak: 9,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -83,8 +83,8 @@ export const USERS = [
     title: "Junior Designer",
     ini: "SP",
     skills: ["3d", "moodboard", "interiors"],
-    pts: 760,
-    streak: 18,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -94,8 +94,8 @@ export const USERS = [
     title: "Architect",
     ini: "DP",
     skills: ["drawings", "structure", "execution"],
-    pts: 1010,
-    streak: 2,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -105,8 +105,8 @@ export const USERS = [
     title: "Interior Designer",
     ini: "MI",
     skills: ["interiors", "kitchen", "materials"],
-    pts: 1180,
-    streak: 27,
+    pts: 0,
+    streak: 0,
     quiet: true,
   },
   {
@@ -116,8 +116,8 @@ export const USERS = [
     title: "Site Manager · Alkapuri",
     ini: "RG",
     skills: ["execution", "snags"],
-    pts: 1530,
-    streak: 38,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -127,8 +127,8 @@ export const USERS = [
     title: "Site Manager · Ahmedabad",
     ini: "FS",
     skills: ["execution", "mep"],
-    pts: 1290,
-    streak: 15,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -138,8 +138,8 @@ export const USERS = [
     title: "HR & Operations",
     ini: "BR",
     skills: ["ops"],
-    pts: 640,
-    streak: 52,
+    pts: 0,
+    streak: 0,
     quiet: false,
   },
   {
@@ -1333,55 +1333,12 @@ export const SALARY = [
   },
 ];
 export const BADGES = [
-  {
-    id: "bd1",
-    name: "Zero-rework drawing",
-    icon: "✎",
-    desc: "A drawing issued with no revision for 30 days",
-    earnedBy: ["u6", "u8"],
-  },
-  {
-    id: "bd2",
-    name: "Fast closer",
-    icon: "⚡",
-    desc: "5 site issues closed within SLA",
-    earnedBy: ["u10", "u5"],
-  },
-  {
-    id: "bd3",
-    name: "Early bird ×30",
-    icon: "☀",
-    desc: "30-day on-time check-in streak",
-    earnedBy: ["u5", "u10", "u12", "u1"],
-  },
-  {
-    id: "bd4",
-    name: "Client hero",
-    icon: "♡",
-    desc: "Client decision turned around in under a day",
-    earnedBy: ["u5"],
-  },
-  {
-    id: "bd5",
-    name: "Site scribe",
-    icon: "✦",
-    desc: "20 site logs with photos in a month",
-    earnedBy: ["u10", "u11"],
-  },
-  {
-    id: "bd6",
-    name: "Mentor",
-    icon: "◎",
-    desc: "Reviewed 10 junior drawings",
-    earnedBy: ["u6"],
-  },
+  { id: "deadline-keeper", name: "Deadline Keeper", icon: "✎", desc: "Completed 10 assigned tasks on time", rule: "tasks_on_time", threshold: 10 },
+  { id: "site-resolver", name: "Site Resolver", icon: "⚡", desc: "Resolved 10 issues within SLA", rule: "issues_sla", threshold: 10 },
+  { id: "consistency", name: "Consistency", icon: "☀", desc: "On-time check-in for 5 working days in a row", rule: "streak", threshold: 5 },
+  { id: "project-finisher", name: "Project Finisher", icon: "✦", desc: "Completed 5 assigned milestones on time", rule: "milestones", threshold: 5 },
+  { id: "studio-contributor", name: "Studio Contributor", icon: "♡", desc: "Received 3 recognitions", rule: "recognitions", threshold: 3 },
 ];
-export const TEAM_GOAL = {
-  name: "Q3 · Close 90% of site issues inside SLA",
-  progress: 0.82,
-  target: 0.9,
-  ends: "2026-09-30",
-};
 // `status` stays the simple open/done flag every other page already reads ('open' means active,
 // anything else is not). `stage` is the richer To do/In progress/Waiting/Review/Done the All
 // Tasks board and task detail use; it's additive and never changes what svc.tasks()/svc.load()

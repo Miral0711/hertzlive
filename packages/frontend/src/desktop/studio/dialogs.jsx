@@ -252,3 +252,79 @@ export function OrgLeaveApproveDialog({ d }) {
     </Modal>
   );
 }
+
+export function RecognitionDialog({ d }) {
+  const people = svc.people().filter((p) => p.id !== state.userId);
+  const projects = svc.projects();
+  const save = (e) => {
+    e.preventDefault();
+    const p = Object.fromEntries(new FormData(e.currentTarget));
+    try {
+      svc.addRecognition({ userId: p.userId, message: p.message, projectId: p.projectId || null });
+      state.desk.dialog = null;
+      toast('Recognition saved.');
+    } catch (err) { toast(err.message); }
+    render();
+  };
+  return (
+    <Modal title="Recognize someone">
+      <form onSubmit={save}>
+        <Field label="Person">
+          <Select name="userId" defaultValue={d.userId || people[0]?.id}>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="What they did"><Textarea name="message" required placeholder="Great work on site coordination." /></Field>
+        <Field label="Project, optional">
+          <Select name="projectId" defaultValue="">
+            <option value="">None</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Field>
+        <p className="text-[13px] text-ink-3">Recognition is a note. It does not add points by itself.</p>
+        <ModalActions><Btn onClick={closeDialog}>Cancel</Btn><Btn kind="primary" type="submit">Save</Btn></ModalActions>
+      </form>
+    </Modal>
+  );
+}
+
+export function GoalDialog({ d }) {
+  const people = svc.people();
+  const save = (e) => {
+    e.preventDefault();
+    const p = Object.fromEntries(new FormData(e.currentTarget));
+    try {
+      svc.addGoal({ name: p.name, description: p.description, scope: p.scope, userId: p.userId, metric: p.metric, target: p.target, periodId: d.periodId });
+      state.desk.dialog = null;
+      toast('Goal added.');
+    } catch (err) { toast(err.message); }
+    render();
+  };
+  return (
+    <Modal title="Add a goal">
+      <form onSubmit={save}>
+        <Field label="Name"><Input name="name" required placeholder="Complete 90% of assigned tasks on time" /></Field>
+        <Field label="Description"><Textarea name="description" /></Field>
+        <Field label="Who">
+          <Select name="scope" defaultValue="team">
+            <option value="team">Whole team</option>
+            <option value="individual">One person</option>
+          </Select>
+        </Field>
+        <Field label="Person, if individual">
+          <Select name="userId" defaultValue={people[0]?.id}>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Measured from">
+          <Select name="metric" defaultValue="task_ontime_pct">
+            <option value="task_ontime_pct">Tasks completed on time</option>
+            <option value="issue_sla_pct">Issues closed within SLA</option>
+          </Select>
+        </Field>
+        <Field label="Target, percent"><Input name="target" type="number" min="1" max="100" defaultValue="90" /></Field>
+        <ModalActions><Btn onClick={closeDialog}>Cancel</Btn><Btn kind="primary" type="submit">Add goal</Btn></ModalActions>
+      </form>
+    </Modal>
+  );
+}

@@ -160,6 +160,50 @@ export function Punches() {
   );
 }
 
+export function MyPerformance() {
+  useStore();
+  const period = svc.performancePeriod();
+  const metrics = can('performance', 'r') ? svc.personMetrics(state.userId, period.id) : null;
+  const history = metrics ? svc.pointsHistory(state.userId, period.id) : [];
+  return (
+    <Page sheet back="/mobile/profile" backLabel="Profile" title="My performance" sub={period.label}>
+      {!metrics && <div className="empty"><h3>Performance isn’t available for this login</h3></div>}
+      {metrics && (
+        <>
+          <div className="day-row"><div><small>{period.label}</small><b>{metrics.performance?.score == null ? 'Not enough evidence' : metrics.performance.partial ? `${metrics.performance.score} · partial` : metrics.performance.score}</b><span>{metrics.performance?.coverage}{metrics.performance?.partial && metrics.performance?.score != null ? ' This is a partial score, not a complete evaluation.' : ''}</span></div></div>
+          <details className="day-row">
+            <summary>How calculated?</summary>
+            <p>{metrics.performance?.formula}</p>
+          </details>
+          {(metrics.performance?.dimensions || []).map((d) => (
+            <div className="day-row" key={d.id}><div><small>{d.label} · weight {d.weight}</small><b>{d.score == null ? 'Not enough evidence' : d.score}</b><span>{d.formula}</span></div></div>
+          ))}
+          <h2 className="sect">Goals</h2>
+          {metrics.goals.filter((g) => g.scope === 'individual').map((g) => (
+            <div className="day-row" key={g.id}><div><small>{g.current == null ? 'Not enough evidence' : `${g.current}% of ${g.target}%`}</small><b>{g.name}</b><span>{g.formula}</span></div></div>
+          ))}
+          {!metrics.goals.some((g) => g.scope === 'individual') && <div className="empty"><h3>No goals this period</h3></div>}
+          <h2 className="sect">Recognition</h2>
+          {metrics.recognitions.map((r) => (
+            <div className="day-row" key={r.id}><div><small>{fmtD(r.at)}</small><b>{r.message}</b></div></div>
+          ))}
+          {!metrics.recognitions.length && <div className="empty"><h3>None this period</h3></div>}
+          <h2 className="sect">Achievements</h2>
+          {metrics.achievements.map((a) => (
+            <div className="day-row" key={a.id}><div><small>{fmtD(a.earnedAt)} · {a.badge.desc}</small><b>{a.badge.name}</b><span>{a.reason}</span></div></div>
+          ))}
+          {!metrics.achievements.length && <div className="empty"><h3>None yet</h3><p>A badge records a rule that was met. It is not a rating or a bonus.</p></div>}
+          <h2 className="sect">Points history</h2>
+          {history.map((e) => (
+            <div className="day-row" key={e.id}><div><small>{fmtD(e.createdAt || e.at)} · {e.reason}</small><b>+{e.points}</b></div></div>
+          ))}
+          {!history.length && <div className="empty"><h3>No points this period</h3></div>}
+        </>
+      )}
+    </Page>
+  );
+}
+
 export function Reviews() {
   useStore();
   const rows = svc.reviews(state.userId);

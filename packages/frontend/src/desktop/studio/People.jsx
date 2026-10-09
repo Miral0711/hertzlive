@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { state, svc, can, inr, fmtD, fmtDT, go, me, persist, render, toast, uid } from '../../shared/core.js';
-import { TEAM_GOAL, TODAY } from '../../shared/data.js';
+import { state, svc, can, inr, fmtD, fmtDT, go, persist, render, toast, uid } from '../../shared/core.js';
+import { TODAY } from '../../shared/data.js';
 import { HOURLY } from '../../shared/data2.js';
 import { user } from '../../shared/core.js';
 import {
-  Avatar, Bar, Btn, Card, DataTable, Empty, Grid2, Input, List, Item, PageHeader, Pill, Select, StatusPill, Switch, Tabs, ToggleChip,
+  Avatar, Btn, Card, DataTable, Empty, Input, List, Item, PageHeader, Pill, Select, StatusPill, Tabs, ToggleChip,
 } from '../../ui/ui';
 import { FromChat } from '../parts';
 import { P, V, first, name, role } from '../helpers';
@@ -12,6 +12,7 @@ import { openDialog } from '../session';
 import { Muted, SecHead, Stat, leaveClashes, tabBase } from './common';
 import { LoadGrid } from './Schedule';
 import Folders from './Folders';
+import { Performance, Incentives } from './Performance';
 import {
   applyForLeave, cancelLeaveRequest, getLeaveBalance,
   listLeaveRequests, listLeaveTypes, rejectLeaveRequest,
@@ -408,59 +409,6 @@ function Expenses() {
   );
 }
 
-function Points() {
-  const pct = Math.round(TEAM_GOAL.progress * 100);
-  const target = Math.round(TEAM_GOAL.target * 100);
-  const daysLeft = Math.max(0, Math.round((new Date(TEAM_GOAL.ends) - new Date(TODAY)) / 864e5));
-  const u = me();
-  const board = svc.people().filter((x) => x.pts && !x.ptsOptOut).sort((x, y) => y.pts - x.pts);
-  const top = board.slice(0, 3);
-  const toggle = (key, msg) => { u[key] = !u[key]; persist(); toast(msg(u[key])); render(); };
-  return (
-    <>
-      <SecHead title="Points and badges" sub="The team goal comes first. Individual points are a friendly extra." />
-      <Card className="mb-3.5">
-        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-          <p className="m-0 text-xs font-semibold uppercase tracking-[0.1em] text-accent-text">Team goal</p>
-          <span className="text-[13px] text-ink-3">{daysLeft} days left · ends {fmtD(TEAM_GOAL.ends)}</span>
-        </div>
-        <h3 className="m-0 mb-3 text-xl font-semibold">{TEAM_GOAL.name}</h3>
-        <Bar value={Math.round((pct / target) * 100)} />
-        <p className="mb-0 mt-2 text-[13px] text-ink-3"><b className="text-ink">{pct}%</b> reached · target {target}%</p>
-      </Card>
-      <div className="mb-3.5 grid gap-gap md:grid-cols-3">
-        {top.map((x, i) => (
-          <div key={x.id} className="rounded-r3 border border-line bg-surface px-4 py-3.5">
-            <div className="flex items-center gap-3">
-              <span className={`grid h-9 w-9 flex-none place-items-center rounded-full text-sm font-semibold ${i === 0 ? 'bg-accent text-accent-ink' : 'bg-accent-soft text-accent-text'}`}>{i + 1}</span>
-              <span className="min-w-0"><b className="block truncate">{x.name}</b><small className="text-ink-3">{x.streak ? `${x.streak} day streak` : 'No streak yet'}</small></span>
-            </div>
-            <div className="mt-2 text-2xl font-semibold tracking-tight text-accent-text">{x.pts.toLocaleString('en-IN')} <span className="text-sm font-normal text-ink-3">points</span></div>
-          </div>
-        ))}
-        {top.length === 0 && <div className="md:col-span-3"><Empty>No one is on the leaderboard yet.</Empty></div>}
-      </div>
-      <div className="mb-3.5 grid gap-3 md:grid-cols-2">
-        <Switch on={!!u.ptsOptOut} onClick={() => toggle('ptsOptOut', (v) => (v ? 'You are hidden from the leaderboard.' : 'You are back on the leaderboard.'))} label="Opt out of the leaderboard" sub="Your points stay private. You still count toward the team goal." />
-        <Switch on={!!u.quiet} onClick={() => toggle('quiet', (v) => (v ? 'Quiet mode on. No point or badge alerts.' : 'Quiet mode off.'))} label="Quiet mode" sub="Stop point and badge notifications." />
-      </div>
-      <Grid2>
-        <Card title="Leaderboard">
-          <DataTable cols={['Person', 'Points', 'Streak']} rows={board.map((x) => [x.name, x.pts, x.streak ? x.streak + ' days' : ''])} />
-        </Card>
-        <Card title="Badges">
-          {state.db.BADGES.map((x) => (
-            <div key={x.id || x.name} className="border-t border-line py-2.5 first:border-t-0 first:pt-0">
-              <div className="flex items-baseline justify-between gap-3"><b>{x.icon} {x.name}</b><small className="text-ink-3">{x.earnedBy.map(first).join(', ') || 'Not earned yet'}</small></div>
-              <small className="text-ink-3">{x.desc}</small>
-            </div>
-          ))}
-        </Card>
-      </Grid2>
-    </>
-  );
-}
-
 function Reviews() {
   const partner = can('review', 'a');
   const rows = svc.reviews(partner ? undefined : state.userId);
@@ -570,8 +518,11 @@ export default function People({ q }) {
   const tab = q.tab || 'directory';
   const list = [
     ['directory', 'Directory'], ['leaves', 'Leaves'], ['attendance', 'Attendance'], ['load', 'Load'], ['timesheets', 'Timesheets'],
+    ...(can('performance', 'r') ? [['performance', 'Performance']] : []),
     ...(can('salary', 'r') ? [['salary', 'Salary']] : []),
-    ['expenses', 'Expense claims'], ['points', 'Points and badges'], ['reviews', 'Reviews'], ['contacts', 'Contacts'], ['folders', 'Folders'],
+    ['expenses', 'Expense claims'],
+    ...(can('incentive', 'r') ? [['incentives', 'Incentives']] : []),
+    ['reviews', 'Reviews'], ['contacts', 'Contacts'], ['folders', 'Folders'],
     ...(can('audit', 'r') ? [['audit', 'Audit trail']] : []),
   ];
   const T = {
@@ -582,7 +533,8 @@ export default function People({ q }) {
     timesheets: <Timesheets />,
     salary: <Salary q={q} />,
     expenses: <Expenses />,
-    points: <Points />,
+    performance: <Performance q={q} />,
+    incentives: <Incentives q={q} />,
     reviews: <Reviews />,
     contacts: <Contacts />,
     folders: (

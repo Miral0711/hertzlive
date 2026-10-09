@@ -4,7 +4,7 @@ import { useStore } from '../shared/store';
 import Icon from './Icon';
 import { backName } from './frame';
 import { Avatar, Face, FACE_COUNT, choosePortrait, faceIndex } from './faces';
-import { me, staff, state, svc, can, render, persist } from './model';
+import { me, staff, state, svc, can, render } from './model';
 import { logout } from '../desktop/session';
 import { setOnline } from '../shared/core';
 import { startOver } from './People';
@@ -30,7 +30,6 @@ export default function Profile() {
   const from = params.get('from');
   const [picking, setPicking] = useState(false);
   const chosen = faceIndex(person);
-  const quiet = state.gamify?.quiet || person?.quiet;
   const lang = sessionStorage.getItem('field-lang') || 'English';
   const look = { system: 'Phone', light: 'Light', dark: 'Dark' }[state.theme] || 'Phone';
   const stored = sessionStorage.getItem(ORIGIN);
@@ -58,7 +57,7 @@ export default function Profile() {
           <div>
             <b>{person?.name}</b>
             <span>{person?.title}</span>
-            {staff() && !quiet && <span>{person?.streak || 0} days on time · {(person?.pts || 0).toLocaleString('en-IN')} points</span>}
+            {staff() && <span>{person?.streak || 0} working days on time · {(person?.pts || 0).toLocaleString('en-IN')} points from recorded actions</span>}
             <button type="button" className="photo-pick" onClick={() => setPicking((v) => !v)}>{picking ? 'Close photos' : 'Choose photo'}</button>
           </div>
         </div>
@@ -75,12 +74,15 @@ export default function Profile() {
         {staff() && (
           <Row to="/mobile/punches" title="This month" detail={`${svc.punches().late} late · ${svc.punches().hours}h`} value={`${svc.punches().days} days`} />
         )}
+        {staff() && can('performance', 'r') && (
+          <Row to="/mobile/performance" title="My performance" detail="Score, goals and recognition for this quarter" />
+        )}
         {staff() && (
           <Row
-            title="Quiet mode"
-            detail="Hides the streak and points"
-            value={quiet ? 'On' : 'Off'}
-            onClick={() => { state.gamify.quiet = !quiet; persist(); render(); }}
+            title="Optional points list"
+            detail="Hide my points from that list. Work and the performance score are still recorded."
+            value={person?.ptsOptOut ? 'Hidden' : 'Visible'}
+            onClick={() => { svc.setOptOut(!person?.ptsOptOut); render(); }}
           />
         )}
         <Row
