@@ -11,8 +11,6 @@ import { NAV, NAV_GROUPS, navFor } from './helpers';
 import { PAGES } from './registry';
 import ChatPane from './chat/ChatPane';
 import DialogHost from './DialogHost';
-import { toggleChatPane } from './session';
-
 const ICON = Object.fromEntries(NAV.map(([k, , i]) => [k, i]));
 const groupLabel = 'm-0 px-3 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.1em] text-nav-ink opacity-60';
 
@@ -152,22 +150,10 @@ export default function Shell() {
           aria-current={page === 'toolkit' ? 'page' : undefined}
           aria-label="Architect's Calculator"
           title="Architect's Calculator"
-          className={`ml-auto inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-r1 border no-underline min-[400px]:w-9 sm:h-auto sm:w-auto sm:min-h-9 sm:gap-1.5 sm:px-3.5 ${page === 'toolkit' ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-line-2 bg-surface font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text'}`}
+          className={`ml-auto grid h-9 w-8 min-h-[var(--control-h)] shrink-0 place-items-center rounded-r1 border no-underline min-[400px]:w-9 ${page === 'toolkit' ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-line-2 bg-surface font-medium text-ink-2 hover:border-accent hover:text-accent-text'}`}
         >
           <Icon name="calc" small />
-          <span className="max-sm:hidden">Toolkit</span>
         </DLink>
-        {!(workspace || focusedWork) && (
-          <button
-            type="button"
-            onClick={toggleChatPane}
-            aria-expanded={!state.desk.chatHidden}
-            aria-controls="conversation"
-            className="inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-r1 border border-line-2 bg-surface font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text min-[400px]:w-9 sm:h-auto sm:w-auto sm:min-h-9 sm:gap-1.5 sm:px-3.5"
-          >
-            <Icon name="chat" small /> <span className="max-sm:hidden">Chats</span>
-          </button>
-        )}
         <NavActions />
       </header>
 
