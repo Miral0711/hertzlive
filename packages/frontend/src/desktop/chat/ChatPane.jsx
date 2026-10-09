@@ -693,7 +693,6 @@ export function ChatView({ workspace = false }) {
         )}
         {!desk.chatList && (
           <>
-            <BarButton label="Chat info" icon="people" onClick={() => openDialog({ kind: 'chat-info', threadId: cur.id })} />
             <BarButton label="Video call" icon="camera" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
             <BarButton label="Voice call" icon="call" onClick={() => {
               const otherId = cur.kind === 'dm' ? cur.memberIds.find((id) => id !== state.userId) : null;
