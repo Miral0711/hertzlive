@@ -132,17 +132,17 @@ export default function Shell() {
       >
         Skip to workspace
       </a>
-      <header className="flex items-center gap-2 border-b border-line bg-surface pr-3 sm:gap-4 sm:pr-5">
-        <button type="button" aria-label="Open menu" aria-expanded={navOpen} onClick={() => setNavOpen((o) => !o)} className="ml-2 hidden h-10 w-10 flex-none place-items-center rounded-r1 border border-line-2 text-ink-2 max-lg:grid">
+      <header className="relative flex h-header min-w-0 items-center gap-1 border-b border-line bg-surface pr-1.5 min-[400px]:gap-1.5 min-[400px]:pr-2 sm:gap-4 sm:pr-5">
+        <button type="button" aria-label="Open menu" aria-expanded={navOpen} onClick={() => setNavOpen((o) => !o)} className="ml-1.5 hidden h-9 w-8 flex-none place-items-center rounded-r1 border border-line-2 text-ink-2 max-lg:grid min-[400px]:w-9 sm:ml-2 sm:h-10 sm:w-10">
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
-        <DLink to="#/dashboard" className="flex h-full w-nav flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-5 text-nav-ink no-underline max-lg:w-auto max-lg:min-w-[104px] max-sm:px-3">
+        <DLink to="#/dashboard" className="flex h-full w-nav min-w-0 flex-none flex-col justify-center gap-0.5 border-b border-nav-line bg-nav px-2.5 text-nav-ink no-underline max-lg:w-auto max-[380px]:px-2 sm:px-5">
           {state.db.AGENCY.logo ? (
-            <img src={state.db.AGENCY.logo} alt={brand?.short || state.db.AGENCY.short} className="max-h-10 max-w-[140px] self-start rounded-sm bg-white/95 p-1 object-contain" />
+            <img src={state.db.AGENCY.logo} alt={brand?.short || state.db.AGENCY.short} className="max-h-8 max-w-[104px] self-start rounded-sm bg-white/95 p-1 object-contain sm:max-h-10 sm:max-w-[140px]" />
           ) : (
             <>
-              <b className="font-serif text-lg font-semibold uppercase leading-none tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
-              <span className="text-[10.5px] uppercase leading-none tracking-[0.1em] opacity-70">Studio</span>
+              <b className="truncate font-serif text-[15px] font-semibold uppercase leading-none tracking-[0.08em] sm:text-lg sm:tracking-[0.14em]">{brand?.short || state.db.AGENCY.short}</b>
+              <span className="truncate text-[10px] uppercase leading-none tracking-[0.08em] opacity-70 sm:text-[10.5px] sm:tracking-[0.1em]">Studio</span>
             </>
           )}
         </DLink>
@@ -152,7 +152,7 @@ export default function Shell() {
           aria-current={page === 'toolkit' ? 'page' : undefined}
           aria-label="Architect's Calculator"
           title="Architect's Calculator"
-          className={`ml-auto inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-r1 border px-3 no-underline sm:px-3.5 ${page === 'toolkit' ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-line-2 bg-surface font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text'}`}
+          className={`ml-auto inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-r1 border no-underline min-[400px]:w-9 sm:h-auto sm:w-auto sm:min-h-9 sm:gap-1.5 sm:px-3.5 ${page === 'toolkit' ? 'border-accent bg-accent-soft font-semibold text-accent-text' : 'border-line-2 bg-surface font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text'}`}
         >
           <Icon name="calc" small />
           <span className="max-sm:hidden">Toolkit</span>
@@ -163,7 +163,7 @@ export default function Shell() {
             onClick={toggleChatPane}
             aria-expanded={!state.desk.chatHidden}
             aria-controls="conversation"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-r1 border border-line-2 bg-surface px-3 sm:px-3.5 font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text"
+            className="inline-flex h-9 w-8 shrink-0 items-center justify-center rounded-r1 border border-line-2 bg-surface font-medium text-ink-2 hover:bg-surface-2 hover:text-accent-text min-[400px]:w-9 sm:h-auto sm:w-auto sm:min-h-9 sm:gap-1.5 sm:px-3.5"
           >
             <Icon name="chat" small /> <span className="max-sm:hidden">Chats</span>
           </button>

@@ -76,6 +76,7 @@ export default function NavSearch() {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [active, setActive] = useState(0);
   const box = useRef(null);
   const input = useRef(null);
@@ -87,9 +88,11 @@ export default function NavSearch() {
 
   useEffect(() => {
     const onKey = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); input.current?.focus(); setOpen(true); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setMobileOpen(true); setOpen(true); input.current?.focus(); }
     };
-    const onDown = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    const onDown = (e) => {
+      if (box.current && !box.current.contains(e.target)) { setOpen(false); setMobileOpen(false); }
+    };
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDown);
     return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDown); };
@@ -103,53 +106,73 @@ export default function NavSearch() {
     navigate(href(target(r)));
   };
   const onKeyDown = (e) => {
-    if (e.key === 'Escape') { setOpen(false); input.current?.blur(); }
+    if (e.key === 'Escape') { setOpen(false); setMobileOpen(false); input.current?.blur(); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(rows.length - 1, a + 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
     else if (e.key === 'Enter') { e.preventDefault(); go(rows[active]); }
   };
 
+  useEffect(() => {
+    if (mobileOpen) input.current?.focus();
+  }, [mobileOpen]);
+
   return (
-    <div ref={box} role="search" className="relative flex min-w-0 flex-1 items-center">
-      <div className="relative min-w-0 max-w-[560px] flex-1">
-        <Icon name="search" small className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-        <input
-          ref={input}
-          type="search"
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setActive(0); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={onKeyDown}
-          placeholder="Search projects, people, messages, voice notes, photos"
-          aria-label="Search projects, people, drawings and messages"
-          aria-controls="nav-search-results"
-          className="min-h-[38px] w-full rounded-r2 border border-transparent bg-surface-2 py-1.5 pl-9 pr-3.5 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
-        />
-        {!q && <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-r1 border border-line-2 bg-surface px-1.5 text-[11px] font-semibold text-ink-3 md:block">{navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'} K</kbd>}
-        {open && q.trim() && (
-          <div id="nav-search-results" role="listbox" className="absolute left-0 top-full z-40 mt-1.5 max-h-[min(70vh,460px)] w-[min(560px,calc(100vw-2rem))] overflow-auto rounded-r3 border border-line bg-surface p-1.5 shadow-s2">
-            {rows.length === 0 ? (
-              <p className="m-0 px-3 py-6 text-center text-ink-3">No results for "{q.trim()}".</p>
-            ) : rows.map((r, i) => (
-              <div key={`${r.kind}${r.id}`}>
-                {(i === 0 || rows[i - 1].kind !== r.kind) && (
-                  <p className="m-0 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{KIND[r.kind]}</p>
-                )}
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={i === active}
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => go(r)}
-                  className={`block w-full rounded-r1 border-0 px-3 py-2 text-left ${i === active ? 'bg-accent-soft' : 'bg-transparent'}`}
-                >
-                  <b className="block truncate font-medium text-ink"><Mark text={r.title} q={q} /></b>
-                  <small className="block truncate text-ink-3">{r.sub}</small>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+    <div ref={box} role="search" className={`${mobileOpen ? 'static' : 'relative flex-none'} flex min-w-0 items-center md:relative md:flex-1`}>
+      <button
+        type="button"
+        className="grid h-9 w-8 flex-none place-items-center rounded-r1 border border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text min-[400px]:w-9 md:hidden"
+        aria-label="Search"
+        aria-expanded={mobileOpen}
+        onClick={() => setMobileOpen(true)}
+      >
+        <Icon name="search" small />
+      </button>
+      <div className={`${mobileOpen ? 'absolute inset-0 z-30 flex items-center gap-1.5 bg-surface px-2' : 'hidden'} md:relative md:inset-auto md:z-auto md:flex md:min-w-0 md:max-w-[560px] md:flex-1 md:bg-transparent md:px-0`}>
+        <div className="relative min-w-0 flex-1">
+          <Icon name="search" small className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+          <input
+            ref={input}
+            type="search"
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setActive(0); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={onKeyDown}
+            placeholder="Search projects, people, messages, voice notes, photos"
+            aria-label="Search projects, people, drawings and messages"
+            aria-controls="nav-search-results"
+            className={`min-h-[38px] w-full min-w-0 rounded-r2 border border-transparent bg-surface-2 py-1.5 pl-9 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft [&::-webkit-search-cancel-button]:hidden ${mobileOpen ? 'pr-9 md:pr-3.5' : 'pr-3.5'}`}
+          />
+          {mobileOpen && (
+            <button type="button" className="absolute right-1.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-r1 text-ink-2 md:hidden" aria-label="Close search" onClick={() => { setMobileOpen(false); setOpen(false); setQ(''); }}>
+              <Icon name="x" small />
+            </button>
+          )}
+          {!q && <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-r1 border border-line-2 bg-surface px-1.5 text-[11px] font-semibold text-ink-3 md:block">{navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'} K</kbd>}
+          {open && q.trim() && (
+            <div id="nav-search-results" role="listbox" className="absolute left-0 top-full z-40 mt-1.5 max-h-[min(70vh,460px)] w-[min(560px,calc(100vw-2rem))] overflow-auto rounded-r3 border border-line bg-surface p-1.5 shadow-s2">
+              {rows.length === 0 ? (
+                <p className="m-0 px-3 py-6 text-center text-ink-3">No results for "{q.trim()}".</p>
+              ) : rows.map((r, i) => (
+                <div key={`${r.kind}${r.id}`}>
+                  {(i === 0 || rows[i - 1].kind !== r.kind) && (
+                    <p className="m-0 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-accent-text">{KIND[r.kind]}</p>
+                  )}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={i === active}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => go(r)}
+                    className={`block w-full rounded-r1 border-0 px-3 py-2 text-left ${i === active ? 'bg-accent-soft' : 'bg-transparent'}`}
+                  >
+                    <b className="block truncate font-medium text-ink"><Mark text={r.title} q={q} /></b>
+                    <small className="block truncate text-ink-3">{r.sub}</small>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

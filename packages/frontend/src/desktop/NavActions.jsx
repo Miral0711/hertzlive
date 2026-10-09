@@ -9,7 +9,7 @@ import { PERSONAS } from './data';
 import { cycleTheme, logout, resetSampleData, switchPersona } from './session';
 
 const themeLabel = { system: 'System', light: 'Light', dark: 'Dark' };
-const btn = 'relative grid h-9 w-9 flex-none cursor-pointer list-none place-items-center rounded-r1 border border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text [&::-webkit-details-marker]:hidden';
+const btn = 'relative grid h-9 w-8 flex-none cursor-pointer list-none place-items-center rounded-r1 border border-line-2 bg-surface text-ink-2 hover:border-accent hover:text-accent-text min-[400px]:w-9 [&::-webkit-details-marker]:hidden';
 
 // A navbar popover: icon trigger plus a panel. Closes on outside click and Escape.
 function Pop({ label, trigger, children, width = 'w-80', className = '', onOpen, badge = 0 }) {
@@ -111,7 +111,7 @@ function Profile() {
 
 export default function NavActions() {
   return (
-    <div className="flex flex-none items-center gap-1.5 sm:gap-2">
+    <div className="flex flex-none items-center gap-1 sm:gap-2">
       <Notifications />
       <DLink to="#/settings" aria-label="Settings" title="Settings" className={`${btn} no-underline max-md:hidden`}><Icon name="settings" small /></DLink>
       <Profile />
