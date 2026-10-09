@@ -44,7 +44,7 @@ export function setChatDraft(thread, value, userId = state.userId, typing = fals
 }
 export const hasDraft = (thread, userId = state.userId) => Boolean(drafts[draftKey(thread, userId)]);
 
-const incoming = (thread) => svc.messages(thread).filter((m) => m.by !== state.userId && !m.deleted && !m.pending);
+const incoming = (thread) => svc.messages(thread).filter((m) => m.by !== state.userId && !m.deleted && !m.pending && !(m.hiddenFor || []).includes(state.userId));
 export function unreadCount(thread) {
   const seen = readMarks[draftKey(thread)];
   return incoming(thread).filter((m) => !Array.isArray(seen) || !seen.includes(m.id)).length;

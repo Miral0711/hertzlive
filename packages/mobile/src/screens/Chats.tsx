@@ -9,6 +9,9 @@ import { useStyles } from '../platform/theme';
 import {
   myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc, user, phoneOf, state, useStore, t,
 } from '../store';
+import { fmtD } from '../../../frontend/src/shared/core';
+import { filingRules } from '../../../frontend/src/shared/filing';
+import { ANNOUNCEMENTS } from '../../../frontend/src/desktop/data';
 import { openExternal } from '../platform/router';
 
 export default function Chats() {
@@ -88,6 +91,7 @@ export default function Chats() {
             ))}
           </View>
         ))}
+        <FilingDesk />
         {!filtered.length && !hits.length && (
           <View style={s.empty}>
             <Text style={s.emptyH}>{query ? 'No matches' : 'No chats yet'}</Text>
@@ -96,6 +100,34 @@ export default function Chats() {
         )}
       </ScrollView>
     </Screen>
+  );
+}
+
+function FilingDesk() {
+  const rows = svc.threads().flatMap((th: any) => svc.messages(th.id)).map((m: any) => ({ m, f: state.filings[m.id] })).filter((x: any) => x.f);
+  const check = rows.filter((x: any) => x.f.status !== 'filed');
+  const rules = Object.entries(filingRules);
+  const filed = rows.filter((x: any) => x.f.status === 'filed').slice(-5).reverse();
+  const s = useStyles((c) => ({
+    wrap: { margin: 14, padding: 12, borderRadius: 12, backgroundColor: c.surface2 },
+    h: { fontWeight: '700', color: c.ink, marginTop: 8 },
+    p: { color: c.ink2, fontSize: 13 },
+  }));
+  return (
+    <View style={s.wrap}>
+      <Text style={s.h}>Filing and announcements</Text>
+      <Text style={s.p}>How the AI filed chat messages, and what still needs a person to check.</Text>
+      <Text style={s.p}>{rows.length} looked at · {rows.filter((x: any) => x.f.by === 'ai' && x.f.status === 'filed').length} filed by AI · {check.length} need a check · {rows.filter((x: any) => x.f.by === 'user').length} corrected</Text>
+      {check.map((x: any) => (
+        <Link key={x.m.id} to={`/mobile/chats/${x.m.threadId}/messages/${x.m.id}/filing`}><Text style={s.p}>{firstName(x.m.by)} · {(x.m.text || '').slice(0, 80)}</Text></Link>
+      ))}
+      <Text style={s.h}>Rules the AI learned</Text>
+      {rules.length ? rules.map(([k, p]) => <Text key={k} style={s.p}>{firstName(String(k).split('|')[0])} files to {String(p)}</Text>) : <Text style={s.p}>Correct a filing and the AI remembers it for that sender and thread.</Text>}
+      <Text style={s.h}>Announcements</Text>
+      {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => <Text key={i} style={s.p}>{a.text} · {firstName(a.by)} · {fmtD(a.at)}</Text>) : <Text style={s.p}>No announcements.</Text>}
+      <Text style={s.h}>Recently filed</Text>
+      {filed.map((x: any) => <Text key={x.m.id} style={s.p}>{(x.m.text || '').slice(0, 80)}</Text>)}
+    </View>
   );
 }
 

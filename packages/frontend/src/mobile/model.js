@@ -66,44 +66,18 @@ export function preview(m) {
   return m.text || 'Update';
 }
 
-export function toggleReaction(message, emoji) {
-  message.reactions = message.reactions || {};
-  const ids = message.reactions[emoji] || [];
-  message.reactions[emoji] = ids.includes(state.userId) ? ids.filter((id) => id !== state.userId) : [...ids, state.userId];
-  persist();
-  render();
-}
+export function toggleReaction(message, emoji) { return svc.reactToMessage(message, emoji); }
 
-export function deleteMessage(message) {
-  message.deleted = true;
-  if (state.filings) delete state.filings[message.id];
-  persist();
-  render();
-}
+export function deleteMessage(message) { return svc.deleteMessage(message); }
 
-export function hideMessage(message) {
-  message.hiddenFor = [...new Set([...(message.hiddenFor || []), state.userId])];
-  persist();
-  render();
-}
+export function hideMessage(message) { return svc.hideMessage(message); }
 
-export function toggleDecision(message) {
-  message.decision = !message.decision;
-  persist();
-  render();
-}
+export function toggleDecision(message) { return svc.toggleDecision(message); }
 
-export function editMessage(message, text) {
-  const value = text.trim();
-  if (!value || value === message.text) return;
-  message.text = value;
-  message.edited = true;
-  persist();
-  render();
-}
+export function editMessage(message, text) { return svc.editMessage(message, text); }
 
 export function unreadCount(threadId, readAt) {
-  if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`field-mute-${threadId}`) === '1') return 0;
+  if (svc.chatMuted(threadId)) return 0;
   return svc.messages(threadId).filter((m) => m.by !== state.userId && !hiddenFromMe(m) && (!readAt || m.at > readAt)).length;
 }
 
@@ -120,15 +94,20 @@ export function siblings(thread) {
 export function postMessage(threadId, fields) {
   const thread = svc.thread(threadId);
   if (!can('thread', 'w') || !thread || !onPhone(thread.projectId)) return null;
+  const id = uid();
   state.db.MESSAGES.push({
-    id: uid(),
+    id,
     threadId,
     by: state.userId,
     at: stamp(),
     ...fields,
   });
-  persist();
+  if (!persist()) {
+    state.db.MESSAGES.pop();
+    return null;
+  }
   render();
+  svc.classifySent(id);
   return true;
 }
 

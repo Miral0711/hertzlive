@@ -8,6 +8,9 @@ import {
   myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc, user, phoneOf, state,
 } from './model';
 import { t } from './copy';
+import { fmtD } from '../shared/core';
+import { filingRules } from '../shared/filing';
+import { ANNOUNCEMENTS } from '../desktop/data';
 import { Avatar, ThreadAvatar } from './faces';
 
 export default function Chats() {
@@ -83,6 +86,10 @@ export default function Chats() {
             ))}
           </section>
         ))}
+        <details className="group">
+          <summary className="row">Filing and announcements</summary>
+          <FilingDesk />
+        </details>
         {!filtered.length && !hits.length && (
           <div className="empty">
             <h3>{query ? 'No matches' : 'No chats yet'}</h3>
@@ -91,6 +98,30 @@ export default function Chats() {
         )}
       </div>
     </div>
+  );
+}
+
+function FilingDesk() {
+  const rows = svc.threads().flatMap((th) => svc.messages(th.id)).map((m) => ({ m, f: state.filings[m.id] })).filter((x) => x.f);
+  const check = rows.filter((x) => x.f.status !== 'filed');
+  const rules = Object.entries(filingRules);
+  const filed = rows.filter((x) => x.f.status === 'filed').slice(-5).reverse();
+  return (
+    <section>
+      <p className="note">How the AI filed chat messages, and what still needs a person to check.</p>
+      <p>{rows.length} looked at · {rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} filed by AI · {check.length} need a check · {rows.filter((x) => x.f.by === 'user').length} corrected</p>
+      {check.map((x) => (
+        <Link key={x.m.id} className="day-row" to={`/mobile/chats/${x.m.threadId}/messages/${x.m.id}/filing`}>
+          <span>{firstName(x.m.by)} · {(x.m.text || '').slice(0, 80)}</span>
+        </Link>
+      ))}
+      <h2 className="sect">Rules the AI learned</h2>
+      {rules.length ? rules.map(([k, p]) => <p key={k}>{firstName(k.split('|')[0])} files to {p}</p>) : <p className="note">Correct a filing and the AI remembers it for that sender and thread.</p>}
+      <h2 className="sect">Announcements</h2>
+      {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => <p key={i}>{a.text} · {firstName(a.by)} · {fmtD(a.at)}</p>) : <p className="note">No announcements.</p>}
+      <h2 className="sect">Recently filed</h2>
+      {filed.map((x) => <p key={x.m.id}>{(x.m.text || '').slice(0, 80)}</p>)}
+    </section>
   );
 }
 

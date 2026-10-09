@@ -3,27 +3,30 @@ import {
   Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore,
 } from 'react';
 import {
-  state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment,
+  state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment, can, go, user,
 } from '../../shared/core.js';
-import { seedFilings } from '../../shared/filing.js';
+import '../../shared/filing.js';
+import { QUICK_REPLIES, receiptFor, hiddenFrom } from '../../shared/chatExtras.js';
 import { Btn, Pill, Dropdown, DropdownItem } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { P, first, name, role, staff } from '../helpers';
 import { FilingChip } from '../parts';
-import { openDialog, openThread, toggleChatPane } from '../session';
+import { openDialog, openMsg, openThread, toggleChatPane } from '../session';
 import { Ph } from './media';
-import { MessageAssist } from './assist';
+import { MessageAssist, openDesktopAssist } from './assist';
 import { SiteMessageAction } from './site';
 import AttachMenu from './AttachMenu';
 import CameraCapture from './CameraCapture';
 import MediaEditor from './MediaEditor';
 import { ContactPicker, PollComposer } from './composerAttachments';
+import { SiteCompose, VoiceCapture, phoneOf } from './messenger';
 import { fileToDataUrl, fmtBytes } from './mediaUtils';
 import {
   chatDraft, conversationPreview, conversationThreads, draftRev, markChatRead, pendingFocus,
   setChatDraft, unreadCount, useDraftTick,
 } from './store';
 import { usePhone } from '../phone';
+import { ThreadAvatar } from '../../mobile/faces';
 
 // ---------- actions ----------
 export function openThreadFocus(id) {
@@ -41,51 +44,23 @@ export function openAttachment(msgId) {
   if (!m || !messageAttachment(m)) return toast('That attachment is not available for your role.');
   return openDialog({ kind: 'message-attachment', msgId: m.id });
 }
-function pick(m, option) {
-  m.decision = option;
-  m.options = [];
-  svc.addMessage(m.threadId, { text: `Decision: ${option}`, decision: true });
-  seedFilings();
-  toast('Decision recorded.');
-}
-function billDecision(m, ok) {
-  if (role() !== 'partner') return;
-  if (ok) {
-    m.bill.status = 'approved';
-    m.bill.decidedAt = new Date().toISOString();
-    m.bill.by = state.userId;
-    svc.log('Approved expense ₹' + m.bill.amount, 'Message ' + m.id);
-    toast('Approved. Reimburse with salary.');
-  } else {
-    m.bill.status = 'query';
-    svc.addMessage(m.threadId, { text: 'Send the bill photo please, then I approve.' });
-    toast('Asked for the bill.');
-  }
-  persist();
-  render();
-}
-function approveMsg(m) {
-  m.approval.done = true;
-  m.approval.doneAt = new Date().toISOString().slice(0, 16);
-  svc.log('Approved in chat · ' + m.approval.label, 'Message ' + m.id);
-  svc.addMessage(m.threadId, { text: `Approved: ${m.approval.label}` });
-  seedFilings();
-  toast('Approved. The studio has been told.');
-}
+function pick(m, option) { svc.recordChatDecision(m, option); }
+function billDecision(m, ok) { svc.decideBill(m, ok); }
+function approveMsg(m) { svc.approveChatMessage(m); }
 async function sendMessage(tid, raw, extra) {
   const text = raw.trim();
   if (!text && !extra) return toast('Type a message first.');
+  const reply = state.desk.replyTo?.threadId === tid ? { replyTo: state.desk.replyTo.id } : {};
   let id;
-  try { id = svc.addMessage(tid, { ...(text ? { text } : {}), ...extra }); } catch (_) {
+  try { id = svc.addMessage(tid, { ...(text ? { text } : {}), ...reply, ...extra }); } catch (_) {
     return toast('Message was not sent. Your draft is kept; check access and try again.');
   }
   setChatDraft(tid, '');
+  state.desk.replyTo = null;
   state.desk.hi = null;
   render();
-  try {
-    state.filings[id] = await AIProvider.classify(state.db.MESSAGES.find((m) => m.id === id), svc.thread(tid));
-    persist();
-  } catch (_) { toast('Message sent. AI filing is unavailable; you can file it manually.'); }
+  const filed = await svc.classifySent(id);
+  if (!filed) toast('Message sent. AI filing is unavailable; you can file it manually.');
   return render();
 }
 async function suggestReply(tid) {
@@ -115,17 +90,10 @@ function chatStamp(iso, withTime) {
   if (days < 7) return d.toLocaleDateString('en-IN', { weekday: withTime ? 'short' : 'long' });
   return fmtD(iso);
 }
-function avatarStyle(label) {
-  let h = 0;
-  const s = label || '?';
-  for (let i = 0; i < s.length; i += 1) h = (h * 33 + s.charCodeAt(i)) % 360;
-  return { backgroundColor: `hsl(${h} 42% 40%)` };
-}
-const initial = (label) => (label || '?').trim().slice(0, 1).toUpperCase();
-function Avatar({ label, className = 'h-12 w-12 text-[17px]' }) {
+function ChatPicture({ thread, className = 'h-12 w-12' }) {
   return (
-    <span className={`inline-grid flex-none place-items-center rounded-full font-medium text-white ${className}`} style={avatarStyle(label)}>
-      {initial(label)}
+    <span className={`inline-grid flex-none overflow-hidden rounded-full bg-surface-2 ${className} [&>.av]:h-full [&>.av]:w-full [&_svg]:h-full [&_svg]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover`}>
+      <ThreadAvatar thread={thread} />
     </span>
   );
 }
@@ -188,8 +156,19 @@ export function ConversationList({ threads, filterable = false, footer = null })
       )}
       <div className="min-h-0 flex-1 overflow-auto bg-surface">
         {footer}
+        {filterable && needle.length >= 2 && svc.search(q).slice(0, 8).map((hit) => (
+          <button
+            key={`${hit.kind}:${hit.id}`}
+            type="button"
+            onClick={() => (hit.msgId ? openMsg(hit.msgId) : go(hit.ref || '#/people'))}
+            className="flex w-full flex-col border-0 border-b border-line bg-transparent px-3 py-2 text-left hover:bg-surface-2"
+          >
+            <b className="truncate text-sm">{hit.title}</b>
+            <small className="truncate text-ink-3">In messages · {hit.sub}</small>
+          </button>
+        ))}
         {rows.map((t) => {
-          const last = svc.messages(t.id).at(-1);
+          const last = [...svc.messages(t.id)].filter((m) => !hiddenFrom(m, state.userId)).at(-1);
           const unread = unreadCount(t.id);
           const preview = listPreview(t, last);
           const current = t.id === state.desk.thread && !state.desk.chatList;
@@ -202,13 +181,14 @@ export function ConversationList({ threads, filterable = false, footer = null })
               onClick={() => openThreadFocus(t.id)}
               className={`group flex w-full items-center gap-3 border-0 px-3 text-left text-inherit active:bg-surface-3 ${current ? 'bg-surface-2' : 'bg-transparent hover:bg-surface-2'}`}
             >
-              <Avatar label={t.name} />
+              <ChatPicture thread={t} />
               <span className="flex min-w-0 flex-1 items-center border-b border-line py-3 group-last:border-b-0">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
                     <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{t.name}</b>
                     <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at, true)}</time>
                   </span>
+                  {t.kind !== 'dm' && <span className="block truncate text-[12px] text-accent-text">{KIND_LABEL[t.kind] || 'Group'}</span>}
                   <span className="mt-0.5 flex items-center gap-2">
                     <span className={`flex min-w-0 flex-1 items-center gap-1 text-[14px] leading-5 ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
                       {preview.kind === 'mine' && <Icon name="checkcheck" small className="text-ink-3" />}
@@ -267,15 +247,18 @@ function Attachment({ m }) {
   );
 }
 
-function Message({ m, showName, firstInRun, lastInRun }) {
+function Message({ m, showName, firstInRun, lastInRun, later = [], threadMessages = [] }) {
   const mine = m.by === state.userId;
   const live = !m.deleted;
+  const receipt = receiptFor(m, later, state.userId);
+  const quoted = m.replyTo ? threadMessages.find((x) => x.id === m.replyTo) : null;
+  const reacts = Object.entries(m.reactions || {}).filter(([, ids]) => ids.length);
   const callUrl = live && m.call ? safeAssetUrl(m.call.url) : '';
-  const tail = lastInRun ? (mine ? 'rounded-lg rounded-br-[4px]' : 'rounded-lg rounded-bl-[4px]') : 'rounded-lg';
+  const tail = lastInRun ? (mine ? 'rounded-[12px] rounded-br-[4px]' : 'rounded-[12px] rounded-bl-[4px]') : 'rounded-[12px]';
   return (
     <div
       data-msgid={m.id}
-      className={`max-w-[min(85%,28rem)] shrink-0 px-2 pb-1 pt-1 text-sm shadow-s1 [overflow-wrap:anywhere] ${firstInRun ? 'mt-2' : 'mt-0.5'} ${tail} ${mine ? 'chat-out self-end' : 'self-start bg-surface'} ${state.desk.hi === m.id ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
+      className={`max-w-[86%] min-w-[8.5rem] shrink-0 px-2.5 pb-1 pt-1.5 text-[15.5px] leading-snug shadow-s1 [overflow-wrap:anywhere] ${firstInRun ? 'mt-2' : 'mt-[3px]'} ${tail} ${mine ? 'min-w-[10.75rem] chat-out self-end' : 'self-start bg-surface'} ${state.desk.hi === m.id ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
     >
       {showName && !mine && (
         <div className="mb-0.5 text-[13px] font-semibold text-accent-text">{name(m.by)}</div>
@@ -286,6 +269,17 @@ function Message({ m, showName, firstInRun, lastInRun }) {
         </div>
       )}
       {m.deleted && <div className="text-ink-3"><i>This message was deleted</i></div>}
+      {m.decision && live && <div className="mb-0.5 text-[12px] font-semibold text-accent">Decision</div>}
+      {m.forwarded && live && <div className="mb-0.5 text-[12px] italic text-ink-3">Forwarded</div>}
+      {m.replyTo && live && (
+        <div className="relative mb-1 overflow-hidden rounded-md border-l-[3px] border-accent-text bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-2 py-1 pl-2.5 text-[13px]">
+          <b className="text-accent-text">{quoted ? name(quoted.by) : ''}</b>
+          <div className="truncate text-ink-2">{conversationPreview(quoted)}</div>
+        </div>
+      )}
+      {m.kind && live && !m.photo && !m.voice && (
+        <div className="mb-0.5 text-[12px] font-semibold text-accent">{({ drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill', material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in' })[m.kind] || m.kind}</div>
+      )}
       {m.bill && live && (
         <Opts>
           <span className="flex flex-wrap items-center gap-1.5">
@@ -365,10 +359,20 @@ function Message({ m, showName, firstInRun, lastInRun }) {
       )}
       <SiteMessageAction m={m} />
       <MessageAssist m={m} />
+      {reacts.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {reacts.map(([emoji, ids]) => (
+            <button key={emoji} type="button" className={`rounded-full border-0 px-2 py-0.5 text-sm ${ids.includes(state.userId) ? 'bg-accent-soft' : 'bg-surface-2'}`} onClick={() => svc.reactToMessage(m, emoji)} aria-label={`React ${emoji}`}>{emoji} {ids.length}</button>
+          ))}
+        </div>
+      )}
       <div className="mt-0.5 flex flex-wrap items-center justify-end gap-1">
         {staff() && <span className="mr-auto max-w-[70%]"><FilingChip m={m} /></span>}
-        <time className="text-[11px] leading-none text-ink-3">{m.edited ? 'edited ' : ''}{fmtT(m.at)}</time>
-        {mine && live && <Icon name="checkcheck" small className="text-ink-3" />}
+        <time className="text-[11px] leading-none text-ink-3">{m.edited ? 'Edited · ' : ''}{fmtT(m.at)}</time>
+        {receipt && <Icon name={receipt === 'sent' ? 'check' : 'checkcheck'} small className={receipt === 'seen' ? 'text-accent-text' : 'text-ink-3'} />}
+        <button type="button" aria-label="Message options" className="inline-grid h-5 w-5 place-items-center border-0 bg-transparent p-0 text-ink-3" onClick={() => openDialog({ kind: 'message-actions', msgId: m.id })}>
+          <span className="inline-block rotate-90"><Icon name="chev" small /></span>
+        </button>
       </div>
     </div>
   );
@@ -402,11 +406,11 @@ function Messages({ threadId, ms, grouped, notice }) {
         return (
           <Fragment key={m.id}>
             {showDay && (
-              <div className="sticky top-1 z-[1] my-2 self-center rounded-lg bg-surface px-3 py-1 text-[12px] font-medium text-ink-2 shadow-s1">
+              <div className="sticky top-1 z-[1] my-2 self-center rounded-full bg-surface px-2.5 py-1 text-[12px] font-semibold text-ink-2 shadow-s1">
                 {chatStamp(m.at, false)}
               </div>
             )}
-            <Message m={m} showName={grouped && firstInRun} firstInRun={firstInRun} lastInRun={lastInRun} />
+            <Message m={m} showName={grouped && firstInRun} firstInRun={firstInRun} lastInRun={lastInRun} later={ms.slice(i + 1)} threadMessages={ms} />
           </Fragment>
         );
       })}
@@ -441,7 +445,10 @@ function Composer({ thread, last }) {
     const isVideo = file.type.startsWith('video/');
     return setPending({ type: 'editor', file, kind: isVideo ? 'video' : 'image' });
   };
-  const onPickAction = (kind) => setPending({ type: kind });
+  const onPickAction = (kind) => {
+    if (kind.startsWith('site:')) return setPending({ type: 'site', what: kind.slice(5), label: kind.slice(5) });
+    return setPending({ type: kind });
+  };
 
   const sendSimpleFile = async () => {
     const { type, file } = pending;
@@ -467,7 +474,13 @@ function Composer({ thread, last }) {
           file={pending.file}
           kind={pending.kind}
           onCancel={() => setPending(null)}
-          onSend={(media) => { sendMessage(thread.id, '', { media }); setPending(null); }}
+          onSend={(media) => {
+            const site = pending.siteWhat;
+            const caption = (media.note || '').trim();
+            const extra = site ? { kind: site, text: caption || (site === 'sample' ? 'Sample' : site === 'delivery' ? 'Delivery' : 'Photo'), photo: media.dataUrl ? { dataUrl: media.dataUrl, hue: 28, seed: 4 } : undefined, media } : { media };
+            sendMessage(thread.id, site ? '' : caption, extra);
+            setPending(null);
+          }}
         />
       )}
       {pending?.type === 'camera' && (
@@ -488,6 +501,60 @@ function Composer({ thread, last }) {
           onCancel={() => setPending(null)}
           onSend={(poll) => { sendMessage(thread.id, '', { poll }); setPending(null); }}
         />
+      )}
+      {pending?.type === 'voice' && (
+        <VoiceCapture
+          onCancel={() => setPending(null)}
+          onSend={(voice) => { sendMessage(thread.id, '', { voice }); setPending(null); }}
+        />
+      )}
+      {pending?.type === 'site' && (
+        <SiteCompose
+          thread={thread}
+          what={pending.what}
+          label={({ photo: 'Photo', drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill / expense', material: 'Material request', attendance: 'Attendance', file: 'File', checkin: 'Check in', daylog: "Today's log" })[pending.what] || pending.what}
+          onCancel={() => setPending(null)}
+          onPhoto={() => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = () => {
+              const file = input.files?.[0];
+              if (file) setPending({ type: 'editor', file, kind: 'image', siteWhat: pending.what });
+            };
+            input.click();
+          }}
+          onSend={(fields) => { sendMessage(thread.id, '', fields); setPending(null); }}
+          onCheckin={() => {
+            const siteId = thread.siteId || svc.mySiteIds()[0];
+            if (!siteId) return toast('No site to use here.');
+            svc.siteCheckin(siteId);
+            const siteThread = svc.threads().find((th) => th.kind === 'site' && th.siteId === siteId);
+            const dest = siteThread?.id || thread.id;
+            sendMessage(dest, '', { text: 'Checked in at site', kind: 'checkin' });
+            setPending(null);
+            if (dest !== thread.id) openThreadFocus(dest);
+          }}
+          onDayLog={() => {
+            const siteId = thread.siteId || svc.mySiteIds()[0];
+            if (!siteId) return toast('No site to use here.');
+            setPending(null);
+            openDesktopAssist('daily', { siteId });
+          }}
+        />
+      )}
+      {can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '') && (
+        <div className="mb-1 flex flex-wrap gap-2 px-2">
+          {QUICK_REPLIES.map((label) => (
+            <Btn key={label} sm onClick={() => sendMessage(thread.id, label, { replyTo: last.id })}>{label}</Btn>
+          ))}
+        </div>
+      )}
+      {state.desk.replyTo?.threadId === thread.id && (
+        <div className="mb-1 flex items-center gap-2 px-2 text-sm">
+          <span className="min-w-0 flex-1 truncate"><b className="text-accent-text">{name(state.db.MESSAGES.find((m) => m.id === state.desk.replyTo.id)?.by)}</b> {conversationPreview(state.db.MESSAGES.find((m) => m.id === state.desk.replyTo.id))}</span>
+          <button type="button" aria-label="Cancel reply" className="border-0 bg-transparent text-ink-3" onClick={() => { state.desk.replyTo = null; render(); }}><Icon name="x" small /></button>
+        </div>
       )}
       <form
         className="flex w-full items-end gap-1.5"
@@ -528,7 +595,7 @@ function contextProject() {
 }
 // A short "who/what this is" line, not four separate tabs — project name folded in where a
 // thread's own kind (client/site/internal) doesn't already say which project it's for.
-const KIND_LABEL = { client: 'Shared with client', site: 'Site team', internal: 'Studio team only', dm: 'Direct message', group: 'Group' };
+const KIND_LABEL = { client: 'Client group', site: 'Site team', internal: 'Office', dm: 'Direct message', group: 'Group' };
 const contextLine = (t) => {
   const label = KIND_LABEL[t.kind] || 'Members of this conversation';
   const proj = t.projectId ? P(t.projectId)?.name : null;
@@ -582,10 +649,14 @@ export function ChatView({ workspace = false }) {
   const cur = ts.find((t) => t.id === desk.thread) || ts[0];
   desk.thread = cur.id;
   if (!desk.chatList && (workspace || !desk.chatHidden)) markChatRead(cur.id);
-  const ms = svc.messages(cur.id);
+  const ms = svc.messages(cur.id).filter((m) => !hiddenFrom(m, state.userId));
   const last = ms[ms.length - 1];
+  const pinned = ms.filter((m) => m.decision && !m.deleted);
+  const canPin = role() === 'partner' || role() === 'site_manager';
   const sib = !desk.chatList && cur.projectId && cur.kind !== 'dm'
     ? svc.threads().filter((x) => x.projectId === cur.projectId && x.kind !== 'dm') : [];
+  const projectChats = ['client', 'internal', 'site'].includes(cur.kind)
+    ? sib.filter((x) => ['client', 'internal', 'site'].includes(x.kind)) : [];
   return (
     <aside
       id="conversation"
@@ -602,25 +673,41 @@ export function ChatView({ workspace = false }) {
             className={!phone && workspace ? 'hidden max-[980px]:inline-grid' : ''}
           />
         )}
-        {!desk.chatList && <Avatar label={cur.name} className="h-10 w-10 text-sm" />}
-        <div ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 px-2 focus:outline-none">
-          <b className="block truncate text-[16px] font-semibold leading-tight">
-            {desk.chatList ? (project && !desk.allChats ? project.name : 'Chats') : cur.name}
-          </b>
-          {!desk.chatList && (
-            <small className={`block truncate text-xs ${phone ? 'opacity-80' : 'text-ink-3'}`}>{contextLine(cur)}</small>
-          )}
-        </div>
+        {desk.chatList ? (
+          <div ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 px-2 focus:outline-none">
+            <b className="block truncate text-[16px] font-semibold leading-tight">{project && !desk.allChats ? project.name : 'Chats'}</b>
+          </div>
+        ) : (
+          <button
+            ref={titleRef}
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent px-1 text-left text-inherit focus:outline-none"
+            onClick={() => openDialog({ kind: 'chat-info', threadId: cur.id })}
+          >
+            <ChatPicture thread={cur} className="h-10 w-10" />
+            <span className="min-w-0">
+              <b className="block truncate text-[16px] font-semibold leading-tight">{cur.name}</b>
+              <small className={`block truncate text-xs ${phone ? 'opacity-80' : 'text-ink-3'}`}>{contextLine(cur)}</small>
+            </span>
+          </button>
+        )}
         {!desk.chatList && (
           <>
+            <BarButton label="Chat info" icon="people" onClick={() => openDialog({ kind: 'chat-info', threadId: cur.id })} />
             <BarButton label="Video call" icon="camera" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
+            <BarButton label="Voice call" icon="call" onClick={() => {
+              const otherId = cur.kind === 'dm' ? cur.memberIds.find((id) => id !== state.userId) : null;
+              const other = otherId ? user(otherId) : null;
+              if (other) { window.location.href = `tel:${phoneOf(other).replace(/\s/g, '')}`; return; }
+              openDialog({ kind: 'voice-call', threadId: cur.id });
+            }} />
             <Dropdown
               plain
               align="right"
               panelClassName="!w-56"
               trigger={<><Icon name="more" /><span className="sr-only">Conversation actions</span></>}
             >
-              <DropdownItem icon="photos" onClick={() => openDialog({ kind: 'media', threadId: cur.id, tab: 'Photos' })}>Media, links and docs</DropdownItem>
+              <DropdownItem icon="photos" onClick={() => openDialog({ kind: 'chat-info', threadId: cur.id })}>Media, links and docs</DropdownItem>
               {sib.map((x) => (
                 <DropdownItem key={x.id} onClick={() => openThreadFocus(x.id)} className={x.id === cur.id ? '!bg-accent-soft !text-accent-text' : ''}>
                   {x.name}
@@ -631,6 +718,22 @@ export function ChatView({ workspace = false }) {
         )}
         {!workspace && <BarButton label="Close chats" icon="x" onClick={toggleChatPane} />}
       </div>
+      {!desk.chatList && projectChats.length > 1 && (
+        <div className="flex gap-1 border-b border-line bg-surface px-2.5 py-1.5" role="tablist" aria-label="Conversations in this project">
+          {projectChats.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              role="tab"
+              aria-selected={x.id === cur.id}
+              onClick={() => openThreadFocus(x.id)}
+              className={`min-h-[30px] flex-1 rounded-full border-0 px-2 text-[13px] font-semibold ${x.id === cur.id ? 'bg-accent text-accent-ink' : 'bg-transparent text-ink-2'}`}
+            >
+              {KIND_LABEL[x.kind] || 'Group'}
+            </button>
+          ))}
+        </div>
+      )}
       {desk.chatList && project && (
         <div className="flex gap-2 border-b border-line px-4 py-3">
           <Btn sm kind={!desk.allChats ? 'primary' : 'default'} onClick={() => { desk.allChats = false; render(); }}>This project</Btn>
@@ -641,13 +744,33 @@ export function ChatView({ workspace = false }) {
         <ConversationList threads={scoped} />
       ) : (
         <>
+          {pinned.length > 0 && (
+            <details className="border-b border-line bg-accent-soft px-3 py-2">
+              <summary className="cursor-pointer font-semibold">{pinned.length} decision{pinned.length === 1 ? '' : 's'} pinned</summary>
+              {pinned.map((m) => (
+                <div key={m.id} className="mt-1 flex items-center gap-2">
+                  <button type="button" className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left" onClick={() => { state.desk.hi = m.id; render(); }}>
+                    <b>{(m.text || 'Decision').slice(0, 80)}</b>
+                    <small className="block text-ink-3">{first(m.by)} · {fmtT(m.at)}</small>
+                  </button>
+                  {canPin && <Btn sm onClick={() => svc.toggleDecision(m)}>Unpin</Btn>}
+                </div>
+              ))}
+            </details>
+          )}
+          {svc.decisionsDue({ threadId: cur.id }).map((d) => (
+            <div key={d.id} className="mx-2 mt-2 rounded-r1 bg-surface px-3 py-2">
+              <small className="font-semibold text-warn">Still open · due {fmtD(d.due)}</small>
+              <div className="font-semibold">{d.title}</div>
+            </div>
+          ))}
+          {cur.kind === 'internal' && (
+            <p className="mx-auto mt-2 max-w-sm rounded-lg bg-warn-soft px-3 py-1.5 text-center text-xs font-medium text-warn">Office only. The client never sees this.</p>
+          )}
           <Messages
             threadId={cur.id}
             ms={ms}
             grouped={cur.kind !== 'dm'}
-            notice={cur.kind === 'internal' ? (
-              <p className="mx-auto my-1 max-w-sm rounded-lg bg-warn-soft px-3 py-1.5 text-center text-xs font-medium text-warn">Internal only. The client never sees this chat.</p>
-            ) : null}
           />
           <Composer key={cur.id + state.userId} thread={cur} last={last} />
         </>

@@ -10,11 +10,14 @@ import Photo, { photoSource } from '../ui/Photo';
 import { Screen, TopBar } from '../ui/frame';
 import { useField } from '../ui/FieldContext';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from '../platform/router';
-import { useStyles } from '../platform/theme';
+import { useStyles, useTheme } from '../platform/theme';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user,
 } from '../store';
+import { AIProvider, toast } from '../../../frontend/src/shared/core';
+import { filingLabel } from '../../../frontend/src/shared/filing';
+import { siteHasSuggestion } from '../../../frontend/src/shared/chatExtras';
 import { ThreadHeader } from './Chats';
 import * as ChatPagesNs from './ChatPages';
 import { VoiceFallback, ActionsFallback, ForwardFallback } from './ThreadParts';
@@ -42,6 +45,10 @@ const MORE: any[] = [
   ['file', 'File', 'file'],
   ['checkin', 'Check in', 'today', ['site_manager', 'contractor']],
   ['daylog', "Today's log", 'today', ['site_manager', 'partner', 'designer']],
+  ['poll', 'Poll', 'checkcheck'],
+  ['contact', 'Contact', 'people'],
+  ['document', 'Document', 'file'],
+  ['audio', 'Audio', 'mic'],
 ];
 const STEP: Record<string, string> = {
   photo: 'Choose a photo. You can crop it, draw on it, and add a note before it is sent.',
@@ -53,16 +60,24 @@ const STEP: Record<string, string> = {
   material: 'Say what the site needs. It is posted in this chat.',
   attendance: 'This posts today’s attendance into this chat.',
   file: 'Choose a file. This chat shows the file name.',
+  document: 'Choose a document. This chat keeps the file.',
+  audio: 'Choose an audio file.',
+  poll: 'Ask the chat a question with two or more answers.',
+  contact: 'Share someone from this chat, or type a name and phone.',
   checkin: 'This tells the site chat that you have arrived.',
   daylog: 'This writes what happened on site today. You can read it before anyone else sees it.',
 };
+function chipOf(m: any) {
+  const f = state.filings?.[m.id];
+  if (!f) return { status: '', label: 'File message' };
+  const who = f.by === 'user' ? 'Filed' : f.status === 'filed' ? 'AI filed' : f.status === 'check' ? 'AI check' : 'AI needs context';
+  return { status: f.status === 'check' ? 'check' : f.status === 'ask' ? 'ask' : '', label: `${who} · ${f.status === 'ask' ? 'Which project?' : (filingLabel(f) || 'Note')}` };
+}
+
 const KIND_LABEL: Record<string, string> = {
   drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill',
   material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in',
 };
-const TICK = '#8696a0';
-const TICK_SEEN = '#53bdeb';
-
 const allowed = (roles?: string[]) => !roles || roles.includes(state.role);
 const label = (what: string) => (({ photo: 'Add a note', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a note' } as any)[what] || 'Note');
 
@@ -86,13 +101,13 @@ function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }: 
   const shown = shift.interpolate({ inputRange: [0, 64], outputRange: [0, 1], extrapolate: 'clamp' });
   const s = useStyles((c, th) => ({
     row: { maxWidth: '86%', position: 'relative' },
-    icon: { position: 'absolute', left: 4, top: '50%', marginTop: -14, width: 28, height: 28, borderRadius: 14, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', shadowColor: '#0b141a', shadowOpacity: 0.13, shadowOffset: { width: 0, height: 1 }, shadowRadius: 0.5, elevation: 1 },
+    icon: { position: 'absolute', left: 4, top: '50%', marginTop: -14, width: 28, height: 28, borderRadius: 14, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', shadowColor: th.dark ? '#000' : c.ink, shadowOpacity: th.dark ? 0.4 : 0.08, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
     bubble: {
       paddingTop: 6, paddingBottom: 4, paddingLeft: 10, paddingRight: 8, borderRadius: 12, minWidth: 136,
-      backgroundColor: th.dark ? c.surface2 : '#fff',
-      shadowColor: '#0b141a', shadowOpacity: 0.13, shadowOffset: { width: 0, height: 1 }, shadowRadius: 0.5, elevation: 1,
+      backgroundColor: c.surface,
+      shadowColor: th.dark ? '#000' : c.ink, shadowOpacity: th.dark ? 0.4 : 0.08, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1,
     },
-    mine: { minWidth: 172, backgroundColor: th.dark ? c.mine : '#e7f4fb', borderTopRightRadius: 4 },
+    mine: { minWidth: 172, backgroundColor: c.accent, borderTopRightRadius: 4 },
     theirs: { borderTopLeftRadius: 4 },
     cont: { borderTopLeftRadius: 12, borderTopRightRadius: 12 },
     more: { position: 'absolute', right: 1, bottom: 2, width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
@@ -120,6 +135,7 @@ function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }: 
 
 export default function Thread() {
   useStore();
+  const { c } = useTheme();
   const { threadId } = useParams() as { threadId: string };
   const navigate = useNavigate();
   const thread = svc.thread(threadId);
@@ -137,6 +153,12 @@ export default function Thread() {
   const [menu, setMenu] = useState<any>(null);
   const [forwardMsg, setForwardMsg] = useState<any>(null);
   const [editor, setEditor] = useState<any>(null);
+  const [pollQ, setPollQ] = useState('');
+  const [pollOpts, setPollOpts] = useState(['', '']);
+  const [pollMulti, setPollMulti] = useState(false);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [docUrl, setDocUrl] = useState('');
   const location = useLocation();
   const [params] = useSearchParams();
   const from = params.get('from');
@@ -154,6 +176,7 @@ export default function Thread() {
     swText: { fontSize: 13, fontWeight: '600', color: c.ink2, textAlign: 'center' },
     swTextOn: { color: c.accentInk },
     banner: { color: c.ink3, fontSize: 12, fontWeight: '500', textAlign: 'center', paddingTop: 4, paddingBottom: 8, paddingHorizontal: 16 },
+    office: { alignSelf: 'center', marginTop: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: c.warnSoft, color: c.warn, fontSize: 12, fontWeight: '500', textAlign: 'center', overflow: 'hidden' },
     pinbar: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: c.accentSoft },
     pinbarText: { fontWeight: '700', color: c.ink, fontSize: 16 },
     pinrow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.accentSoft, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
@@ -164,7 +187,7 @@ export default function Thread() {
     unpinText: { color: c.accentText, fontWeight: '700' },
     body: { flex: 1, backgroundColor: c.chat },
     bodyIn: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 12 },
-    day: { alignSelf: 'center', marginTop: 12, marginBottom: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.surface, shadowColor: '#0b141a', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 1 }, shadowRadius: 0.5, elevation: 1 },
+    day: { alignSelf: 'center', marginTop: 12, marginBottom: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.surface, shadowColor: th.dark ? '#000' : c.ink, shadowOpacity: th.dark ? 0.4 : 0.08, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
     dayText: { fontSize: 12, fontWeight: '600', color: c.ink2 },
     dueRow: { paddingVertical: 8, paddingHorizontal: 12, marginTop: 8, borderRadius: 8, backgroundColor: c.surface },
     dueSmall: { fontSize: 12, color: c.warn, fontWeight: '700' },
@@ -182,7 +205,18 @@ export default function Thread() {
     shot: { width: 240, aspectRatio: 4 / 3, borderRadius: 12, backgroundColor: c.surface3, marginBottom: 4 },
     swatch: { width: 240, height: 140, borderRadius: 8, overflow: 'hidden', marginBottom: 4 },
     line: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+    meta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    chip: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '70%', borderWidth: 1, borderColor: c.line, borderRadius: 999, backgroundColor: c.surface2, paddingHorizontal: 8, paddingVertical: 2 },
+    chipCheck: { borderColor: c.warnSoft, backgroundColor: c.warnSoft },
+    chipAsk: { borderColor: c.critSoft, backgroundColor: c.critSoft },
+    chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.accent },
+    chipText: { fontSize: 12, color: c.ink2, flexShrink: 1 },
+    suggest: { alignSelf: 'flex-start', marginLeft: 12, marginBottom: 2, color: c.accentText, fontSize: 13, fontWeight: '600' },
     say: { flexShrink: 1, fontSize: 15.5, lineHeight: 21, color: c.ink },
+    onAccent: { color: c.accentInk },
+    onAccentMute: { color: c.accentInk, opacity: 0.78 },
+    chipOn: { borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.18)' },
+    quoteMine: { backgroundColor: 'rgba(255,255,255,0.14)' },
     timeRow: { flexDirection: 'row', alignItems: 'center', marginRight: 14, marginLeft: 'auto' },
     time: { fontSize: 11, lineHeight: 14, color: c.ink3 },
     gone: { color: c.ink3, fontSize: 13, fontStyle: 'italic' },
@@ -201,7 +235,8 @@ export default function Thread() {
     replyText: { flex: 1, minWidth: 0, fontSize: 13, color: c.ink },
     replyB: { color: c.accentText, fontWeight: '700' },
     composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingTop: 6, paddingHorizontal: 8, backgroundColor: c.chat },
-    input: { flex: 1, minHeight: 42, maxHeight: 120, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 22, backgroundColor: c.surface, color: c.ink, fontSize: 16, shadowColor: '#0b141a', shadowOpacity: 0.13, shadowOffset: { width: 0, height: 1 }, shadowRadius: 0.5, elevation: 1 },
+    pill: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', minHeight: 44, borderRadius: 22, backgroundColor: c.surface, paddingRight: 4, shadowColor: th.dark ? '#000' : c.ink, shadowOpacity: th.dark ? 0.4 : 0.08, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
+    input: { flex: 1, minHeight: 42, maxHeight: 120, paddingVertical: 10, paddingHorizontal: 4, color: c.ink, fontSize: 16 },
     round: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     roundAccent: { backgroundColor: c.accent },
     back: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(12,30,41,0.4)', justifyContent: 'flex-end', zIndex: 5 },
@@ -311,7 +346,8 @@ export default function Thread() {
   }
 
   function openForm(item: any[]) {
-    setError(''); setNote(''); setAmount(''); setShot(''); setFileName(''); setDrawingNo('');
+    setError(''); setNote(''); setAmount(''); setShot(''); setFileName('');     setDrawingNo('');
+    setPollQ(''); setPollOpts(['', '']); setPollMulti(false); setContactName(''); setContactPhone(''); setDocUrl('');
     setSheet({ what: item[0], label: item[1] });
   }
 
@@ -418,6 +454,21 @@ export default function Thread() {
       fields.text = words ? `File: ${fileName}. ${words}` : `File: ${fileName}`;
     } else if (what === 'attendance') {
       fields.text = words ? `Attendance recorded for today. ${words}` : 'Attendance recorded for today';
+    } else if (what === 'poll') {
+      const options = pollOpts.map((o) => o.trim()).filter(Boolean);
+      if (!pollQ.trim() || options.length < 2) { setError('Add a question and at least two options.'); return; }
+      fields.poll = { question: pollQ.trim(), multi: pollMulti, options: options.map((text) => ({ text, votes: [] })) };
+      fields.text = pollQ.trim();
+    } else if (what === 'contact') {
+      if (!contactName.trim()) { setError('Enter a name.'); return; }
+      fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
+      fields.text = contactName.trim();
+    } else if (what === 'document' || what === 'audio') {
+      if (!fileName) { setError(what === 'audio' ? 'Choose an audio file.' : 'Choose a document.'); return; }
+      if (what === 'audio') fields.audio = { dataUrl: docUrl, name: fileName };
+      else fields.file = { name: fileName, dataUrl: docUrl };
+      fields.text = words ? `${fileName}. ${words}` : fileName;
+      delete fields.kind;
     } else if (!words) { setError('Write a note first.'); return; }
     postMessage(thread.id, fields);
     setSheet(null);
@@ -434,7 +485,7 @@ export default function Thread() {
     <Pressable style={style} onPress={onPress} accessibilityRole="button" {...rest}><Text style={textStyle}>{children}</Text></Pressable>
   );
   const Field = ({ lbl, ...rest }: any) => (
-    <View style={s.lbl}><Text style={s.lblText}>{lbl}</Text><TextInput style={s.field} placeholderTextColor="#8a9aa5" {...rest} /></View>
+    <View style={s.lbl}><Text style={s.lblText}>{lbl}</Text><TextInput style={s.field} placeholderTextColor={c.ink3} {...rest} /></View>
   );
 
   return (
@@ -450,7 +501,7 @@ export default function Thread() {
             ))}
           </View>
         )}
-        {thread.kind === 'internal' && <Text style={s.banner}>{t('officeOnly')}</Text>}
+        {thread.kind === 'internal' && <Text style={s.office}>{t('officeOnly')}</Text>}
         {pinned.length > 0 && (
           <Pressable style={s.pinbar} onPress={() => setShowPins((v) => !v)} accessibilityRole="button">
             <Text style={s.pinbarText}>{pinned.length} decision{pinned.length === 1 ? '' : 's'} pinned</Text>
@@ -495,29 +546,69 @@ export default function Thread() {
                   onLayout={(e) => { ys.current[m.id] = e.nativeEvent.layout.y; }}
                 >
                   <ChatBubble mine={mine} same={same} pinned={m.decision} deleted={m.deleted} onOpen={() => setMenu(m)} onReply={() => setReplyTo(m)}>
-                    {!mine && !same && <Text style={s.who}>{firstName(m.by)}</Text>}
-                    {m.decision && !m.deleted && <Text style={s.tag}>Decision</Text>}
-                    {m.deleted ? <Text style={s.gone}>This message was deleted</Text> : (
+                    {!mine && !same && <Text style={s.who}>{user(m.by).name || firstName(m.by)}</Text>}
+                    {m.decision && !m.deleted && <Text style={[s.tag, mine && s.onAccent]}>Decision</Text>}
+                    {m.deleted ? <Text style={[s.gone, mine && s.onAccentMute]}>This message was deleted</Text> : (
                       <>
-                        {m.forwarded && <Text style={s.fwd}>Forwarded</Text>}
+                        {m.forwarded && <Text style={[s.fwd, mine && s.onAccentMute]}>Forwarded</Text>}
                         {m.replyTo && (
-                          <View style={s.quote}>
-                            <View style={s.quoteBar} />
-                            <Text style={s.quoteB}>{quoted ? firstName(quoted.by) : ''}</Text>
-                            <Text style={s.quoteT} numberOfLines={2}>{preview(quoted)}</Text>
+                          <View style={[s.quote, mine && s.quoteMine]}>
+                            <View style={[s.quoteBar, mine && { backgroundColor: c.accentInk }]} />
+                            <Text style={[s.quoteB, mine && s.onAccent]}>{quoted ? firstName(quoted.by) : ''}</Text>
+                            <Text style={[s.quoteT, mine && s.onAccentMute]} numberOfLines={2}>{preview(quoted)}</Text>
                           </View>
                         )}
                         {m.voice && <VoicePlay src={typeof m.voice === 'object' ? m.voice.audio : ''} dur={typeof m.voice === 'string' ? m.voice : (m.voice.dur || '')} />}
                         {m.photo?.dataUrl && <Image style={s.shot} source={{ uri: m.photo.dataUrl }} resizeMode="cover" accessibilityLabel="Photo" />}
                         {m.photo && !m.photo.dataUrl && <View style={s.swatch}><Photo hue={m.photo.hue} seed={m.photo.seed} ar={240 / 140} /></View>}
                         {(m.kind && !m.photo) && !m.voice && <Text style={s.tag}>{KIND_LABEL[m.kind] || m.kind}</Text>}
-                        <View style={s.line}>
-                          {m.text && !m.voice ? <Text style={s.say}>{m.text}</Text> : null}
+                        {m.contact && <Text style={s.say}>{m.contact.name}{m.contact.phone ? `\n${m.contact.phone}` : ''}</Text>}
+                        {m.poll && (
+                          <View>
+                            <Text style={s.jumpB}>{m.poll.question}</Text>
+                            {m.poll.options.map((o: any, i: number) => (
+                              <Pressable key={i} onPress={() => svc.votePoll(m.id, i)}><Text style={s.quickText}>{o.text} · {o.votes.length}</Text></Pressable>
+                            ))}
+                          </View>
+                        )}
+                        {m.link && <Text style={s.say}>{m.link.title}{'\n'}{m.link.src}</Text>}
+                        {m.call && <Text style={s.say}>Video call · {m.call.provider}{'\n'}{m.call.url}</Text>}
+                        {m.imported && <Text style={s.fwd}>imported from WhatsApp</Text>}
+                        {m.options?.length > 0 && m.options.map((o: string) => (
+                          <Pressable key={o} onPress={() => svc.recordChatDecision(m, o)}><Text style={s.quickText}>{o}</Text></Pressable>
+                        ))}
+                        {m.approval && (m.approval.done ? <Text style={s.tag}>approved</Text> : state.role === 'client' ? (
+                          <Pressable onPress={() => svc.approveChatMessage(m)}><Text style={s.quickText}>{m.approval.label}</Text></Pressable>
+                        ) : <Text style={s.tag}>{m.approval.label} · waiting</Text>)}
+                        {m.bill && state.role === 'partner' && m.bill.status === 'asked' && m.by !== state.userId && (
+                          <View style={s.quick}>
+                            <Pressable onPress={() => svc.decideBill(m, true)}><Text style={s.quickText}>Approve</Text></Pressable>
+                            <Pressable onPress={() => svc.decideBill(m, false)}><Text style={s.quickText}>Ask for bill</Text></Pressable>
+                          </View>
+                        )}
+                        {!m.deleted && m.issueId && <Link to={`/mobile/issues/${m.issueId}`}><Text style={s.unpinText}>Open linked issue</Text></Link>}
+                        {!m.deleted && siteHasSuggestion(svc.siteUpdateReview(m.id)) && (
+                          <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={s.unpinText}>Review site update</Text></Link>
+                        )}
+                        {m.text && !m.voice ? <Text style={[s.say, mine && s.onAccent]}>{m.text}</Text> : null}
+                        {staff() && m.text && !m.deleted && (
+                          <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>Help with this update</Text></Link>
+                        )}
+                        <View style={s.meta}>
+                          {staff() && !m.deleted && (() => {
+                            const chip = chipOf(m);
+                            return (
+                              <Link to={`/mobile/chats/${thread.id}/messages/${m.id}/filing`} style={[s.chip, chip.status === 'check' && s.chipCheck, chip.status === 'ask' && s.chipAsk, mine && !chip.status && s.chipOn]}>
+                                <View style={[s.chipDot, mine && !chip.status && { backgroundColor: c.accentInk }, chip.status === 'check' && { backgroundColor: c.warn }, chip.status === 'ask' && { backgroundColor: c.crit }]} />
+                                <Text style={[s.chipText, mine && !chip.status && s.onAccent, chip.status === 'check' && { color: c.warn }, chip.status === 'ask' && { color: c.crit }]} numberOfLines={1}>{chip.label}</Text>
+                              </Link>
+                            );
+                          })()}
                           <View style={s.timeRow} accessibilityLabel={receipt === 'seen' ? 'Seen' : receipt === 'delivered' ? 'Delivered' : receipt === 'sent' ? 'Sent' : undefined}>
-                            <Text style={s.time}>{m.edited ? 'Edited · ' : ''}{fmtT(m.at)}</Text>
+                            <Text style={[s.time, mine && s.onAccentMute]}>{m.edited ? 'Edited · ' : ''}{fmtT(m.at)}</Text>
                             {receipt && (
                               <View style={{ marginLeft: 2 }}>
-                                <Icon name={receipt === 'sent' ? 'check' : 'checkcheck'} size={16} color={receipt === 'seen' ? TICK_SEEN : TICK} />
+                                <Icon name={receipt === 'sent' ? 'check' : 'checkcheck'} size={16} color={mine ? c.accentInk : (receipt === 'seen' ? c.accentText : c.ink3)} />
                               </View>
                             )}
                           </View>
@@ -546,6 +637,13 @@ export default function Thread() {
             </View>
           )}
         </ScrollView>
+        {staff() && can('thread', 'w') && last && last.by !== state.userId && (
+          <Pressable onPress={async () => {
+            if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
+            try { setDraft(thread.id, await AIProvider.draftReply(thread, last)); }
+            catch { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
+          }}><Text style={s.suggest}>Suggest reply</Text></Pressable>
+        )}
         {showQuick && (
           <View style={s.quick}>
             {[t('yes'), t('ok'), t('onMyWay')].map((l: string) => (
@@ -561,26 +659,25 @@ export default function Thread() {
         )}
         {can('thread', 'w') && (
           <View style={[s.composer, { paddingBottom: 8 + insets.bottom }]}>
-            <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add a photo, drawing or note" onPress={() => { setError(''); setSheet('plus'); }}>
-              <Icon name="plus" />
-            </Pressable>
-            <TextInput
-              style={s.input} multiline placeholder={t('message')} placeholderTextColor="#8a9aa5"
-              accessibilityLabel={`Message to ${audience(thread)}`}
-              value={text} onChangeText={(v) => setDraft(thread.id, v)}
-              onKeyPress={(e: any) => {
-                if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
-              }}
-            />
-            {text.trim() ? (
-              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('send')} onPress={send}>
-                <Icon name="send" color="#fff" />
+            <View style={s.pill}>
+              <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add a photo, drawing or note" onPress={() => { setError(''); setSheet('plus'); }}>
+                <Icon name="plus" />
               </Pressable>
-            ) : (
-              <Link to={`/mobile/chats/${thread.id}/voice`} style={[s.round, s.roundAccent]} accessibilityLabel="Record a voice note">
-                <Icon name="mic" color="#fff" />
+              <TextInput
+                style={s.input} multiline placeholder={t('message')} placeholderTextColor={c.ink3}
+                accessibilityLabel={`Message to ${audience(thread)}`}
+                value={text} onChangeText={(v) => setDraft(thread.id, v)}
+                onKeyPress={(e: any) => {
+                  if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
+                }}
+              />
+              <Link to={`/mobile/chats/${thread.id}/voice`} style={s.round} accessibilityLabel="Record a voice note">
+                <Icon name="mic" />
               </Link>
-            )}
+            </View>
+            <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('send')} onPress={send}>
+              <Icon name="send" color={c.accentInk} />
+            </Pressable>
           </View>
         )}
         {sheet && (
@@ -627,7 +724,7 @@ export default function Thread() {
                       drawings.length ? drawings.map((d) => (
                         <Pressable key={d.no} style={[s.drow, drawingNo === d.no && s.drowOn]} onPress={() => setDrawingNo(d.no)} accessibilityRole="button">
                           <View style={s.dcopy}><Text style={s.dB}>{d.name}</Text><Text style={s.dS}>{d.no} · {d.rev}</Text></View>
-                          <View style={[s.pick, drawingNo === d.no && s.pickOn]}>{drawingNo === d.no ? <Icon name="check" size={14} color="#fff" /> : null}</View>
+                          <View style={[s.pick, drawingNo === d.no && s.pickOn]}>{drawingNo === d.no ? <Icon name="check" size={14} color={c.accentInk} /> : null}</View>
                         </Pressable>
                       )) : <Text style={s.note}>{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</Text>
                     )}
@@ -638,8 +735,35 @@ export default function Thread() {
                         {fileName ? <Text style={s.note}>Only the name is sent. The file stays on this phone.</Text> : null}
                       </>
                     )}
+                    {(sheet.what === 'document' || sheet.what === 'audio') && (
+                      <Btn style={s.ghost} textStyle={s.ghostText} onPress={async () => {
+                        try {
+                          const res = await DocumentPicker.getDocumentAsync({ type: sheet.what === 'audio' ? 'audio/*' : '*/*', copyToCacheDirectory: true });
+                          const asset = res.canceled ? null : res.assets?.[0];
+                          setFileName(asset?.name || '');
+                          if (asset?.uri) setDocUrl(asset.uri);
+                        } catch { setError('Could not open files.'); }
+                      }}>{fileName || (sheet.what === 'audio' ? 'Choose audio' : 'Choose a document')}</Btn>
+                    )}
+                    {sheet.what === 'poll' && (
+                      <View style={s.stack}>
+                        <Field lbl="Question" value={pollQ} onChangeText={setPollQ} />
+                        {pollOpts.map((o, i) => <Field key={i} lbl={`Option ${i + 1}`} value={o} onChangeText={(v: string) => setPollOpts((list) => list.map((x, j) => (j === i ? v : x)))} />)}
+                        {pollOpts.length < 6 && <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setPollOpts((list) => [...list, ''])}>Add option</Btn>}
+                        <Pressable onPress={() => setPollMulti((v) => !v)}><Text style={s.note}>{pollMulti ? '☑' : '☐'} Allow multiple answers</Text></Pressable>
+                      </View>
+                    )}
+                    {sheet.what === 'contact' && (
+                      <View style={s.stack}>
+                        {(thread.memberIds || []).filter((id: string) => id !== state.userId).map((id: string) => (
+                          <Btn key={id} style={s.ghost} textStyle={s.ghostText} onPress={() => { postMessage(thread.id, { contact: { userId: id, name: firstName(id) }, text: firstName(id) }); setSheet(null); }}>{`Share ${firstName(id)}`}</Btn>
+                        ))}
+                        <Field lbl="Name" value={contactName} onChangeText={setContactName} />
+                        <Field lbl="Phone" value={contactPhone} onChangeText={setContactPhone} />
+                      </View>
+                    )}
                     {sheet.what === 'bill' && <Field lbl="Amount in ₹" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} accessibilityLabel="Amount" placeholder="0" />}
-                    {!['checkin', 'daylog', 'drawing', 'location'].includes(sheet.what) && (
+                    {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio'].includes(sheet.what) && (
                       <Field
                         lbl={label(sheet.what)} multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]}
                         value={note} onChangeText={setNote} accessibilityLabel={label(sheet.what)}

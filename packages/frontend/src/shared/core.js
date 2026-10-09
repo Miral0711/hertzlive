@@ -952,6 +952,79 @@ export const svc = {
     }
     return id;
   },
+  // Chat actions shared by the desktop pane and both phone clients. Each one
+  // rolls back when the device cannot save, so a failed action leaves the message as it was.
+  reactToMessage(message, emoji) {
+    if (!message || message.deleted) return false;
+    message.reactions = message.reactions || {};
+    const prev = message.reactions[emoji];
+    const ids = prev || [];
+    message.reactions[emoji] = ids.includes(state.userId) ? ids.filter((id) => id !== state.userId) : [...ids, state.userId];
+    if (!persist()) { message.reactions[emoji] = prev; return false; }
+    render();
+    return true;
+  },
+  deleteMessage(message) {
+    if (!message || message.deleted) return false;
+    const filing = state.filings?.[message.id];
+    message.deleted = true;
+    if (state.filings) delete state.filings[message.id];
+    if (!persist()) {
+      message.deleted = false;
+      if (filing && state.filings) state.filings[message.id] = filing;
+      return false;
+    }
+    render();
+    return true;
+  },
+  hideMessage(message) {
+    if (!message) return false;
+    const prev = message.hiddenFor;
+    message.hiddenFor = [...new Set([...(message.hiddenFor || []), state.userId])];
+    if (!persist()) { message.hiddenFor = prev; return false; }
+    render();
+    return true;
+  },
+  toggleDecision(message) {
+    if (!message) return false;
+    const prev = message.decision;
+    message.decision = !message.decision;
+    if (!persist()) { message.decision = prev; return false; }
+    render();
+    return true;
+  },
+  editMessage(message, text) {
+    const value = String(text || "").trim();
+    if (!message || message.deleted || message.voice || !value || value === message.text) return false;
+    const prevText = message.text;
+    const prevEdited = message.edited;
+    message.text = value;
+    message.edited = true;
+    if (!persist()) { message.text = prevText; message.edited = prevEdited; return false; }
+    render();
+    return true;
+  },
+  chatMuted(threadId) {
+    try { return sessionStorage.getItem("field-mute-" + threadId) === "1"; } catch (_) { return false; }
+  },
+  setChatMuted(threadId, on) {
+    try {
+      if (on) sessionStorage.setItem("field-mute-" + threadId, "1");
+      else sessionStorage.removeItem("field-mute-" + threadId);
+    } catch (_) { /* kept for this tab only when storage is blocked */ }
+    render();
+  },
+  async classifySent(id) {
+    const m = state.db.MESSAGES.find((x) => x.id === id);
+    const thread = m && this.thread(m.threadId);
+    if (!m || !thread || typeof AIProvider.classify !== "function") return null;
+    try {
+      state.filings[id] = await AIProvider.classify(m, thread);
+      persist();
+      render();
+      return state.filings[id];
+    } catch (_) { return null; }
+  },
   votePoll(msgId, idx) {
     const m = state.db.MESSAGES.find(x => x.id === msgId && !x.deleted);
     if (!m || !m.poll || !m.poll.options[idx]) return;

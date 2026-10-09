@@ -19,6 +19,7 @@ import {
   IssueReview, ProjectUpdateDialog, SiteIssueDialog, SiteReviewDialog,
 } from '../chat/site';
 import { conversationThreads, markChatRead, pendingFocus } from '../chat/store';
+import { ChatInfoDialog, ForwardDialog, MessageActionsDialog, VoiceCallDialog } from '../chat/messenger';
 import { usePhone } from '../phone';
 import { Stat } from '../studio/common';
 
@@ -349,5 +350,9 @@ export const dialogs = {
   file: FileDialog,
   media: MediaDialog,
   'video-call': VideoCallDialog,
+  'voice-call': VoiceCallDialog,
+  'chat-info': ChatInfoDialog,
+  'message-actions': MessageActionsDialog,
+  'forward-message': ForwardDialog,
   'project-update': ProjectUpdateDialog,
 };

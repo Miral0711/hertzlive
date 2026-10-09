@@ -10,7 +10,8 @@ import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
   toggleReaction, deleteMessage, hideMessage, toggleDecision, editMessage, can, myThreads, preview, useStore, core,
 } from '../store';
-import { filingLabel } from '../../../frontend/src/shared/filing';
+import { FILE_KINDS, filingLabel } from '../../../frontend/src/shared/filing';
+import { siteHasSuggestion } from '../../../frontend/src/shared/chatExtras';
 import { AudioModule, RecordingPresets, createAudioPlayer, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 
 const SAMPLE_MEDIA: Record<string, { title: string; hue: number; seed: number }[]> = {
@@ -215,6 +216,7 @@ export function GroupInfo() {
   const [params] = useSearchParams();
   const backTo = fromOf(params.get('from'));
   const [sample, setSample] = useState<any>(null);
+  const [tab, setTab] = useState('Photos');
   const thread = svc.thread(threadId);
   const s = useStyles((cc, th) => ({
     id: { alignItems: 'center', gap: 4, paddingTop: 10, paddingBottom: 6 },
@@ -228,11 +230,16 @@ export function GroupInfo() {
   if (!thread) return <Empty title="This chat isn’t available" />;
   const members = thread.memberIds.map((id: string) => user(id)).filter((u: any) => u?.id);
   const other = thread.kind === 'dm' ? members.find((u: any) => u.id !== state.userId) : null;
-  const muted = sessionStorage.getItem(`field-mute-${threadId}`) === '1';
+  const muted = svc.chatMuted(threadId);
   const msgs = messagesOf(threadId).filter((m: any) => !m.deleted);
-  const media = msgs.filter((m: any) => m.photo || m.link);
-  const docs = msgs.filter((m: any) => !m.photo && !m.link && (m.voice || m.kind === 'file'));
-  const samples = media.length ? [] : (SAMPLE_MEDIA[thread.kind] || SAMPLE_MEDIA.internal);
+  const photos = msgs.filter((m: any) => m.photo || (m.media && m.media.kind !== 'video'));
+  const files = msgs.filter((m: any) => m.file || m.kind === 'file');
+  const links = msgs.filter((m: any) => m.link);
+  const voiceNotes = msgs.filter((m: any) => m.voice || m.audio);
+  const drawings = msgs.filter((m: any) => m.kind === 'drawing');
+  const media = tab === 'Links' ? links : photos;
+  const docs = tab === 'Voice' ? voiceNotes : tab === 'Drawings' ? drawings : tab === 'Files' ? files : [];
+  const samples = photos.length ? [] : (SAMPLE_MEDIA[thread.kind] || SAMPLE_MEDIA.internal);
   const sampleDocs = docs.length ? [] : (SAMPLE_DOCS[thread.kind] || SAMPLE_DOCS.internal);
   const pinned = msgs.filter((m: any) => m.decision);
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
@@ -242,7 +249,6 @@ export function GroupInfo() {
     site: 'Notes and photos for the site team.',
     dm: other ? `${other.title || 'Direct message'} · ${phoneOf(other)}` : 'Direct message',
   } as Record<string, string>)[thread.kind] || audience(thread);
-  void c;
   return (
     <Page sheet stackTitle back={chatTo} backLabel="Chat" title={threadTitle(thread)} sub={thread.kind === 'dm' ? 'Direct message' : `${audience(thread)} · ${members.length} people`}>
       <View style={s.id}>
@@ -251,13 +257,20 @@ export function GroupInfo() {
         <Text style={s.idS}>{about}</Text>
       </View>
       <Sect>Media, links and docs</Sect>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+        {['Photos', 'Files', 'Links', 'Voice', 'Drawings'].map((k) => (
+          <Pressable key={k} onPress={() => { setTab(k); setSample(null); }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: tab === k ? c.accent : c.surface2 }}>
+            <Text style={{ color: tab === k ? c.accentInk : c.ink2, fontWeight: '600' }}>{k}</Text>
+          </Pressable>
+        ))}
+      </View>
       {sample ? (
         <Pressable style={s.open} onPress={() => setSample(null)} accessibilityLabel={sample.title}>
           <Photo hue={sample.hue} seed={sample.seed} ar={4 / 3} />
           <Text style={s.openT}>{sample.title}</Text>
         </Pressable>
       ) : null}
-      {media.length ? (
+      {(tab === 'Photos' || tab === 'Links') && media.length ? (
         <View style={s.strip}>
           {media.map((m: any) => (
             <Link key={m.id} to={`${chatTo}#${m.id}`} accessibilityLabel={m.link?.title || m.text || 'Photo'} style={s.cell}>
@@ -267,7 +280,7 @@ export function GroupInfo() {
             </Link>
           ))}
         </View>
-      ) : (
+      ) : (tab === 'Photos') && (
         <View style={s.strip}>
           {samples.map((item) => (
             <Pressable key={item.title} style={s.cell} onPress={() => setSample(item)} accessibilityLabel={item.title} accessibilityState={{ selected: sample?.title === item.title }}>
@@ -276,10 +289,10 @@ export function GroupInfo() {
           ))}
         </View>
       )}
-      {sampleDocs.map((item) => (
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && sampleDocs.map((item) => (
         <DayRow key={item.title}><RowB>{item.kind}</RowB><RowS>{item.title}</RowS></DayRow>
       ))}
-      {docs.map((m: any) => (
+      {tab !== 'Photos' && tab !== 'Links' && docs.map((m: any) => (
         <DayRow key={m.id} to={`${chatTo}#${m.id}`}>
           <RowB>{m.voice ? 'Voice note' : 'File'}</RowB>
           <RowS>{m.text || (typeof m.voice === 'string' ? m.voice : m.voice?.dur) || 'Shared in this chat'}</RowS>
@@ -288,9 +301,7 @@ export function GroupInfo() {
       <Sect>Options</Sect>
       <DayRow
         onPress={() => {
-          if (muted) sessionStorage.removeItem(`field-mute-${threadId}`);
-          else sessionStorage.setItem(`field-mute-${threadId}`, '1');
-          render();
+          svc.setChatMuted(threadId, !muted);
         }}
         acts={muted ? 'On' : 'Off'}
       >
@@ -472,7 +483,7 @@ export function Voice() {
 
 // ---------- Message actions ----------
 
-const EMOJI = ['👍', '✅', '❓', '🙏', '❌'];
+const EMOJI: [string, string][] = [['✅', 'Done'], ['👀', 'Review'], ['📝', 'Noted'], ['⭐', 'Mark'], ['⚠️', 'Flag']];
 
 function reminderAt(which: string) {
   const d = new Date();
@@ -515,13 +526,14 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
   return (
     <View>
       {!message.deleted && (
-        <View accessibilityRole="toolbar" accessibilityLabel="Reactions" style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 999, backgroundColor: c.surface2 }}>
-          {EMOJI.map((emoji) => {
+        <View accessibilityRole="toolbar" accessibilityLabel="Reactions" style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+          {EMOJI.map(([emoji, label]) => {
             const on = message.reactions?.[emoji]?.includes(state.userId);
             return (
-              <Pressable key={emoji} onPress={() => toggleReaction(message, emoji)} accessibilityLabel={`React ${emoji}`}
-                style={[{ minWidth: 44, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }, on && { borderWidth: 2, borderColor: c.accent }]}>
-                <Text style={{ fontSize: 22 }}>{emoji}</Text>
+              <Pressable key={emoji} onPress={() => toggleReaction(message, emoji)} accessibilityLabel={label}
+                style={[{ flex: 1, minHeight: 52, borderRadius: 10, borderWidth: 1, borderColor: on ? c.accent : c.line, backgroundColor: on ? c.accentSoft : c.surface, alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ fontSize: 16 }}>{emoji}</Text>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: on ? c.accentText : c.ink2 }}>{label}</Text>
               </Pressable>
             );
           })}
@@ -624,6 +636,40 @@ export function ForwardPick({ message, onClose }: { message: any; onClose: () =>
 
 // ---------- Message page ----------
 
+function SiteReviewBlock({ messageId }: { messageId: string }) {
+  const k = useKit();
+  const r = svc.siteUpdateReview(messageId);
+  const [error, setError] = useState('');
+  if (!r) return null;
+  if (r.applied || r.message?.siteAnswer) return <Soft>Confirmed records · included in daily log</Soft>;
+  if (!siteHasSuggestion(r)) return null;
+  const s = r.suggestion;
+  return (
+    <View style={k.stack}>
+      <Soft>AI suggestion · demo. Check against the source; only selected records will be saved.</Soft>
+      <Primary label="Confirm selected records" onPress={() => {
+        try {
+          svc.saveSiteUpdate(messageId, {
+            attendance: !!(r.canAttendance && s.headcount),
+            headcount: s.headcount,
+            delivery: !!(r.canDelivery && s.delivery),
+            item: s.delivery?.item || '',
+            received: s.delivery?.received || '',
+            ordered: s.delivery?.ordered || '',
+            unit: s.delivery?.unit || '',
+            issue: !!(r.canIssue && s.issueTitle),
+            title: s.issueTitle || '',
+            issueId: '',
+          });
+          setError('');
+          render();
+        } catch (err: any) { setError(err.message); }
+      }} />
+      {error ? <Warn>{error}</Warn> : null}
+    </View>
+  );
+}
+
 export function MessagePage() {
   useStore();
   const k = useKit();
@@ -642,6 +688,7 @@ export function MessagePage() {
           {message.deleted ? <CardP style={{ color: c.ink3, fontStyle: 'italic' }}>This message was deleted</CardP> : <CardP>{message.text}</CardP>}
           {message.edited ? <Text style={{ color: c.ink3, fontSize: 12 }}>Edited</Text> : null}
         </Card>
+        <SiteReviewBlock messageId={message.id} />
         <MessageActions thread={thread} message={message}
           onReply={() => replyRef.current?.focus()}
           onDeleted={() => navigate(`/mobile/chats/${threadId}`)}
@@ -673,19 +720,24 @@ export function Filing() {
   const navigate = useNavigate();
   const projects = svc.projects();
   const rooms = ['Kitchen', 'Living', 'Bathroom', 'Structure', 'Facade', 'Not set'];
+  const kinds = Object.entries(FILE_KINDS);
   const current = state.filings?.[messageId] || {};
   const [projectId, setProjectId] = useState(current.projectId || projects[0]?.id || '');
   const [room, setRoom] = useState(current.room || 'Not set');
+  const [kind, setKind] = useState(current.kind || 'note');
+  const [drawing, setDrawing] = useState(current.drawing || '');
   const [error, setError] = useState('');
   return (
     <Page back={`/mobile/chats/${threadId}/messages/${messageId}`} backLabel="Message" title="Where should this go?">
       <View style={k.stack}>
         <Select label="Project" value={projectId} onChange={setProjectId} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
         <Select label="Room" value={room} onChange={setRoom} options={rooms.map((r) => ({ value: r, label: r }))} />
+        <Select label="What is it" value={kind} onChange={setKind} options={kinds.map(([k, l]) => ({ value: k, label: l }))} />
+        <Field label="Drawing number" value={drawing} onChangeText={setDrawing} placeholder="HA-2401-A-101" />
         {error ? <Warn>{error}</Warn> : null}
         <Primary label="Save filing" onPress={() => {
           try {
-            const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room });
+            const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
             if (!saved) throw new Error('Filing could not be saved on this device.');
             navigate(`/mobile/chats/${threadId}/messages/${messageId}`);
           } catch (err: any) { setError(err.message); }
@@ -959,7 +1011,11 @@ export function Call() {
       <Note>Posts a call card into this chat. Meet for the studio.</Note>
       {error ? <Warn>{error}</Warn> : null}
       <Primary label="Start Google Meet" onPress={() => {
-        try { setMade(svc.startCall(threadId)); setError(''); render(); }
+        try { setMade(svc.startCall(threadId, 'meet')); setError(''); render(); }
+        catch (err: any) { setError(err.message); }
+      }} />
+      <Primary label="Start Jitsi" onPress={() => {
+        try { setMade(svc.startCall(threadId, 'jitsi')); setError(''); render(); }
         catch (err: any) { setError(err.message); }
       }} />
       {made ? (

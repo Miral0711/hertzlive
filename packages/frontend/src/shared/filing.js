@@ -1,4 +1,4 @@
-import { state, persist, svc, AIProvider } from "./core.js";
+import { state, persist, svc, AIProvider, toast, render, effectiveRole } from "./core.js";
 // ---------- AI filing: auto-organise what is shared in chat ----------
 // Every message gets a filing record: { msgId, projectId, room, kind, drawing, vendor, conf, status, by }
 // status: filing | filed | check | ask.  by: ai | user.  Shared by phone and desktop builds.
@@ -93,6 +93,48 @@ export function filingLabel(f) {
   const ord = (n) => n + (["th", "st", "nd", "rd"][n % 10 < 4 && (n < 10 || n > 20) ? n % 10 : 0]);
   return [p ? p.name.split(" ")[0] : null, f.room, FILE_KINDS[f.kind], f.drawing, f.rev > 1 ? ord(f.rev) + " revision" : null, f.superseded ? "superseded" : null].filter(Boolean).join(" · ");
 }
+svc.recordChatDecision = function (message, option) {
+  if (!message || message.deleted || !option) return null;
+  message.decision = option;
+  message.options = [];
+  let id;
+  try { id = this.addMessage(message.threadId, { text: `Decision: ${option}`, decision: true }); }
+  catch (_) { return null; }
+  seedFilings();
+  toast("Decision recorded.");
+  render();
+  return id;
+};
+svc.decideBill = function (message, ok) {
+  if (effectiveRole() !== "partner" || !message?.bill) return false;
+  if (ok) {
+    message.bill.status = "approved";
+    message.bill.decidedAt = new Date().toISOString();
+    message.bill.by = state.userId;
+    this.log("Approved expense ₹" + message.bill.amount, "Message " + message.id);
+    if (!persist()) return false;
+    toast("Approved. Reimburse with salary.");
+  } else {
+    message.bill.status = "query";
+    try { this.addMessage(message.threadId, { text: "Send the bill photo please, then I approve." }); }
+    catch (_) { return false; }
+    toast("Asked for the bill.");
+  }
+  render();
+  return true;
+};
+svc.approveChatMessage = function (message) {
+  if (!message?.approval || message.approval.done || effectiveRole() !== "client") return false;
+  message.approval.done = true;
+  message.approval.doneAt = new Date().toISOString().slice(0, 16);
+  this.log("Approved in chat · " + message.approval.label, "Message " + message.id);
+  try { this.addMessage(message.threadId, { text: `Approved: ${message.approval.label}` }); }
+  catch (_) { return false; }
+  seedFilings();
+  toast("Approved. The studio has been told.");
+  render();
+  return true;
+};
 svc.fileMessage = function (msgId, patch) {
   const m = state.db.MESSAGES.find((x) => x.id === msgId);
   if (!m) return null;

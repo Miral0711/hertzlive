@@ -7,7 +7,8 @@ import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
   toggleReaction, deleteMessage, hideMessage, toggleDecision, editMessage, can, myThreads, preview,
 } from './model';
-import { filingLabel } from '../shared/filing';
+import { FILE_KINDS, filingLabel } from '../shared/filing';
+import { REACTIONS, siteHasSuggestion } from '../shared/chatExtras';
 import { Avatar, ThreadAvatar } from './faces';
 
 const SAMPLE_MEDIA = {
@@ -63,14 +64,20 @@ export function GroupInfo() {
   const from = params.get('from');
   const backTo = from && from.startsWith('/mobile/') ? from : '';
   const [sample, setSample] = useState(null);
+  const [tab, setTab] = useState('Photos');
   const thread = svc.thread(threadId);
   if (!thread) return <Page back="/mobile/chats" title="Chat"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
   const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id);
   const other = thread.kind === 'dm' ? members.find((u) => u.id !== state.userId) : null;
-  const muted = sessionStorage.getItem(`field-mute-${threadId}`) === '1';
+  const muted = svc.chatMuted(threadId);
   const msgs = messagesOf(threadId).filter((m) => !m.deleted);
-  const media = msgs.filter((m) => m.photo || m.link);
-  const docs = msgs.filter((m) => !m.photo && !m.link && (m.voice || m.kind === 'file'));
+  const photos = msgs.filter((m) => m.photo || (m.media && m.media.kind !== 'video'));
+  const files = msgs.filter((m) => m.file || m.kind === 'file');
+  const links = msgs.filter((m) => m.link);
+  const voice = msgs.filter((m) => m.voice || m.audio);
+  const drawings = msgs.filter((m) => m.kind === 'drawing');
+  const media = tab === 'Links' ? links : photos;
+  const docs = tab === 'Voice' ? voice : tab === 'Drawings' ? drawings : tab === 'Files' ? files : msgs.filter((m) => !m.photo && !m.link && (m.voice || m.kind === 'file'));
   const samples = media.length ? [] : (SAMPLE_MEDIA[thread.kind] || SAMPLE_MEDIA.internal);
   const sampleDocs = docs.length ? [] : (SAMPLE_DOCS[thread.kind] || SAMPLE_DOCS.internal);
   const pinned = msgs.filter((m) => m.decision);
@@ -89,13 +96,18 @@ export function GroupInfo() {
         <span>{about}</span>
       </div>
       <h2 className="sect">Media, links and docs</h2>
+      <div className="media-tabs">
+        {['Photos', 'Files', 'Links', 'Voice', 'Drawings'].map((k) => (
+          <button type="button" key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setSample(null); }}>{k}</button>
+        ))}
+      </div>
       {sample ? (
         <button type="button" className="media-open" onClick={() => setSample(null)}>
           <Swatch hue={sample.hue} seed={sample.seed} />
           <span>{sample.title}</span>
         </button>
       ) : null}
-      {media.length ? (
+      {(tab === 'Photos' || tab === 'Links') && media.length ? (
         <div className="media-strip">
           {media.map((m) => (
             <Link key={m.id} to={`${chatTo}#${m.id}`} aria-label={m.link?.title || m.text || 'Photo'}>
@@ -103,7 +115,7 @@ export function GroupInfo() {
             </Link>
           ))}
         </div>
-      ) : (
+      ) : (tab === 'Photos' || tab === 'Links') && (
         <div className="media-strip">
           {samples.map((item) => (
             <button type="button" key={item.title} onClick={() => setSample(item)} aria-label={item.title} aria-pressed={sample?.title === item.title}>
@@ -112,7 +124,7 @@ export function GroupInfo() {
           ))}
         </div>
       )}
-      {sampleDocs.map((item) => (
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && sampleDocs.map((item) => (
         <div className="day-row" key={item.title}>
           <div>
             <b>{item.kind}</b>
@@ -120,7 +132,7 @@ export function GroupInfo() {
           </div>
         </div>
       ))}
-      {docs.map((m) => (
+      {tab !== 'Photos' && tab !== 'Links' && docs.map((m) => (
         <Link key={m.id} className="day-row" to={`${chatTo}#${m.id}`}>
           <div>
             <b>{m.voice ? 'Voice note' : 'File'}</b>
@@ -130,9 +142,7 @@ export function GroupInfo() {
       ))}
       <h2 className="sect">Options</h2>
       <button type="button" className="day-row" onClick={() => {
-        if (muted) sessionStorage.removeItem(`field-mute-${threadId}`);
-        else sessionStorage.setItem(`field-mute-${threadId}`, '1');
-        render();
+        svc.setChatMuted(threadId, !muted);
       }}>
         <div>
           <b>Mute notifications</b>
@@ -305,8 +315,6 @@ export function Voice() {
   );
 }
 
-const EMOJI = ['👍', '✅', '❓', '🙏', '❌'];
-
 function reminderAt(which) {
   const d = new Date();
   d.setHours(9, 0, 0, 0);
@@ -347,8 +355,8 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
     <div className="msg-actions">
       {!message.deleted && (
         <div className="emoji-row" role="group" aria-label="Reactions">
-          {EMOJI.map((emoji) => (
-            <button type="button" key={emoji} className={message.reactions?.[emoji]?.includes(state.userId) ? 'on' : ''} aria-label={`React ${emoji}`} onClick={() => toggleReaction(message, emoji)}>{emoji}</button>
+          {REACTIONS.map(([emoji, label]) => (
+            <button type="button" key={emoji} className={message.reactions?.[emoji]?.includes(state.userId) ? 'on' : ''} aria-label={label} onClick={() => toggleReaction(message, emoji)}><span aria-hidden="true">{emoji}</span>{label}</button>
           ))}
         </div>
       )}
@@ -446,6 +454,39 @@ export function ForwardPick({ message, onClose }) {
   );
 }
 
+function SiteReviewBlock({ messageId }) {
+  const r = svc.siteUpdateReview(messageId);
+  const [error, setError] = useState('');
+  if (!r) return null;
+  if (r.applied || r.message?.siteAnswer) return <p className="note">Confirmed records · included in daily log</p>;
+  if (!siteHasSuggestion(r)) return null;
+  const s = r.suggestion;
+  return (
+    <div className="stack">
+      <p className="note">AI suggestion · demo. Check against the source; only selected records will be saved.</p>
+      <button type="button" className="primary" onClick={() => {
+        try {
+          svc.saveSiteUpdate(messageId, {
+            attendance: !!(r.canAttendance && s.headcount),
+            headcount: s.headcount,
+            delivery: !!(r.canDelivery && s.delivery),
+            item: s.delivery?.item || '',
+            received: s.delivery?.received || '',
+            ordered: s.delivery?.ordered || '',
+            unit: s.delivery?.unit || '',
+            issue: !!(r.canIssue && s.issueTitle),
+            title: s.issueTitle || '',
+            issueId: '',
+          });
+          setError('');
+          render();
+        } catch (err) { setError(err.message); }
+      }}>Confirm selected records</button>
+      {error ? <p className="warn-text">{error}</p> : null}
+    </div>
+  );
+}
+
 export function MessagePage() {
   useStore();
   const { threadId, messageId } = useParams();
@@ -460,6 +501,7 @@ export function MessagePage() {
         {message.deleted ? <p className="gone">This message was deleted</p> : <p>{message.text}</p>}
         {message.edited ? <span>Edited</span> : null}
       </article>
+      <SiteReviewBlock messageId={message.id} />
       <MessageActions thread={thread} message={message} onReply={() => document.querySelector('[aria-label="Reply"]')?.focus()} onDeleted={() => navigate(`/mobile/chats/${threadId}`)} onForward={() => navigate(`/mobile/chats/${threadId}`, { state: { forward: message.id } })} />
       {!message.deleted && (
         <form className="stack" onSubmit={(e) => {
@@ -482,16 +524,19 @@ export function Filing() {
   const navigate = useNavigate();
   const projects = svc.projects();
   const rooms = ['Kitchen', 'Living', 'Bathroom', 'Structure', 'Facade', 'Not set'];
+  const kinds = Object.entries(FILE_KINDS);
   const current = state.filings?.[messageId] || {};
   const [projectId, setProjectId] = useState(current.projectId || projects[0]?.id || '');
   const [room, setRoom] = useState(current.room || 'Not set');
+  const [kind, setKind] = useState(current.kind || 'note');
+  const [drawing, setDrawing] = useState(current.drawing || '');
   const [error, setError] = useState('');
   return (
     <Page back={`/mobile/chats/${threadId}/messages/${messageId}`} backLabel="Message" title="Where should this go?">
       <form className="stack" onSubmit={(e) => {
         e.preventDefault();
         try {
-          const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room });
+          const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
           if (!saved) throw new Error('Filing could not be saved on this device.');
           navigate(`/mobile/chats/${threadId}/messages/${messageId}`);
         } catch (err) { setError(err.message); }
@@ -506,6 +551,12 @@ export function Filing() {
             {rooms.map((r) => <option key={r}>{r}</option>)}
           </select>
         </label>
+        <label>What is it
+          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="What is it">
+            {kinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </label>
+        <label>Drawing number<input value={drawing} onChange={(e) => setDrawing(e.target.value)} placeholder="HA-2401-A-101" aria-label="Drawing number" /></label>
         {error ? <p className="warn-text">{error}</p> : null}
         <button className="primary" type="submit">Save filing</button>
       </form>
@@ -805,9 +856,13 @@ export function Call() {
       <Note>Posts a call card into this chat. Meet for the studio.</Note>
       {error ? <p className="warn-text">{error}</p> : null}
       <button type="button" className="primary" onClick={() => {
-        try { setMade(svc.startCall(threadId)); setError(''); render(); }
+        try { setMade(svc.startCall(threadId, 'meet')); setError(''); render(); }
         catch (err) { setError(err.message); }
       }}>Start Google Meet</button>
+      <button type="button" className="ghost" onClick={() => {
+        try { setMade(svc.startCall(threadId, 'jitsi')); setError(''); render(); }
+        catch (err) { setError(err.message); }
+      }}>Start Jitsi</button>
       {made ? <p className="note"><a href={made.url} target="_blank" rel="noopener noreferrer">{made.url}</a></p> : null}
     </Page>
   );
