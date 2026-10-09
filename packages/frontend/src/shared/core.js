@@ -123,6 +123,11 @@ export const fmtDT = (iso) => `${fmtD(iso)} · ${fmtT(iso)}`;
 export const hh = (h) =>
   `${String(Math.floor(h)).padStart(2, "0")}:${h % 1 ? "30" : "00"}`;
 export const uid = () => "x" + Math.random().toString(36).slice(2, 8);
+export function taskStageLabel(task) {
+  if (!task) return "";
+  if (task.status === "done" || task.stage === "done") return "Done";
+  return { todo: "To do", in_progress: "In progress", waiting: "Waiting", review: "Review" }[task.stage] || "Open";
+}
 export const user = (id) =>
   (state?.db?.USERS || USERS).find((u) => u.id === id) || {
     name: "Unknown",
@@ -238,6 +243,7 @@ export function loadDb() {
     if (["#b1552f", "#945543"].includes(agency.accent?.toLowerCase())) agency.accent = AGENCY.accent;
     agency.paletteVersion = 2;
   }
+  if (state.db.DECISIONS_DUE) state.db.DECISIONS_DUE = state.db.DECISIONS_DUE.filter((d) => d.id !== "dd3");
   ensurePerformance(state.db, TODAY, uid);
   if (state.gamify?.optOut || state.gamify?.quiet) {
     const person = state.db.USERS.find((x) => x.id === state.userId);
@@ -547,18 +553,21 @@ export const svc = {
   threads() {
     const u = me();
     const r = effectiveRole();
+    const member = (t) => (t.memberIds || []).includes(u.id);
+    // Every role sees a direct message or group they were added to, including work groups.
+    const joined = (t) => (t.kind === "dm" || t.kind === "group") && member(t);
     if (r === "client")
       return state.db.THREADS.filter(
-        (t) => t.kind === "client" && this.myProjectIds().includes(t.projectId),
+        (t) => joined(t) || (t.kind === "client" && this.myProjectIds().includes(t.projectId)),
       );
     if (r === "contractor")
       return state.db.THREADS.filter(
-        (t) => t.kind === "site" && (u.siteIds || []).includes(t.siteId),
+        (t) => joined(t) || (t.kind === "site" && (u.siteIds || []).includes(t.siteId)),
       );
-    if (r === "hr") return [];
-    return state.db.THREADS.filter(
-      (t) => t.memberIds.includes(u.id) || state.role === "partner",
-    );
+    // HR stays off project chats. Membership still applies through joined().
+    if (r === "hr") return state.db.THREADS.filter(joined);
+    if (r === "partner") return state.db.THREADS.slice();
+    return state.db.THREADS.filter(member);
   },
   thread(id) {
     return this.threads().find((t) => t.id === id) || null;
@@ -939,18 +948,96 @@ export const svc = {
     if (!can("thread", "w") || !this.thread(threadId))
       throw new Error("forbidden");
     const id = uid();
+    const at = localStamp();
+    const thread = state.db.THREADS.find((t) => t.id === threadId);
+    const prevStamp = thread && thread.lastMessageAt;
     state.db.MESSAGES.push({
       id,
       threadId,
       by: state.userId,
-      at: new Date().toISOString().slice(0, 16),
+      at,
       ...m,
     });
+    if (thread && thread.groupType === "work") thread.lastMessageAt = at;
     if (!persist()) {
       state.db.MESSAGES.pop();
+      if (thread && thread.groupType === "work") thread.lastMessageAt = prevStamp;
       throw new Error("Message could not be saved on this device");
     }
     return id;
+  },
+  // Chat actions shared by the desktop pane and both phone clients. Each one
+  // rolls back when the device cannot save, so a failed action leaves the message as it was.
+  reactToMessage(message, emoji) {
+    if (!message || message.deleted) return false;
+    message.reactions = message.reactions || {};
+    const prev = message.reactions[emoji];
+    const ids = prev || [];
+    message.reactions[emoji] = ids.includes(state.userId) ? ids.filter((id) => id !== state.userId) : [...ids, state.userId];
+    if (!persist()) { message.reactions[emoji] = prev; return false; }
+    render();
+    return true;
+  },
+  deleteMessage(message) {
+    if (!message || message.deleted) return false;
+    const filing = state.filings?.[message.id];
+    message.deleted = true;
+    if (state.filings) delete state.filings[message.id];
+    if (!persist()) {
+      message.deleted = false;
+      if (filing && state.filings) state.filings[message.id] = filing;
+      return false;
+    }
+    render();
+    return true;
+  },
+  hideMessage(message) {
+    if (!message) return false;
+    const prev = message.hiddenFor;
+    message.hiddenFor = [...new Set([...(message.hiddenFor || []), state.userId])];
+    if (!persist()) { message.hiddenFor = prev; return false; }
+    render();
+    return true;
+  },
+  toggleDecision(message) {
+    if (!message) return false;
+    const prev = message.decision;
+    message.decision = !message.decision;
+    if (!persist()) { message.decision = prev; return false; }
+    render();
+    return true;
+  },
+  editMessage(message, text) {
+    const value = String(text || "").trim();
+    if (!message || message.deleted || message.voice || !value || value === message.text) return false;
+    const prevText = message.text;
+    const prevEdited = message.edited;
+    message.text = value;
+    message.edited = true;
+    if (!persist()) { message.text = prevText; message.edited = prevEdited; return false; }
+    render();
+    return true;
+  },
+  chatMuted(threadId) {
+    try { return sessionStorage.getItem("field-mute-" + threadId) === "1"; } catch (_) { return false; }
+  },
+  setChatMuted(threadId, on) {
+    try {
+      if (on) sessionStorage.setItem("field-mute-" + threadId, "1");
+      else sessionStorage.removeItem("field-mute-" + threadId);
+    } catch (_) { /* kept for this tab only when storage is blocked */ }
+    render();
+  },
+  async classifySent(id) {
+    const m = state.db.MESSAGES.find((x) => x.id === id);
+    const thread = m && this.thread(m.threadId);
+    if (!m || !thread || typeof AIProvider.classify !== "function") return null;
+    try {
+      state.filings[id] = await AIProvider.classify(m, thread);
+      persist();
+      render();
+      return state.filings[id];
+    } catch (_) { return null; }
   },
   votePoll(msgId, idx) {
     const m = state.db.MESSAGES.find(x => x.id === msgId && !x.deleted);
@@ -1669,12 +1756,249 @@ export const svc = {
     persist();
     return rec;
   },
-  // Video call card posted to the thread. Meet for the studio, Jitsi when outsiders have no Google account.
-  startCall(threadId, provider = "meet") {
+  // Video call card posted to the thread.
+  startCall(threadId) {
     const code = () => Math.random().toString(36).slice(2, 5);
-    const url = provider === "jitsi" ? `https://meet.jit.si/${this.cfg().short}-${uid().slice(1)}` : `https://meet.google.com/${code()}-${code()}${code().slice(0, 1)}-${code()}`;
-    const id = this.addMessage(threadId, { text: `Video call started`, call: { provider: provider === "jitsi" ? "Jitsi" : "Google Meet", url } });
+    const url = `https://meet.google.com/${code()}-${code()}${code().slice(0, 1)}-${code()}`;
+    const id = this.addMessage(threadId, { text: `Video call started`, call: { provider: "Google Meet", url } });
     return { id, url };
+  },
+  // Staff who can both write a thread and still see it in their chat list.
+  chatCreatable() {
+    return can("thread", "w") && ["partner", "designer", "site_manager"].includes(effectiveRole());
+  },
+  chatPeople() {
+    if (!this.chatCreatable()) return [];
+    return this.people().filter((u) => u.id && u.id !== state.userId);
+  },
+  projectChatPeople(projectId) {
+    const project = state.db.PROJECTS.find((p) => p.id === projectId);
+    if (!project || !this.myProjectIds().includes(projectId) || this.phoneHides(projectId)) return [];
+    const allowed = new Set(this.chatPeople().map((u) => u.id));
+    return (project.teamIds || [])
+      .filter((id, i, all) => id !== state.userId && allowed.has(id) && all.indexOf(id) === i)
+      .map((id) => user(id))
+      .filter((u) => u.id);
+  },
+  myGroups() {
+    if (!this.chatCreatable()) return [];
+    return this.threads().filter((t) => t.kind === "group" && (t.memberIds || []).includes(state.userId));
+  },
+  openDirectChat(userId) {
+    if (!this.chatCreatable()) throw new Error("You can’t start a chat.");
+    const other = this.chatPeople().find((u) => u.id === userId);
+    if (!other) throw new Error("Choose a person from the studio.");
+    const existing = state.db.THREADS.find((t) => t.kind === "dm" && (t.memberIds || []).includes(state.userId) && t.memberIds.includes(other.id));
+    if (existing) return existing;
+    const thread = {
+      id: uid(),
+      kind: "dm",
+      name: other.name,
+      memberIds: [state.userId, other.id],
+      projectId: null,
+      createdBy: state.userId,
+      createdAt: localStamp(),
+    };
+    state.db.THREADS.push(thread);
+    this.log(`Chat started · ${other.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      state.db.THREADS.pop();
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this chat.");
+    }
+    render();
+    return thread;
+  },
+  createGroup({ name, projectId, memberIds, groupType }) {
+    if (!this.chatCreatable()) throw new Error("You can’t create a group.");
+    const title = (name || "").trim();
+    if (!title) throw new Error("Give the group a name.");
+    const type = groupType === "project" ? "project" : groupType === "general" ? "general" : "";
+    if (!type) throw new Error("Choose a group type.");
+    const project = type === "project" ? state.db.PROJECTS.find((p) => p.id === projectId) : null;
+    if (type === "project" && (!project || !this.myProjectIds().includes(project.id) || this.phoneHides(project.id))) {
+      throw new Error("Choose a project for this group.");
+    }
+    const allowed = new Set((type === "project" ? this.projectChatPeople(project.id) : this.chatPeople()).map((u) => u.id));
+    const members = [state.userId, ...(memberIds || []).filter((id) => allowed.has(id))];
+    const unique = [...new Set(members)];
+    if (unique.length < 2) throw new Error("Add at least one person.");
+    const projectKey = project ? project.id : null;
+    const duplicate = state.db.THREADS.some((t) => t.kind === "group" && (t.name || "").trim().toLowerCase() === title.toLowerCase() && (t.projectId || null) === projectKey);
+    if (duplicate) throw new Error("A group with that name already exists.");
+    const thread = {
+      id: uid(),
+      kind: "group",
+      groupType: type,
+      name: title,
+      projectId: projectKey,
+      memberIds: unique,
+      createdBy: state.userId,
+      createdAt: localStamp(),
+    };
+    state.db.THREADS.push(thread);
+    this.log(`Group created · ${title}`, "Thread " + thread.id);
+    if (!persist()) {
+      state.db.THREADS.pop();
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this group.");
+    }
+    render();
+    return thread;
+  },
+  inviteToGroup(threadId, userId) {
+    if (!this.chatCreatable()) throw new Error("You can’t invite someone.");
+    const thread = state.db.THREADS.find((t) => t.id === threadId && t.kind === "group");
+    if (!thread || !(thread.memberIds || []).includes(state.userId)) throw new Error("Choose a group you belong to.");
+    if ((thread.memberIds || []).includes(userId)) throw new Error("That person is already in this group.");
+    const projectScoped = thread.groupType === "project" || (!thread.groupType && thread.projectId);
+    const allowed = new Set((projectScoped ? this.projectChatPeople(thread.projectId) : this.chatPeople()).map((u) => u.id));
+    if (!allowed.has(userId)) throw new Error(projectScoped ? "That person isn’t on this project." : "Choose a person from the studio.");
+    const before = thread.memberIds.slice();
+    thread.memberIds = [...before, userId];
+    this.log(`Invited to ${thread.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      thread.memberIds = before;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this invite.");
+    }
+    render();
+    return thread;
+  },
+  // One work group per task. A second create for that task reopens the existing conversation.
+  workGroupRecord(taskId) {
+    return (state.db.THREADS || []).find((t) => t.groupType === "work" && t.taskId === taskId) || null;
+  },
+  workGroupForTask(taskId) {
+    const found = this.workGroupRecord(taskId);
+    return found ? this.thread(found.id) : null;
+  },
+  workGroupsFor(parentGroupId) {
+    return this.threads().filter((t) => t.groupType === "work" && t.parentGroupId === parentGroupId);
+  },
+  canManageWork(thread) {
+    if (!can("thread", "w") || !thread) return false;
+    if (state.role === "partner") return true;
+    return (thread.memberIds || []).includes(state.userId);
+  },
+  workMembers(parentGroupId) {
+    const parent = this.thread(parentGroupId);
+    if (!parent || parent.kind === "dm" || parent.groupType === "work") return [];
+    const seen = new Set();
+    return (parent.memberIds || []).filter((id) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return Boolean(user(id).id);
+    }).map((id) => user(id));
+  },
+  createWorkGroup({ parentGroupId, taskId, taskTitle, name, memberIds, avatar }) {
+    const parent = this.thread(parentGroupId);
+    if (!parent || parent.kind === "dm" || parent.groupType === "work") throw new Error("Choose a project group.");
+    if (!this.canManageWork(parent)) throw new Error("You can’t create a work group here.");
+    const title = (name || "").trim();
+    if (!title) throw new Error("Give the work group a name.");
+    let task = taskId ? (state.db.TASKS || []).find((t) => t.id === taskId) : null;
+    let madeTask = false;
+    if (task && (task.projectId !== parent.projectId || !can("task", "r"))) throw new Error("Choose a task on this project.");
+    if (!task) {
+      if (!can("task", "w")) throw new Error("Choose a task on this project.");
+      const taskName = (taskTitle || name || "").trim();
+      if (!taskName) throw new Error("Name the task for this work group.");
+      task = (state.db.TASKS || []).find((t) => t.projectId === parent.projectId && (t.title || "").trim().toLowerCase() === taskName.toLowerCase()) || null;
+      if (!task) {
+        task = { id: uid(), projectId: parent.projectId, title: taskName, owner: state.userId, due: "", status: "open", stage: "todo", description: "" };
+        state.db.TASKS.push(task);
+        madeTask = true;
+      }
+    }
+    const existing = this.workGroupRecord(task.id);
+    if (existing) {
+      const visible = this.thread(existing.id);
+      if (visible) return visible;
+      throw new Error("This task already has a work group.");
+    }
+    const allowed = new Set(this.workMembers(parent.id).map((u) => u.id));
+    const members = [...new Set([state.userId, ...(memberIds || []).filter((id) => allowed.has(id))])];
+    if (members.length < 2) throw new Error("Add at least one person from this group.");
+    const now = localStamp();
+    const thread = {
+      id: uid(),
+      kind: "group",
+      groupType: "work",
+      name: title,
+      projectId: parent.projectId,
+      parentGroupId: parent.id,
+      taskId: task.id,
+      createdBy: state.userId,
+      memberIds: members,
+      createdAt: now,
+      lastMessageAt: now,
+    };
+    if (avatar && String(avatar).startsWith('data:image/')) thread.avatar = avatar;
+    state.db.THREADS.push(thread);
+    this.log(`Work group · ${title}`, "Thread " + thread.id);
+    if (!persist()) {
+      state.db.THREADS.pop();
+      if (madeTask) state.db.TASKS.pop();
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this work group.");
+    }
+    render();
+    return thread;
+  },
+  renameWorkGroup(threadId, name) {
+    const thread = this.thread(threadId);
+    if (!thread || thread.groupType !== "work") throw new Error("Choose a work group.");
+    if (!this.canManageWork(thread)) throw new Error("You can’t rename this work group.");
+    const title = (name || "").trim();
+    if (!title) throw new Error("Give the work group a name.");
+    const prev = thread.name;
+    thread.name = title;
+    this.log(`Work group renamed · ${title}`, "Thread " + thread.id);
+    if (!persist()) {
+      thread.name = prev;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this name.");
+    }
+    render();
+    return thread;
+  },
+  setWorkPhoto(threadId, dataUrl) {
+    const thread = this.thread(threadId);
+    if (!thread || thread.groupType !== "work") throw new Error("Choose a work group.");
+    if (!this.canManageWork(thread)) throw new Error("You can’t change this work group.");
+    const next = dataUrl || "";
+    if (next && !String(next).startsWith("data:image/")) throw new Error("Choose a photo.");
+    const prev = thread.avatar || "";
+    if (next) thread.avatar = next;
+    else delete thread.avatar;
+    this.log(`Work group photo · ${thread.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      if (prev) thread.avatar = prev;
+      else delete thread.avatar;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this photo.");
+    }
+    render();
+    return thread;
+  },
+  setWorkMembers(threadId, memberIds) {
+    const thread = this.thread(threadId);
+    if (!thread || thread.groupType !== "work") throw new Error("Choose a work group.");
+    if (!this.canManageWork(thread)) throw new Error("You can’t change this work group.");
+    const allowed = new Set(this.workMembers(thread.parentGroupId).map((u) => u.id));
+    const next = [...new Set([state.userId, ...(memberIds || []).filter((id) => allowed.has(id))])];
+    if (next.length < 1) throw new Error("Keep at least one person.");
+    const prev = thread.memberIds.slice();
+    thread.memberIds = next;
+    this.log(`Work group members · ${thread.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      thread.memberIds = prev;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save these people.");
+    }
+    render();
+    return thread;
   },
   portfolio() {
     return state.db.PORTFOLIO.filter((p) => p.public !== false);

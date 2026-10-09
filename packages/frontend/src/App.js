@@ -13,7 +13,7 @@ import Profile from './mobile/Profile';
 import { Photos, Photo, Markup, Camera, Portfolio } from './mobile/Library';
 import { Who, People, Holidays, Punches, Reviews, Notice, Appearance, Language, Book, StandIn, MyPerformance } from './mobile/People';
 import { Materials, Contacts, Attention, Changes, Refs, Intake, DrawingIndex, Drawing, Share } from './mobile/ProjectPages';
-import { GroupInfo, Voice, MessagePage, Filing, Issue, Assist, Call } from './mobile/ChatPages';
+import { GroupInfo, WorkGroups, Voice, MessagePage, Filing, Issue, Assist, Call } from './mobile/ChatPages';
 
 function App() {
   return (
@@ -34,6 +34,7 @@ function App() {
           <Route path="chats" element={<Chats />} />
           <Route path="chats/:threadId" element={<Thread />} />
           <Route path="chats/:threadId/info" element={<GroupInfo />} />
+          <Route path="chats/:threadId/work" element={<WorkGroups />} />
           <Route path="chats/:threadId/voice" element={<Voice />} />
           <Route path="chats/:threadId/call" element={<Call />} />
           <Route path="chats/:threadId/messages/:messageId" element={<MessagePage />} />

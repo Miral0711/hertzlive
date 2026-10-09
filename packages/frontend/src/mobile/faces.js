@@ -65,7 +65,62 @@ export function Avatar({ person, hue, seed, text = '', size = '' }) {
   return <span className={cls}>{text}</span>;
 }
 
+export function readGroupPhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || (file.type && !file.type.startsWith('image/'))) {
+      reject(new Error('Choose a photo.'));
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const scale = Math.max(size / img.width, size / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      canvas.getContext('2d').drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      if (!dataUrl.startsWith('data:image/')) reject(new Error('Could not read that photo.'));
+      else resolve(dataUrl);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Could not read that photo.'));
+    };
+    img.src = url;
+  });
+}
+
+export function GroupPhotoInput({ onPick, onError, children, className = '' }) {
+  return (
+    <label className={className}>
+      <input
+        hidden
+        type="file"
+        accept="image/*"
+        aria-label="Work group photo"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          try { onPick(await readGroupPhoto(file)); }
+          catch (err) { onError?.(err.message || 'Could not read that photo.'); }
+        }}
+      />
+      {children}
+    </label>
+  );
+}
+
 export function ThreadAvatar({ thread, size = '' }) {
+  useStore();
+  if (thread?.avatar) {
+    return <span className={`av ${size}`.trim()}><img src={thread.avatar} alt="" /></span>;
+  }
   if (thread?.kind === 'dm') {
     const id = (thread.memberIds || []).find((item) => item !== state.userId);
     return <Avatar person={user(id)} size={size} text="··" />;

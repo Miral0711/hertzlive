@@ -1,4 +1,4 @@
-import { state, svc, user, me, can, fmtT, fmtD, fmtDT, uid, persist } from '../shared/core';
+import { state, svc, user, me, can, fmtT, fmtD, fmtDT, uid, persist, taskStageLabel } from '../shared/core';
 import { render } from '../shared/store';
 import { NOTIFICATIONS } from '../shared/data2';
 import { FILE_KINDS, ROOM_WORDS } from '../shared/filing';
@@ -15,11 +15,12 @@ export const firstName = (id) => (user(id).name || 'Someone').split(' ')[0];
 
 export const audience = (thread) => {
   if (!thread) return t('chat');
+  if (thread.groupType === 'work') return `${projectName(thread.projectId)} · Work group`;
   if (thread.kind === 'dm') {
     const other = (thread.memberIds || []).find((id) => id !== state.userId);
     return other ? (user(other).title || t('chat')) : t('chat');
   }
-  return { client: t('clientGroup'), internal: t('office'), site: t('siteTeam') }[thread.kind] || t('chat');
+  return { client: t('clientGroup'), internal: t('office'), site: t('siteTeam'), group: t('group') }[thread.kind] || t('chat');
 };
 
 export function dayLabel(iso) {
@@ -50,10 +51,11 @@ export function myThreads() {
   return svc.threads()
     .filter((t) => onPhone(t.projectId))
     .map((t) => ({ t, last: [...svc.messages(t.id)].filter((m) => !hiddenFromMe(m)).sort((a, b) => a.at.localeCompare(b.at)).at(-1) || null }))
-    .sort((a, b) => ((b.last || {}).at || '').localeCompare((a.last || {}).at || ''));
+    .sort((a, b) => ((b.last || {}).at || b.t.createdAt || '').localeCompare((a.last || {}).at || a.t.createdAt || ''));
 }
 
 export function threadTitle(t) {
+  if (t.kind === 'group') return t.name || projectName(t.projectId);
   if (t.projectId && t.kind !== 'dm') return projectName(t.projectId);
   return t.name;
 }
@@ -66,44 +68,18 @@ export function preview(m) {
   return m.text || 'Update';
 }
 
-export function toggleReaction(message, emoji) {
-  message.reactions = message.reactions || {};
-  const ids = message.reactions[emoji] || [];
-  message.reactions[emoji] = ids.includes(state.userId) ? ids.filter((id) => id !== state.userId) : [...ids, state.userId];
-  persist();
-  render();
-}
+export function toggleReaction(message, emoji) { return svc.reactToMessage(message, emoji); }
 
-export function deleteMessage(message) {
-  message.deleted = true;
-  if (state.filings) delete state.filings[message.id];
-  persist();
-  render();
-}
+export function deleteMessage(message) { return svc.deleteMessage(message); }
 
-export function hideMessage(message) {
-  message.hiddenFor = [...new Set([...(message.hiddenFor || []), state.userId])];
-  persist();
-  render();
-}
+export function hideMessage(message) { return svc.hideMessage(message); }
 
-export function toggleDecision(message) {
-  message.decision = !message.decision;
-  persist();
-  render();
-}
+export function toggleDecision(message) { return svc.toggleDecision(message); }
 
-export function editMessage(message, text) {
-  const value = text.trim();
-  if (!value || value === message.text) return;
-  message.text = value;
-  message.edited = true;
-  persist();
-  render();
-}
+export function editMessage(message, text) { return svc.editMessage(message, text); }
 
 export function unreadCount(threadId, readAt) {
-  if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(`field-mute-${threadId}`) === '1') return 0;
+  if (svc.chatMuted(threadId)) return 0;
   return svc.messages(threadId).filter((m) => m.by !== state.userId && !hiddenFromMe(m) && (!readAt || m.at > readAt)).length;
 }
 
@@ -120,15 +96,24 @@ export function siblings(thread) {
 export function postMessage(threadId, fields) {
   const thread = svc.thread(threadId);
   if (!can('thread', 'w') || !thread || !onPhone(thread.projectId)) return null;
+  const id = uid();
+  const at = stamp();
+  const prevStamp = thread.lastMessageAt;
   state.db.MESSAGES.push({
-    id: uid(),
+    id,
     threadId,
     by: state.userId,
-    at: stamp(),
+    at,
     ...fields,
   });
-  persist();
+  if (thread.groupType === 'work') thread.lastMessageAt = at;
+  if (!persist()) {
+    state.db.MESSAGES.pop();
+    if (thread.groupType === 'work') thread.lastMessageAt = prevStamp;
+    return null;
+  }
   render();
+  svc.classifySent(id);
   return true;
 }
 
@@ -436,4 +421,4 @@ export function photoItems(projectId) {
     .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
 }
 
-export { me, can, user, fmtT, fmtD, fmtDT, state, svc, TODAY, persist, render, uid };
+export { me, can, user, fmtT, fmtD, fmtDT, state, svc, TODAY, persist, render, uid, taskStageLabel };

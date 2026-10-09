@@ -9,7 +9,7 @@ import {
   audience, postMessage, preview, useStore,
 } from '../store';
 
-const EMOJI = ['👍', '✅', '❓', '🙏', '❌'];
+const EMOJI: [string, string][] = [['✅', 'Done'], ['👀', 'Review'], ['📝', 'Noted'], ['⭐', 'Mark'], ['⚠️', 'Flag']];
 
 export function VoiceFallback({ dur = '' }: { src?: string; dur?: string }) {
   const s = useStyles((c) => ({
@@ -34,9 +34,9 @@ export function ActionsFallback({ thread, message, onReply, onDeleted, onForward
   const mine = message.by === state.userId;
   const canPin = !message.deleted && can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
   const s = useStyles((c) => ({
-    emoji: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: c.surface2, marginBottom: 6 },
-    emojiBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-    emojiOn: { borderWidth: 2, borderColor: c.accent },
+    emoji: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+    emojiBtn: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
+    emojiOn: { borderColor: c.accent, backgroundColor: c.accentSoft },
     ghost: { minHeight: 46, justifyContent: 'center', paddingHorizontal: 2, borderBottomWidth: 1, borderBottomColor: c.line },
     ghostText: { fontSize: 16, fontWeight: '500', color: c.ink },
     warn: { color: c.crit },
@@ -57,9 +57,10 @@ export function ActionsFallback({ thread, message, onReply, onDeleted, onForward
     <View>
       {!message.deleted && (
         <View style={s.emoji} accessibilityRole="toolbar" accessibilityLabel="Reactions">
-          {EMOJI.map((e) => (
-            <Pressable key={e} style={[s.emojiBtn, message.reactions?.[e]?.includes(state.userId) && s.emojiOn]} accessibilityLabel={`React ${e}`} onPress={() => toggleReaction(message, e)}>
-              <Text style={{ fontSize: 22 }}>{e}</Text>
+          {EMOJI.map(([e, label]) => (
+            <Pressable key={e} style={[s.emojiBtn, message.reactions?.[e]?.includes(state.userId) && s.emojiOn]} accessibilityLabel={label} onPress={() => toggleReaction(message, e)}>
+              <Text style={{ fontSize: 16 }}>{e}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '600' }}>{label}</Text>
             </Pressable>
           ))}
         </View>

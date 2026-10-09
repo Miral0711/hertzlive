@@ -46,20 +46,22 @@ export default function Updates() {
     groups[seen.get(key)!].items.push(item);
   });
 
-  const s = useStyles((c, th) => ({
+  const s = useStyles((c) => ({
     h1: { fontSize: 22, fontWeight: '600', color: c.ink, lineHeight: 24 },
     h1sub: { fontSize: 13, fontWeight: '500', color: c.ink3 },
-    body: { flex: 1, backgroundColor: c.surface },
-    content: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 28 },
-    note: { marginTop: 8, fontSize: 13, color: c.ink3, fontWeight: '500' },
-    search: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, minHeight: 46, paddingHorizontal: 12, borderRadius: th.radius.r2, backgroundColor: c.surface2 },
+    body: { flex: 1, backgroundColor: c.ground },
+    content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 28 },
+    note: { marginTop: 2, marginHorizontal: 2, fontSize: 13, color: c.ink2, fontWeight: '500' },
+    search: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     input: { flex: 1, minWidth: 0, color: c.ink, fontSize: 16, paddingVertical: 8 },
-    kinds: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 2, marginTop: 4 },
-    kind: { paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    kindOn: { borderBottomColor: c.ink },
-    kindT: { fontSize: 13, fontWeight: '600', color: c.ink3 },
-    kindTOn: { color: c.ink },
-    h2: { marginTop: 18, marginBottom: 2, fontSize: 13, fontWeight: '600', color: c.ink3 },
+    kinds: { marginTop: 12 },
+    kindsContent: { flexDirection: 'row', gap: 8 },
+    kind: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
+    kindOn: { backgroundColor: c.accent, borderColor: c.accent },
+    kindT: { fontSize: 13, fontWeight: '600', color: c.ink2 },
+    kindTOn: { color: c.accentInk },
+    h2: { marginTop: 10, marginBottom: 2, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: c.ink2 },
+    card: { marginTop: 10, paddingHorizontal: 14, paddingBottom: 4, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     empty: { padding: 32, alignItems: 'center' },
     emptyH: { fontSize: 15, fontWeight: '600', color: c.ink, marginBottom: 4 },
     emptyP: { color: c.ink3, textAlign: 'center' },
@@ -84,16 +86,16 @@ export default function Updates() {
           </View>
         )}
         {kinds.length > 1 && (
-          <View style={s.kinds} accessibilityRole="tablist" accessibilityLabel="Update type">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.kinds} contentContainerStyle={s.kindsContent} accessibilityRole="tablist" accessibilityLabel="Update type">
             {['all', ...kinds].map((item) => (
               <Pressable key={item} style={[s.kind, kind === item && s.kindOn]} onPress={() => setKind(item)} accessibilityRole="tab" accessibilityState={{ selected: kind === item }}>
                 <Text style={[s.kindT, kind === item && s.kindTOn]}>{item === 'all' ? 'All' : KIND[item] || item}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         )}
         {groups.map((group) => (
-          <View key={group.key}>
+          <View key={group.key} style={s.card}>
             <Text style={s.h2}>{group.title}</Text>
             {group.items.map((item, i) => (
               <DayRow

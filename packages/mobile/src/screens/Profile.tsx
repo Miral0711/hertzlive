@@ -45,9 +45,9 @@ export default function Profile() {
 
   const s = useStyles((c) => ({
     h1: { flex: 1, fontSize: 17, fontWeight: '600', color: c.ink },
-    body: { flex: 1, backgroundColor: c.surface },
-    content: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 40 },
-    who: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: 6, paddingBottom: 2 },
+    body: { flex: 1, backgroundColor: c.ground },
+    content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 40 },
+    who: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     name: { color: c.ink, fontSize: 18, fontWeight: '600', lineHeight: 22 },
     meta: { marginTop: 1, color: c.ink2, fontSize: 14, lineHeight: 19 },
     pick: { marginTop: 6, color: c.accentText, fontSize: 14, fontWeight: '600' },
@@ -55,7 +55,8 @@ export default function Profile() {
     cell: { width: '25%', alignItems: 'center', paddingVertical: 6 },
     face: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
     faceOn: { borderColor: c.accent },
-    sect: { marginTop: 16, marginBottom: 4, fontSize: 13, fontWeight: '600', color: c.ink3 },
+    sect: { marginTop: 10, marginBottom: 2, marginHorizontal: 2, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: c.ink2 },
+    card: { marginTop: 8, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     note: { marginTop: 8, fontSize: 13, color: c.ink3, fontWeight: '500' },
   }));
 
@@ -89,36 +90,42 @@ export default function Profile() {
           </View>
         )}
         <Text style={s.sect}>This phone</Text>
-        {punches && <Row first to="/mobile/punches" title="This month" detail={`${punches.late} late · ${punches.hours}h`} value={`${punches.days} days`} />}
-        {staff() && (
+        <View style={s.card}>
+          {punches && <Row first to="/mobile/punches" title="This month" detail={`${punches.late} late · ${punches.hours}h`} value={`${punches.days} days`} />}
+          {staff() && (
+            <Row
+              first={!punches}
+              title="Quiet mode" detail="Hides the streak and points" value={quiet ? 'On' : 'Off'}
+              onClick={() => { state.gamify.quiet = !quiet; persist(); render(); }}
+            />
+          )}
           <Row
-            first={!punches}
-            title="Quiet mode" detail="Hides the streak and points" value={quiet ? 'On' : 'Off'}
-            onClick={() => { state.gamify.quiet = !quiet; persist(); render(); }}
+            first={!staff()}
+            title="Pretend no signal"
+            detail={state.online ? 'Messages send straight away' : 'Messages wait for a signal'}
+            value={state.online ? 'Off' : 'On'}
+            onClick={() => setOnline(!state.online)}
           />
-        )}
-        <Row
-          first={!staff()}
-          title="Pretend no signal"
-          detail={state.online ? 'Messages send straight away' : 'Messages wait for a signal'}
-          value={state.online ? 'Off' : 'On'}
-          onClick={() => setOnline(!state.online)}
-        />
-        <Row to="/mobile/appearance" title="Appearance" detail={look === 'Phone' ? 'Follows this phone' : 'Chosen on this phone'} value={look} />
-        <Row to="/mobile/language" title="Language" detail="Menus only" value={lang} />
+          <Row to="/mobile/appearance" title="Appearance" detail={look === 'Phone' ? 'Follows this phone' : 'Chosen on this phone'} value={look} />
+          <Row to="/mobile/language" title="Language" detail="Menus only" value={lang} />
+        </View>
 
         <Text style={s.sect}>Studio</Text>
-        <Row first to="/mobile/people" title="People and contractors" detail="Phone numbers, one tap to call" />
-        <Row to="/mobile/holidays" title={staff() ? 'Holidays and my leave' : 'Holidays'} detail="Office closed days" />
-        {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? 'Book a meeting' : 'Book a room'} detail="Pick a day and time" />}
-        {state.role === 'partner' && <Row to="/mobile/notice" title="Notice to everyone" detail="One message, every project chat" />}
-        {staff() && can('review', 'r') && <Row to="/mobile/reviews" title="My reviews" detail="Monthly score, strengths and growth" />}
+        <View style={s.card}>
+          <Row first to="/mobile/people" title="People and contractors" detail="Phone numbers, one tap to call" />
+          <Row to="/mobile/holidays" title={staff() ? 'Holidays and my leave' : 'Holidays'} detail="Office closed days" />
+          {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? 'Book a meeting' : 'Book a room'} detail="Pick a day and time" />}
+          {state.role === 'partner' && <Row to="/mobile/notice" title="Notice to everyone" detail="One message, every project chat" />}
+          {staff() && can('review', 'r') && <Row to="/mobile/reviews" title="My reviews" detail="Monthly score, strengths and growth" />}
+        </View>
 
         <Text style={s.sect}>This demo</Text>
-        <Row first to="/desktop/dashboard" title="Open desktop studio" detail="Planning, drawings and coordination" />
-        <Row to="/mobile/who" title="Switch person" detail="Try the app as someone else" />
-        <Row title="Start over" detail="Clear this demo’s changes" onClick={() => { resetDb(); render(); navigate('/mobile/chats'); }} />
-        <Row title="Sign out" detail="Return to the phone sign-in" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
+        <View style={s.card}>
+          <Row first to="/desktop/dashboard" title="Open desktop studio" detail="Planning, drawings and coordination" />
+          <Row to="/mobile/who" title="Switch person" detail="Try the app as someone else" />
+          <Row title="Start over" detail="Clear this demo’s changes" onClick={() => { resetDb(); render(); navigate('/mobile/chats'); }} />
+          <Row title="Sign out" detail="Return to the phone sign-in" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
+        </View>
         <Text style={s.note}>Filing, transcripts and answers are simulated on this device. Updates stay in this browser.</Text>
       </ScrollView>
     </Screen>

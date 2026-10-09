@@ -52,7 +52,7 @@ export function DayRow({ left, acts, to, onPress, past, first, label }: {
 export function Fold({ title, count, open: initial = false, children }: { title: string; count?: number; open?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(initial);
   const s = useStyles((c) => ({
-    wrap: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
+    wrap: { marginTop: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
     sum: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
     title: { flex: 1, color: c.ink, fontSize: 15, fontWeight: '600' },
     count: { color: c.ink3, fontSize: 13, fontWeight: '600' },

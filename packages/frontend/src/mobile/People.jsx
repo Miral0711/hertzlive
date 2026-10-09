@@ -19,7 +19,7 @@ export function Who() {
   useStore();
   const navigate = useNavigate();
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
       <Note>This changes whose records you see. It does not change the desktop login.</Note>
       {PEOPLE.map(({ id, hint }) => {
         const u = user(id);
@@ -53,7 +53,7 @@ export function People() {
   });
   const groups = ORDER.map((role) => [LABEL[role], list.filter((u) => u.role === role)]).filter(([, us]) => us.length);
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
       <label className="search">
         <Icon name="search" />
         <input type="search" value={q} placeholder="Search people" aria-label="Search people" onChange={(e) => setQ(e.target.value)} />
@@ -99,7 +99,7 @@ export function Holidays() {
   const pending = can('leave', 'a') ? (state.db.LEAVES || []).filter((l) => l.status === 'pending') : [];
   const team = staff() ? (state.db.LEAVES || []).filter((l) => l.userId !== state.userId && l.status === 'approved' && l.to >= TODAY).slice(0, 5) : [];
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
       {pending.length > 0 && (
         <section>
           <h2 className="sect">Leave requests</h2>
@@ -122,14 +122,16 @@ export function Holidays() {
         <section>
           <h2 className="sect">My leave</h2>
           {mine.length ? mine.map((l) => (
-            <DayRow key={l.id} date={l.from} title={`${l.type} · ${l.days} day${l.days > 1 ? 's' : ''}`} detail={l.from === l.to ? fmtD(l.from) : `${fmtD(l.from)} to ${fmtD(l.to)} · ${l.reason}`} extra={<span className="row-end"><span className="chip-status">{l.status}</span><Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link></span>} />
+            <DayRow key={l.id} date={l.from} title={`${l.type} · ${l.days} day${l.days > 1 ? 's' : ''}`} detail={l.from === l.to ? fmtD(l.from) : `${fmtD(l.from)} to ${fmtD(l.to)} · ${l.reason}`} extra={<span className="row-end"><span className={`chip-status${l.status === 'pending' ? ' open' : l.status === 'approved' ? ' ok' : ''}`}>{l.status}</span><Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link></span>} />
           )) : <div className="empty"><h3>Nothing planned</h3><p>Ask for leave in the studio chat.</p></div>}
         </section>
       )}
-      <h2 className="sect">Holidays</h2>
-      {hol.map((h) => (
-        <DayRow key={h.date + h.name} date={h.date} title={h.name} detail={`${new Date(`${h.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })} · ${h.site ? 'site closed, no labour' : 'office only, site works'}`} />
-      ))}
+      <section>
+        <h2 className="sect">Holidays</h2>
+        {hol.map((h) => (
+          <DayRow key={h.date + h.name} date={h.date} title={h.name} detail={`${new Date(`${h.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })} · ${h.site ? 'site closed, no labour' : 'office only, site works'}`} />
+        ))}
+      </section>
       {team.length > 0 && (
         <section>
           <h2 className="sect">Who is away</h2>
@@ -146,15 +148,19 @@ export function Punches() {
   useStore();
   const month = svc.punches();
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
-      {month.rows.map((r) => (
-        <div className="row" key={r.date + r.in}>
-          <span className="row-copy">
-            <b>{fmtD(r.date)}{r.late ? ' · late' : ''}</b>
-            <span>{r.in}–{r.out || '—'} · {r.site}</span>
-          </span>
-        </div>
-      ))}
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
+      {month.rows.length > 0 && (
+        <section>
+          {month.rows.map((r) => (
+            <div className="row" key={r.date + r.in}>
+              <span className="row-copy">
+                <b className={r.late ? 'late' : ''}>{fmtD(r.date)}{r.late ? ' · late' : ''}</b>
+                <span>{r.in}–{r.out || '—'} · {r.site}</span>
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
       {!month.rows.length && <div className="empty"><h3>No punches this month</h3></div>}
     </Page>
   );
@@ -166,7 +172,7 @@ export function MyPerformance() {
   const metrics = can('performance', 'r') ? svc.personMetrics(state.userId, period.id) : null;
   const history = metrics ? svc.pointsHistory(state.userId, period.id) : [];
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="My performance" sub={period.label}>
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="My performance" sub={period.label}>
       {!metrics && <div className="empty"><h3>Performance isn’t available for this login</h3></div>}
       {metrics && (
         <>
@@ -208,7 +214,8 @@ export function Reviews() {
   useStore();
   const rows = svc.reviews(state.userId);
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
+      <section>
       {rows.map((r) => (
         <article key={r.id} className="day-row">
           <div>
@@ -220,6 +227,7 @@ export function Reviews() {
         </article>
       ))}
       {!rows.length && <div className="empty"><h3>No review for you yet</h3></div>}
+      </section>
     </Page>
   );
 }
@@ -231,7 +239,7 @@ export function Notice() {
   const [text, setText] = useState('');
   const threads = myThreads().filter(({ t }) => t.kind !== 'dm');
   if (state.role !== 'partner') {
-    return <Page sheet back="/mobile/profile" backLabel="Profile" title="Notice"><div className="empty"><h3>Only a partner can send a notice</h3></div></Page>;
+    return <Page board sheet back="/mobile/profile" backLabel="Profile" title="Notice"><div className="empty"><h3>Only a partner can send a notice</h3></div></Page>;
   }
   function send(e) {
     e.preventDefault();
@@ -241,7 +249,7 @@ export function Notice() {
     navigate('/mobile/chats');
   }
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
       <Note>Goes to every project chat you are in, marked as a notice.</Note>
       <div className="filters">
         {ideas.map((idea) => <button type="button" key={idea} onClick={() => setText(idea)}>{idea}</button>)}
@@ -258,12 +266,14 @@ export function Appearance() {
   useStore();
   const options = [['system', 'Phone'], ['light', 'Light'], ['dark', 'Dark']];
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="Appearance">
-      {options.map(([id, label]) => (
-        <button type="button" key={id} className="day-row" aria-pressed={state.theme === id} onClick={() => { state.theme = id; persist(); render(); }}>
-          <div><b>{label}</b>{state.theme === id ? <span>Using this</span> : null}</div>
-        </button>
-      ))}
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Appearance">
+      <section>
+        {options.map(([id, label]) => (
+          <button type="button" key={id} className="day-row" aria-pressed={state.theme === id} onClick={() => { state.theme = id; persist(); render(); }}>
+            <div><b>{label}</b>{state.theme === id ? <span>Using this</span> : null}</div>
+          </button>
+        ))}
+      </section>
     </Page>
   );
 }
@@ -274,13 +284,15 @@ export function Language() {
   const langs = ['English', 'हिन्दी', 'ગુજરાતી'];
   const [, setTick] = useState(current);
   return (
-    <Page sheet back="/mobile/profile" backLabel="Profile" title="Language">
+    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Language">
       <Note>Menus and tabs only. Write or talk in any language.</Note>
-      {langs.map((lang) => (
-        <button type="button" key={lang} className="day-row" aria-pressed={current === lang} onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }}>
-          <div><b>{lang}</b>{current === lang ? <span>Using this</span> : null}</div>
-        </button>
-      ))}
+      <section>
+        {langs.map((lang) => (
+          <button type="button" key={lang} className="day-row" aria-pressed={current === lang} onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }}>
+            <div><b>{lang}</b>{current === lang ? <span>Using this</span> : null}</div>
+          </button>
+        ))}
+      </section>
     </Page>
   );
 }
@@ -359,11 +371,11 @@ export function Book() {
   }
 
   if (!can('booking', 'w')) {
-    return <Page back="/mobile/today" backLabel="Today" title="Booking"><div className="empty"><h3>Booking isn’t available for this login</h3></div></Page>;
+    return <Page board back="/mobile/today" backLabel="Today" title="Booking"><div className="empty"><h3>Booking isn’t available for this login</h3></div></Page>;
   }
 
   return (
-    <Page sheet back={from && from.startsWith('/mobile/') ? from : '/mobile/today'} backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Today'} title={meet ? 'Book a meeting' : `Book the ${room.toLowerCase()}`}>
+    <Page board sheet back={from && from.startsWith('/mobile/') ? from : '/mobile/today'} backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Today'} title={meet ? 'Book a meeting' : `Book the ${room.toLowerCase()}`}>
       {meet && <Note>The studio confirms. You get a WhatsApp the day before and one hour before.</Note>}
       <form className="stack" onSubmit={save}>
         <span className="lab">Day</span>
@@ -439,7 +451,7 @@ export function StandIn() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   return (
-    <Page back="/mobile/holidays" backLabel="Holidays" title={`Who can cover ${firstName(userId)}?`} sub="Present today, shares a skill, lightest load first">
+    <Page board back="/mobile/holidays" backLabel="Holidays" title={`Who can cover ${firstName(userId)}?`} sub="Present today, shares a skill, lightest load first">
       {list.length ? list.map((row) => (
         <article className="view-card" key={row.u.id}>
           <b>{row.u.name}</b>

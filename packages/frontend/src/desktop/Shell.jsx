@@ -22,7 +22,16 @@ function SideNav({ page }) {
     const rows = keys.filter((k) => k !== 'settings').map((k) => allowed.find(([id]) => id === k)).filter(Boolean);
     if (!rows.length) return null;
     const links = rows.map(([k, l]) => (
-      <SideLink key={k} to={`#/${k}`} icon={ICON[k]} current={page === k}>{l}</SideLink>
+      k === 'chats' ? (
+        <div key={k} className="group/sub">
+          <SideLink to="#/chats" icon={ICON[k]} current={page === k} caret>{l}</SideLink>
+          <div className={`overflow-hidden transition-[max-height,opacity] duration-150 ${page === 'filing' ? 'max-h-10 opacity-100' : 'max-h-0 opacity-0 group-hover/sub:max-h-10 group-hover/sub:opacity-100 group-focus-within/sub:max-h-10 group-focus-within/sub:opacity-100'}`}>
+            <SideLink to="#/filing" icon="ai" current={page === 'filing'} nested>AI filing review</SideLink>
+          </div>
+        </div>
+      ) : (
+        <SideLink key={k} to={`#/${k}`} icon={ICON[k]} current={page === k}>{l}</SideLink>
+      )
     ));
     return label === 'Resources' ? (
       <details key={label} className="group" open={keys.includes(page)}>
@@ -40,15 +49,16 @@ function SideNav({ page }) {
     );
   });
 }
-function SideLink({ to, icon, current, children }) {
+function SideLink({ to, icon, current, nested = false, caret = false, children }) {
   return (
     <DLink
       to={to}
       aria-current={current ? 'page' : undefined}
-      className={`flex min-h-9 items-center gap-3 rounded-r1 px-3 text-[13.5px] font-medium no-underline transition ${current ? 'bg-nav-active font-semibold text-nav-active-ink' : 'text-nav-ink opacity-90 hover:bg-nav-hover hover:opacity-100'}`}
+      className={`flex items-center gap-3 rounded-r1 font-medium no-underline transition ${nested ? 'min-h-8 py-1 pl-8 pr-3 text-[13px]' : 'min-h-9 px-3 text-[13.5px]'} ${current ? 'bg-nav-active font-semibold text-nav-active-ink' : 'text-nav-ink opacity-90 hover:bg-nav-hover hover:opacity-100'}`}
     >
       {icon && <Icon name={icon} small />}
-      <span className="truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {caret && <Icon name="chev" small className="rotate-90 opacity-80" />}
     </DLink>
   );
 }
@@ -81,7 +91,7 @@ export default function Shell() {
     applyAgencyTheme();
   });
 
-  const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio', 'toolkit'].includes(page);
+  const allowed = navFor().some(([k]) => k === page) || ['search', 'sign', 'review', 's', 'portfolio', 'toolkit'].includes(page) || (page === 'filing' && navFor().some(([k]) => k === 'chats'));
   const workspace = page === 'chats' && allowed;
   const focusedWork = page === 'review';
   // Opening a conversation on the Chats page un-hides the side pane. Put the pane back the way it was when you leave Chats,
@@ -185,7 +195,7 @@ export default function Shell() {
           id="workspace"
           tabIndex={-1}
           data-page={page}
-          className={`min-h-0 min-w-0 focus:outline-none ${page === 'toolkit' ? 'flex flex-col overflow-hidden px-page-x pb-16 pt-page-y' : 'overflow-auto px-page-x pb-16 pt-page-y'}`}
+          className={`min-h-0 min-w-0 focus:outline-none ${page === 'chats' ? 'flex flex-col overflow-hidden p-3' : page === 'toolkit' ? 'flex flex-col overflow-hidden px-page-x pb-16 pt-page-y' : 'overflow-auto px-page-x pb-16 pt-page-y'}`}
         >
           {(state.storageError || state.desk.draftStorageError) && (
             <div role="alert" className="mb-3.5 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">

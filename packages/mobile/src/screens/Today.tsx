@@ -131,11 +131,11 @@ function buildToday(day: string) {
   return { actions, waiting };
 }
 
-function DayCard({ item, act }: { item: any; act: (name: string, a?: any, b?: any) => void }) {
+function DayCard({ item, act, first }: { item: any; act: (name: string, a?: any, b?: any) => void; first?: boolean }) {
   const s = useStyles((c) => ({
     li: { color: c.ink, fontSize: 13, lineHeight: 18, marginVertical: 2 },
   }));
-  const D = (p: any) => <DayRow {...p} />;
+  const D = (p: any) => <DayRow {...p} first={first} />;
   if (item.kind === 'leave') {
     const { leave } = item;
     return (
@@ -399,25 +399,26 @@ export default function Today() {
   const s = useStyles((c, th) => ({
     h1: { fontSize: 22, fontWeight: '600', color: c.ink, lineHeight: 24 },
     h1sub: { fontSize: 13, fontWeight: '500', color: c.ink3 },
-    body: { flex: 1, backgroundColor: c.surface },
-    content: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 28 },
-    now: { paddingTop: 18, paddingBottom: 18 },
+    body: { flex: 1, backgroundColor: c.ground },
+    content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 28 },
+    now: { marginBottom: 10, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
+    nowCard: { marginVertical: 8, paddingHorizontal: 14, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     nowH: { fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }), fontSize: 26, fontWeight: '500', letterSpacing: -0.78, lineHeight: 30, color: c.ink },
     nowP: { marginTop: 6, color: c.ink2, fontSize: 14 },
     banner: { color: c.ink3, fontSize: 12, fontWeight: '500', textAlign: 'center', paddingTop: 4, paddingBottom: 8 },
     note: { color: c.ink2, fontSize: 14, fontWeight: '500', paddingVertical: 8 },
     toolNote: { color: c.ink2, fontSize: 13, fontWeight: '500', lineHeight: 18, paddingTop: 12, paddingBottom: 4 },
-    clear: { paddingTop: 8, paddingBottom: 16 },
+    clear: { marginVertical: 8, padding: 16, borderRadius: 16, backgroundColor: c.okSoft },
     clearH: { fontSize: 15, fontWeight: '600', color: c.ink, marginBottom: 4 },
     clearA: { color: c.accentText, fontSize: 13, fontWeight: '700' },
-    menu: { marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
-    quietRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
+    menu: { marginTop: 4, gap: 0 },
+    quietRow: { minHeight: 52, marginTop: 8, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     quietText: { color: c.ink, fontSize: 15, fontWeight: '600', flexShrink: 1 },
     wait: { paddingVertical: 10, paddingLeft: 12, gap: 2, alignItems: 'flex-start' },
     waitB: { color: c.ink, fontSize: 14, fontWeight: '600' },
     waitS: { color: c.ink2, fontSize: 13 },
     waitLink: { color: c.accentText, fontSize: 13, fontWeight: '700', paddingTop: 2 },
-    indent: { paddingLeft: 12, paddingBottom: 8 },
+    indent: { paddingBottom: 8 },
     tools: { paddingTop: 2, paddingBottom: 8 },
     toolLabel: { marginTop: 4, paddingTop: 14, color: c.ink3, fontSize: 12, fontWeight: '600', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
     people: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 8, marginTop: 8 },
@@ -507,7 +508,7 @@ export default function Today() {
     if (!q) return;
     navigate(`/mobile/assist?kind=ask&q=${encodeURIComponent(q)}`);
   };
-  const cards = (list: any[]) => <View style={s.indent}>{list.map((item) => <DayCard key={item.key} item={item} act={act} />)}</View>;
+  const cards = (list: any[]) => <View style={s.indent}>{list.map((item, i) => <DayCard key={item.key} item={item} act={act} first={i === 0} />)}</View>;
 
   return (
     <Screen>
@@ -540,7 +541,7 @@ export default function Today() {
             <Pressable style={s.send} onPress={submitSnag} accessibilityRole="button" accessibilityLabel="Send"><Text style={s.sendT}>Send</Text></Pressable>
           </View>
         )}
-        {nowItems.length > 0 && <View>{nowItems.map((item) => <DayCard key={item.key} item={item} act={act} />)}</View>}
+        {nowItems.length > 0 && <View style={s.nowCard}>{nowItems.map((item, i) => <DayCard key={item.key} item={item} act={act} first={i === 0} />)}</View>}
         {!nowItems.length && !laterItems.length && (
           <View style={s.clear}>
             <Text style={s.clearH}>Nothing waiting on you</Text>

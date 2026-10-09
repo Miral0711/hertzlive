@@ -99,6 +99,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   const [draft, setDraft] = useState(null); // in-progress shape/stroke
   const [textInput, setTextInput] = useState(null); // {x, y, sx, sy, value}
   const [busy, setBusy] = useState(!isVideo);
+  const [note, setNote] = useState('');
 
   // Crop mode: a snapshot of the current (flattened) image, plus react-image-crop's own
   // selection state. `cropPixels` is the selection in the *displayed* <img>'s pixels, from
@@ -230,7 +231,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   const send = () => {
     commitPendingText();
     const dataUrl = flattenToDataUrl();
-    onSend({ kind: 'image', dataUrl, originalDataUrl: history[0].base, name: file.name, w: canvasRef.current.width, h: canvasRef.current.height });
+    onSend({ kind: 'image', dataUrl, originalDataUrl: history[0].base, name: file.name, w: canvasRef.current.width, h: canvasRef.current.height, note: note.trim() });
   };
 
   const sendVideo = () => {
@@ -335,10 +336,10 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
                 disabled={cropping && t !== 'crop'}
                 className={tool === t ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
                 onClick={() => chooseTool(t)}
-              />
+              >{label}</Btn>
             ))}
-            <Btn sm icon="undo" title="Undo" aria-label="Undo" onClick={undo} disabled={cropping || index === 0} />
-            <Btn sm icon="redo" title="Redo" aria-label="Redo" onClick={redo} disabled={cropping || !history || index >= history.length - 1} />
+            <Btn sm icon="undo" title="Undo" aria-label="Undo" onClick={undo} disabled={cropping || index === 0}>Undo</Btn>
+            <Btn sm icon="redo" title="Redo" aria-label="Redo" onClick={redo} disabled={cropping || !history || index >= history.length - 1}>Redo</Btn>
           </div>
 
           {cropping && (
@@ -429,6 +430,12 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
             </div>
           )}
         </>
+      )}
+      {!cropping && (
+        <label className="mt-3 block">
+          <span className="sr-only">Add a note</span>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" aria-label="Add a note" className="min-h-11 w-full rounded-full border-0 bg-surface-2 px-4 text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-accent-soft" />
+        </label>
       )}
       <ModalActions>
         <Btn onClick={onCancel}>Cancel</Btn>

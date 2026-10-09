@@ -16,8 +16,12 @@ export function ProjectDecisionDialog({ d }) {
     state.desk.dialog = null;
     openThread(record.threadId);
   };
+  const dismiss = () => {
+    if (d.fromChat && record) svc.decideDecision(record.id);
+    closeDialog();
+  };
   return (
-    <Modal title={record ? record.title : 'Decision unavailable'}>
+    <Modal title={record ? record.title : 'Decision unavailable'} onClose={dismiss}>
       {record && p && (
         <>
           <p>{p.name} · <StatusPill status={record.status} /></p>
@@ -29,7 +33,7 @@ export function ProjectDecisionDialog({ d }) {
       )}
       <ModalActions>
         {record && p && <Btn onClick={openConversation}>Open client conversation</Btn>}
-        <Close />
+        <Btn onClick={dismiss}>Close</Btn>
       </ModalActions>
     </Modal>
   );
