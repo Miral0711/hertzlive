@@ -1890,7 +1890,7 @@ export const svc = {
       return Boolean(user(id).id);
     }).map((id) => user(id));
   },
-  createWorkGroup({ parentGroupId, taskId, taskTitle, name, memberIds }) {
+  createWorkGroup({ parentGroupId, taskId, taskTitle, name, memberIds, avatar }) {
     const parent = this.thread(parentGroupId);
     if (!parent || parent.kind === "dm" || parent.groupType === "work") throw new Error("Choose a project group.");
     if (!this.canManageWork(parent)) throw new Error("You can’t create a work group here.");
@@ -1933,6 +1933,7 @@ export const svc = {
       createdAt: now,
       lastMessageAt: now,
     };
+    if (avatar && String(avatar).startsWith('data:image/')) thread.avatar = avatar;
     state.db.THREADS.push(thread);
     this.log(`Work group · ${title}`, "Thread " + thread.id);
     if (!persist()) {
@@ -1957,6 +1958,25 @@ export const svc = {
       thread.name = prev;
       state.db.AUDIT.shift();
       throw new Error("Could not save this name.");
+    }
+    render();
+    return thread;
+  },
+  setWorkPhoto(threadId, dataUrl) {
+    const thread = this.thread(threadId);
+    if (!thread || thread.groupType !== "work") throw new Error("Choose a work group.");
+    if (!this.canManageWork(thread)) throw new Error("You can’t change this work group.");
+    const next = dataUrl || "";
+    if (next && !String(next).startsWith("data:image/")) throw new Error("Choose a photo.");
+    const prev = thread.avatar || "";
+    if (next) thread.avatar = next;
+    else delete thread.avatar;
+    this.log(`Work group photo · ${thread.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      if (prev) thread.avatar = prev;
+      else delete thread.avatar;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this photo.");
     }
     render();
     return thread;

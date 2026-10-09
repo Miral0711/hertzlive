@@ -57,7 +57,6 @@ export function StatusPill({ status }) {
   return <Pill kind={kind}>{s.replace(/_/g, ' ')}</Pill>;
 }
 
-const chipDot = { '': 'bg-accent', check: 'bg-warn', ask: 'bg-crit', filing: 'bg-line-2' };
 const chipTone = {
   '': 'border-line bg-surface-2 text-ink-2',
   check: 'border-warn-soft bg-warn-soft text-warn',
@@ -68,10 +67,9 @@ export function Chip({ status = '', children, ...rest }) {
   return (
     <button
       type="button"
-      className={`inline-flex min-w-0 max-w-[220px] items-center gap-1.5 rounded-full border px-2 text-xs font-medium leading-6 hover:brightness-95 ${chipTone[status] || chipTone['']}`}
+      className={`inline-flex min-w-0 max-w-full items-center rounded-full border px-2 text-xs font-medium leading-6 hover:brightness-95 ${chipTone[status] || chipTone['']}`}
       {...rest}
     >
-      <span className={`h-1.5 w-1.5 flex-none rounded-full ${chipDot[status] || chipDot['']}`} />
       <span className="truncate">{children}</span>
     </button>
   );

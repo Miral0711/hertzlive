@@ -10,7 +10,7 @@ import Modal, { ModalActions } from '../Modal';
 import { closeDialog, openDialog, openThread } from '../session';
 import { role } from '../helpers';
 import { Ph } from './media';
-import { Avatar as PersonAvatar, ThreadAvatar } from '../../mobile/faces';
+import { Avatar as PersonAvatar, GroupPhotoInput, ThreadAvatar } from '../../mobile/faces';
 import { openDesktopAssist } from './assist';
 import { conversationThreads, pendingFocus } from './store';
 
@@ -195,6 +195,7 @@ export function ChatInfoDialog({ d }) {
   const thread = svc.thread(d.threadId);
   const [tab, setTab] = useState('Photos');
   const [sample, setSample] = useState(null);
+  const [photoError, setPhotoError] = useState('');
   if (!thread) {
     return <Modal title="Chat"><p>This chat isn’t available.</p><ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions></Modal>;
   }
@@ -224,6 +225,15 @@ export function ChatInfoDialog({ d }) {
     <Modal title={thread.name} wide>
       <div className="mb-4 flex flex-col items-center text-center">
         <span className="mb-2 inline-grid h-20 w-20 overflow-hidden rounded-full bg-surface-2 [&>.av]:h-full [&>.av]:w-full [&_svg]:h-full [&_svg]:w-full [&_img]:h-full [&_img]:w-full [&_img]:object-cover"><ThreadAvatar thread={thread} /></span>
+        {thread.groupType === 'work' && svc.canManageWork(thread) && (
+          <span className="mb-1 flex items-center gap-3">
+            <GroupPhotoInput className="cursor-pointer text-sm font-semibold text-accent-text" onPick={(dataUrl) => { try { svc.setWorkPhoto(thread.id, dataUrl); setPhotoError(''); } catch (e) { setPhotoError(e.message); } }} onError={setPhotoError}>
+              {thread.avatar ? 'Change photo' : 'Add photo'}
+            </GroupPhotoInput>
+            {thread.avatar && <button type="button" className="border-0 bg-transparent p-0 text-sm text-ink-3" onClick={() => { try { svc.setWorkPhoto(thread.id, ''); setPhotoError(''); } catch (e) { setPhotoError(e.message); } }}>Remove</button>}
+          </span>
+        )}
+        {photoError && <p className="m-0 text-sm font-semibold text-crit" role="alert">{photoError}</p>}
         <b className="text-xl">{thread.name}</b>
         <span className="text-sm text-ink-2">{about}</span>
       </div>
@@ -309,6 +319,7 @@ export function WorkGroupDialog({ d }) {
   const [taskId, setTaskId] = useState(d.taskId || '');
   const [taskTitle, setTaskTitle] = useState('');
   const [name, setName] = useState(() => (d.taskId ? (tasks.find((item) => item.id === d.taskId)?.title || '') : ''));
+  const [photo, setPhoto] = useState('');
   const [picked, setPicked] = useState([]);
   const [step, setStep] = useState(d.taskId ? 'people' : 'task');
   const [error, setError] = useState('');
@@ -319,7 +330,7 @@ export function WorkGroupDialog({ d }) {
   if (!parent) return <Modal title="Work group"><p>This group isn’t available.</p><ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions></Modal>;
   function create() {
     try {
-      const thread = svc.createWorkGroup({ parentGroupId: parent.id, taskId, taskTitle, name, memberIds: picked });
+      const thread = svc.createWorkGroup({ parentGroupId: parent.id, taskId, taskTitle, name, memberIds: picked, avatar: photo });
       closeDialog();
       openThread(thread.id);
     } catch (e) {
@@ -340,6 +351,15 @@ export function WorkGroupDialog({ d }) {
       {step === 'task' && (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm text-ink-3">New work group in {svc.project(parent.projectId)?.name || 'this project'}, inside {parent.name}. Give it a name. Link a task, or start a new task on this project.</p>
+          <div className="flex items-center gap-3">
+            <span className="inline-grid h-14 w-14 flex-none overflow-hidden rounded-full bg-surface-2">
+              {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-sm font-semibold text-ink-3">{(name.trim() || 'W').slice(0, 1).toUpperCase()}</span>}
+            </span>
+            <GroupPhotoInput className="cursor-pointer text-sm font-semibold text-accent-text" onPick={(dataUrl) => { setPhoto(dataUrl); setError(''); }} onError={setError}>
+              {photo ? 'Change photo' : 'Add photo'}
+            </GroupPhotoInput>
+            {photo && <button type="button" className="border-0 bg-transparent p-0 text-sm text-ink-3" onClick={() => setPhoto('')}>Remove</button>}
+          </div>
           <Field label="Work group name"><Input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kitchen island installation" /></Field>
           <Field label="Task">
             <select className="min-h-9 w-full rounded-r1 border border-line bg-surface px-3 text-ink" aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
@@ -382,6 +402,7 @@ export function WorkGroupDialog({ d }) {
       )}
       {step === 'review' && (
         <div className="flex flex-col gap-2">
+          {photo && <img src={photo} alt="" className="h-14 w-14 rounded-full object-cover" />}
           <p className="m-0"><b>{name}</b></p>
           <p className="m-0 text-sm text-ink-3">{task?.title || taskTitle.trim() || name} · {task ? taskStageLabel(task) : 'New task'} · {parent.name}</p>
           <p className="m-0 text-sm">These people will see the conversation: you, {chosen.map((u) => u.name).join(', ') || 'no one else'}.</p>

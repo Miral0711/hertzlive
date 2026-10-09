@@ -206,10 +206,9 @@ export default function Thread() {
     swatch: { width: 240, height: 140, borderRadius: 8, overflow: 'hidden', marginBottom: 4 },
     line: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
     meta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '70%', borderWidth: 1, borderColor: c.line, borderRadius: 999, backgroundColor: c.surface2, paddingHorizontal: 8, paddingVertical: 2 },
+    chip: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, minWidth: 0, maxWidth: '100%', borderWidth: 1, borderColor: c.line, borderRadius: 999, backgroundColor: c.surface2, paddingHorizontal: 10, paddingVertical: 2 },
     chipCheck: { borderColor: c.warnSoft, backgroundColor: c.warnSoft },
     chipAsk: { borderColor: c.critSoft, backgroundColor: c.critSoft },
-    chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.accent },
     chipText: { fontSize: 12, color: c.ink2, flexShrink: 1 },
     suggest: { alignSelf: 'flex-start', marginLeft: 12, marginBottom: 2, color: c.accentText, fontSize: 13, fontWeight: '600' },
     say: { flexShrink: 1, fontSize: 15.5, lineHeight: 21, color: c.ink },
@@ -599,7 +598,6 @@ export default function Thread() {
                             const chip = chipOf(m);
                             return (
                               <Link to={`/mobile/chats/${thread.id}/messages/${m.id}/filing`} style={[s.chip, chip.status === 'check' && s.chipCheck, chip.status === 'ask' && s.chipAsk, mine && !chip.status && s.chipOn]}>
-                                <View style={[s.chipDot, mine && !chip.status && { backgroundColor: c.accentInk }, chip.status === 'check' && { backgroundColor: c.warn }, chip.status === 'ask' && { backgroundColor: c.crit }]} />
                                 <Text style={[s.chipText, mine && !chip.status && s.onAccent, chip.status === 'check' && { color: c.warn }, chip.status === 'ask' && { color: c.crit }]} numberOfLines={1}>{chip.label}</Text>
                               </Link>
                             );

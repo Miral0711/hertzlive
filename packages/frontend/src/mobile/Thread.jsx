@@ -13,9 +13,8 @@ import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, taskStageLabel,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user,
 } from './model';
-import { Avatar } from './faces';
 
 const BASICS = [
   ['photo', 'Photo', 'photos'],
@@ -163,88 +162,7 @@ function FileChip({ threadId, m }) {
   const status = f?.status === 'check' ? 'check' : f?.status === 'ask' ? 'ask' : '';
   const who = !f ? '' : f.by === 'user' ? 'Filed' : f.status === 'filed' ? 'AI filed' : f.status === 'check' ? 'AI check' : 'AI needs context';
   const label = !f ? 'File message' : `${who} · ${f.status === 'ask' ? 'Which project?' : (filingLabel(f) || 'Note')}`;
-  return <Link className={`file-chip ${status}`} to={`/mobile/chats/${threadId}/messages/${m.id}/filing`}><i />{label}</Link>;
-}
-
-function WorkSwitch({ tab, setTab }) {
-  const tabs = [['chat', 'Chat'], ['task', 'Task'], ['files', 'Files'], ['members', 'Members']];
-  return (
-    <div className="switcher" role="tablist" aria-label="Work group">
-      {tabs.map(([k, label]) => (
-        <button type="button" key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{label}</button>
-      ))}
-    </div>
-  );
-}
-
-function WorkNote({ thread }) {
-  const task = (state.db.TASKS || []).find((item) => item.id === thread.taskId);
-  const parent = svc.thread(thread.parentGroupId);
-  return (
-    <p className="banner">
-      <b>{task?.title || thread.name}</b>{task ? ` · ${taskStageLabel(task)}` : ''}
-      {parent ? <> · <Link to={`/mobile/chats/${parent.id}`}>{parent.name}</Link></> : null}
-      <span className="note"> Only the people in this work group can see these messages.</span>
-    </p>
-  );
-}
-
-function WorkPanel({ thread, tab }) {
-  const [name, setName] = useState(thread.name);
-  const [error, setError] = useState('');
-  const task = (state.db.TASKS || []).find((item) => item.id === thread.taskId);
-  const members = (thread.memberIds || []).map((id) => user(id)).filter((u) => u?.id);
-  const spare = svc.workMembers(thread.parentGroupId).filter((u) => !(thread.memberIds || []).includes(u.id));
-  const manage = svc.canManageWork(thread);
-  const files = messagesOf(thread.id).filter((m) => !m.deleted && (m.photo || m.file || m.kind === 'file'));
-  function saveName(e) {
-    e.preventDefault();
-    try { svc.renameWorkGroup(thread.id, name); setError(''); } catch (err) { setError(err.message); }
-  }
-  function change(id, remove) {
-    const ids = remove ? thread.memberIds.filter((x) => x !== id) : [...thread.memberIds, id];
-    try { svc.setWorkMembers(thread.id, ids); setError(''); } catch (err) { setError(err.message); }
-  }
-  return (
-    <div className="body canvas">
-      {error ? <p className="warn-text">{error}</p> : null}
-      {tab === 'task' && (task ? (
-        <>
-          <h2>{task.title}</h2>
-          <p className="note">{taskStageLabel(task)}{task.due ? ` · due ${fmtD(task.due)}` : ''} · {user(task.owner).name}</p>
-          {task.description && <p>{task.description}</p>}
-          {(task.checklist || []).map((item) => <p className="note" key={item.id}>{item.done ? 'Done' : 'Open'} · {item.text}</p>)}
-        </>
-      ) : <p className="note">This task isn’t available.</p>)}
-      {tab === 'files' && (files.length ? files.map((m) => (
-        <div className="row" key={m.id}>
-          <span className="row-copy"><b>{m.file?.name || m.text || 'Photo'}</b><span>{fmtT(m.at)}</span></span>
-        </div>
-      )) : <p className="note">Nothing shared in this work group yet.</p>)}
-      {tab === 'members' && (
-        <>
-          <div className="person-line">{members.map((u) => <Avatar key={u.id} person={u} />)}</div>
-          {manage && (
-            <form className="stack" onSubmit={saveName}>
-              <label>Name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} /></label>
-              <button className="primary" type="submit">Rename</button>
-            </form>
-          )}
-          {members.map((u) => (
-            <div className="row" key={u.id}>
-              <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
-              {manage && u.id !== state.userId && <button type="button" className="text-btn" onClick={() => change(u.id, true)}>Remove</button>}
-            </div>
-          ))}
-          {manage && spare.map((u) => (
-            <button type="button" className="row" key={u.id} onClick={() => change(u.id, false)}>
-              <span className="row-copy"><b>{u.name}</b><span>Add · {u.title}</span></span>
-            </button>
-          ))}
-        </>
-      )}
-    </div>
-  );
+  return <Link className={`file-chip ${status}`} to={`/mobile/chats/${threadId}/messages/${m.id}/filing`}>{label}</Link>;
 }
 
 export default function Thread() {
@@ -271,7 +189,6 @@ export default function Thread() {
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [docUrl, setDocUrl] = useState('');
-  const [workTab, setWorkTab] = useState('chat');
   const location = useLocation();
   const [params] = useSearchParams();
   const from = params.get('from');
@@ -283,7 +200,6 @@ export default function Thread() {
 
   useEffect(() => {
     if (threadId) markRead(threadId);
-    setWorkTab('chat');
   }, [threadId, markRead]);
 
   useEffect(() => {
@@ -317,16 +233,6 @@ export default function Thread() {
       <div className="screen">
         <header className="top"><h1>Chat</h1></header>
         <div className="empty"><h3>This chat isn’t available</h3><Link to="/mobile/chats">Back to chats</Link></div>
-      </div>
-    );
-  }
-
-  if (thread.groupType === 'work' && workTab !== 'chat') {
-    return (
-      <div className="screen">
-        <ThreadHeader thread={thread} backTo={backTo} />
-        <WorkSwitch tab={workTab} setTab={setWorkTab} />
-        <WorkPanel thread={thread} tab={workTab} />
       </div>
     );
   }
@@ -514,18 +420,16 @@ export default function Thread() {
   return (
     <div className="screen">
       <ThreadHeader thread={thread} backTo={backTo} />
-      {thread.groupType === 'work' && <WorkSwitch tab={workTab} setTab={setWorkTab} />}
-      {thread.groupType === 'work' && <WorkNote thread={thread} />}
-      {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
-        <Link className="pinbar" to={`/mobile/chats/${thread.id}/work`}>Tasks / Work groups</Link>
-      )}
-      {related.length > 0 && (
+      {(related.length > 0 || (thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work')) && (
         <div className="switcher" role="tablist" aria-label="Conversations in this project">
           {related.map((t) => (
             <Link key={t.id} role="tab" aria-selected={t.id === thread.id} className={t.id === thread.id ? 'on' : ''} to={`/mobile/chats/${t.id}${from ? `?from=${encodeURIComponent(from)}` : ''}`}>
               {audience(t)}
             </Link>
           ))}
+          {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
+            <Link role="tab" aria-selected={false} to={`/mobile/chats/${thread.id}/work`}>Work groups</Link>
+          )}
         </div>
       )}
       {thread.kind === 'internal' && <p className="office-note">{t('officeOnly')}</p>}
@@ -654,7 +558,7 @@ export default function Thread() {
             </Fragment>
           );
         })}
-        {!msgs.length && <div className="empty"><h3>{thread.groupType === 'work' ? 'No messages yet' : 'Say hello'}</h3><p>{thread.groupType === 'work' ? 'Only the people in this work group will see what you send.' : 'Photos and voice notes stay with this project.'}</p></div>}
+        {!msgs.length && <div className="empty"><h3>{thread.groupType === 'work' ? 'No messages yet' : 'Say hello'}</h3>{thread.groupType !== 'work' && <p>Photos and voice notes stay with this project.</p>}</div>}
       </div>
       {staff() && can('thread', 'w') && (() => {
         const last = [...msgs].reverse().find((m) => !m.deleted);

@@ -21,9 +21,9 @@ export function backName(url) {
   return 'Back';
 }
 
-export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, stackTitle = false, footer = null }) {
+export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, stackTitle = false, footer = null, className = '' }) {
   return (
-    <div className="screen">
+    <div className={`screen${className ? ` ${className}` : ''}`}>
       <header className={`top thread-top${sheet ? ' proj-top' : ''}${stackTitle ? ' stack-top' : ''}`}>
         <Link className="icon-btn" to={back} aria-label={backLabel === 'Back' ? 'Back' : `Back to ${backLabel}`}>
           <Icon name="back" />{sheet ? null : <span>{backLabel}</span>}
