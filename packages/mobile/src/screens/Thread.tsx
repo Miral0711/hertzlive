@@ -149,6 +149,8 @@ export default function Thread() {
   const [drawingNo, setDrawingNo] = useState('');
   const [error, setError] = useState('');
   const [showPins, setShowPins] = useState(false);
+  const [showWork, setShowWork] = useState(false);
+  useEffect(() => { setShowWork(false); }, [threadId]);
   const [replyTo, setReplyTo] = useState<any>(null);
   const [menu, setMenu] = useState<any>(null);
   const [forwardMsg, setForwardMsg] = useState<any>(null);
@@ -332,6 +334,8 @@ export default function Thread() {
 
   const msgs: any[] = messagesOf(thread.id);
   const related: any[] = siblings(thread);
+  const inProject = Boolean(thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work');
+  const workGroups = inProject ? svc.threads().filter((t: any) => t.groupType === 'work' && t.projectId === thread.projectId) : [];
   const pinned = msgs.filter((m) => m.decision && !m.deleted);
   const canPin = can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
 
@@ -491,15 +495,43 @@ export default function Thread() {
     <Screen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ThreadHeader thread={thread} backTo={backTo} />
-        {related.length > 0 && (
+        {(related.length > 0 || inProject) && (
           <View style={s.switcher} accessibilityRole="tablist" accessibilityLabel="Conversations in this project">
             {related.map((th) => (
-              <Link key={th.id} to={`/mobile/chats/${th.id}${from ? `?from=${encodeURIComponent(from)}` : ''}`} style={[s.sw, th.id === thread.id && s.swOn]} accessibilityLabel={audience(th)}>
-                <Text style={[s.swText, th.id === thread.id && s.swTextOn]}>{audience(th)}</Text>
-              </Link>
+              th.id === thread.id ? (
+                <Pressable key={th.id} accessibilityRole="tab" accessibilityState={{ selected: !showWork }} onPress={() => setShowWork(false)} style={[s.sw, !showWork && s.swOn]}>
+                  <Text style={[s.swText, !showWork && s.swTextOn]}>{audience(th)}</Text>
+                </Pressable>
+              ) : (
+                <Link key={th.id} to={`/mobile/chats/${th.id}${from ? `?from=${encodeURIComponent(from)}` : ''}`} style={s.sw} accessibilityLabel={audience(th)}>
+                  <Text style={s.swText}>{audience(th)}</Text>
+                </Link>
+              )
             ))}
+            {inProject && (
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: showWork }} onPress={() => setShowWork(true)} style={[s.sw, showWork && s.swOn]}>
+                <Text style={[s.swText, showWork && s.swTextOn]}>Work groups</Text>
+              </Pressable>
+            )}
           </View>
         )}
+        {showWork ? (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+            {workGroups.map((group: any) => (
+              <Link key={group.id} to={`/mobile/chats/${group.id}`} style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line }}>
+                <Text style={{ color: c.ink, fontSize: 16, fontWeight: '600' }}>{group.name}</Text>
+                <Text style={{ color: c.ink3, fontSize: 13 }}>Work group</Text>
+              </Link>
+            ))}
+            {!workGroups.length && (
+              <View style={s.empty}>
+                <Text style={s.emptyH}>No work groups yet</Text>
+                <Text style={s.emptyP}>Work groups for this project open from here.</Text>
+              </View>
+            )}
+          </ScrollView>
+        ) : (
+        <>
         {thread.kind === 'internal' && <Text style={s.office}>{t('officeOnly')}</Text>}
         {pinned.length > 0 && (
           <Pressable style={s.pinbar} onPress={() => setShowPins((v) => !v)} accessibilityRole="button">
@@ -677,6 +709,8 @@ export default function Thread() {
               <Icon name="send" color={c.accentInk} />
             </Pressable>
           </View>
+        )}
+        </>
         )}
         {sheet && (
           <Pressable style={s.back} onPress={() => setSheet(null)} accessibilityRole="none">

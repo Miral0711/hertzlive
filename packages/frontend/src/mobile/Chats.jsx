@@ -9,11 +9,21 @@ import {
 } from './model';
 import { t } from './copy';
 import { Avatar, ThreadAvatar } from './faces';
+import { isProjectAudience, matchesChatFilter, recentChatRows } from '../shared/chatExtras';
+
+const CHAT_FILTERS = [
+  ['all', 'All'],
+  ['unread', 'Unread'],
+  ['projects', 'Projects'],
+  ['people', 'People'],
+  ['groups', 'Groups'],
+];
 
 export default function Chats() {
   useStore();
   const { read, drafts } = useField();
   const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('all');
   const [panel, setPanel] = useState(null);
   const person = me();
   const rows = myThreads();
@@ -31,12 +41,20 @@ export default function Chats() {
     const thread = svc.thread(hit.threadId);
     return thread && !svc.phoneHides(thread.projectId);
   });
-  const groups = [
-    ['Projects', filtered.filter(({ t }) => !['dm', 'group'].includes(t.kind))],
-    ['Groups', filtered.filter(({ t }) => t.kind === 'group')],
-    ['People', filtered.filter(({ t }) => t.kind === 'dm')],
-  ].filter(([, list]) => list.length);
+  const listed = recentChatRows(filtered, {
+    threadOf: (row) => row.t,
+    atOf: (row) => row.last?.at || row.t.lastMessageAt || row.t.createdAt || '',
+  });
+  const visible = listed.filter(({ t }) => {
+    if (!matchesChatFilter(t, filter)) return false;
+    if (filter === 'unread' && projectUnread(t, read, rows) < 1) return false;
+    return true;
+  });
   const canAdd = svc.chatCreatable();
+  const emptyTitle = query ? 'No matches' : filter === 'unread' ? 'No unread chats' : filter === 'projects' ? 'No projects' : filter === 'people' ? 'No people' : filter === 'groups' ? 'No groups' : 'No chats yet';
+  const emptyText = query
+    ? 'Try a word from a message, a project, or a person’s name.'
+    : 'Conversations you belong to will show up here.';
 
   return (
     <div className="screen">
@@ -76,6 +94,11 @@ export default function Chats() {
             aria-label="Search messages, photos, projects"
           />
         </label>
+        <div className="chat-filters" role="group" aria-label="Filter chats">
+          {CHAT_FILTERS.map(([key, label]) => (
+            <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>
+          ))}
+        </div>
         {!state.online && <p className="banner">Your message will send when the network is back.</p>}
         {hits.length > 0 && (
           <section>
@@ -94,18 +117,13 @@ export default function Chats() {
             ))}
           </section>
         )}
-        {groups.map(([name, list]) => (
-          <section key={name}>
-            <h2 className="sect">{name}</h2>
-            {list.map(({ t, last }) => (
-              <ChatRow key={t.id} thread={t} last={last} unread={unreadCount(t.id, read[t.id])} draft={drafts[t.id]} />
-            ))}
-          </section>
+        {visible.map(({ t, last }) => (
+          <ChatRow key={t.projectId && isProjectAudience(t) ? `project:${t.projectId}` : t.id} thread={t} last={last} unread={projectUnread(t, read, rows)} draft={drafts[t.id]} />
         ))}
-        {!filtered.length && !hits.length && (
+        {!visible.length && !hits.length && (
           <div className="empty">
-            <h3>{query ? 'No matches' : 'No chats yet'}</h3>
-            <p>{query ? 'Try a word from a message, a project, or a person’s name.' : 'Conversations you belong to will show up here.'}</p>
+            <h3>{emptyTitle}</h3>
+            <p>{emptyText}</p>
           </div>
         )}
       </div>
@@ -123,7 +141,6 @@ function ChatRow({ thread, last, unread, draft }) {
           <span>{title}</span>
           {(last?.at || thread.lastMessageAt) && <small>{fmtT(last?.at || thread.lastMessageAt)}</small>}
         </b>
-        {thread.kind !== 'dm' && <span className="audience">{audience(thread)}</span>}
         <span className={draft ? 'draft' : ''}>
           {draft ? `Draft: ${draft}` : (
             <>
@@ -138,6 +155,29 @@ function ChatRow({ thread, last, unread, draft }) {
   );
 }
 
+function projectUnread(thread, read, rows) {
+  if (!isProjectAudience(thread)) return unreadCount(thread.id, read[thread.id]);
+  return rows
+    .filter(({ t }) => t.projectId === thread.projectId && isProjectAudience(t))
+    .reduce((n, { t }) => n + unreadCount(t.id, read[t.id]), 0);
+}
+
+function PersonSearch({ value, onChange, label = 'Search people', placeholder = 'Name or role' }) {
+  return (
+    <label className="search">
+      <Icon name="search" />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+        placeholder={placeholder}
+        aria-label={label}
+      />
+    </label>
+  );
+}
+
 function ChatAdd({ panel, onClose }) {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -146,6 +186,7 @@ function ChatAdd({ panel, onClose }) {
   const [picked, setPicked] = useState([]);
   const [groupId, setGroupId] = useState('');
   const [error, setError] = useState('');
+  const [q, setQ] = useState('');
   const projects = svc.projects().filter((p) => p && !svc.phoneHides(p.id));
   const mine = svc.myGroups();
   const group = mine.find((t) => t.id === groupId) || null;
@@ -153,6 +194,9 @@ function ChatAdd({ panel, onClose }) {
     : panel === 'group' ? (groupType === 'project' ? svc.projectChatPeople(projectId) : svc.chatPeople())
       : group ? (group.groupType === 'project' || (!group.groupType && group.projectId) ? svc.projectChatPeople(group.projectId) : svc.chatPeople()).filter((u) => !(group.memberIds || []).includes(u.id))
         : [];
+  const needle = q.trim().toLowerCase();
+  const shownPeople = people.filter((u) => !needle || `${u.name} ${u.title || ''}`.toLowerCase().includes(needle));
+  const shownGroups = mine.filter((t) => !needle || (t.name || '').toLowerCase().includes(needle));
   const title = panel === 'dm' ? 'New chat' : panel === 'group' ? 'Create group' : 'Invite a person';
 
   function toggle(id) {
@@ -190,12 +234,18 @@ function ChatAdd({ panel, onClose }) {
       <div className="sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <h2>{title}</h2>
         {error ? <p className="warn-text">{error}</p> : null}
-        {panel === 'dm' && people.map((u) => (
-          <button type="button" className="row" key={u.id} onClick={() => start(u.id)}>
-            <Avatar person={u} />
-            <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
-          </button>
-        ))}
+        {panel === 'dm' && (
+          <>
+            <PersonSearch value={q} onChange={setQ} />
+            {shownPeople.map((u) => (
+              <button type="button" className="row" key={u.id} onClick={() => start(u.id)}>
+                <Avatar person={u} />
+                <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
+              </button>
+            ))}
+            {people.length > 0 && !shownPeople.length && <p className="note">No matches.</p>}
+          </>
+        )}
         {panel === 'group' && (
           <form className="stack" onSubmit={create}>
             <label>Group name<input value={name} onChange={(e) => setName(e.target.value)} aria-label="Group name" /></label>
@@ -212,7 +262,8 @@ function ChatAdd({ panel, onClose }) {
               </label>
             )}
             <p className="help">{groupType === 'project' ? 'People already on this project.' : 'People in the studio.'}</p>
-            {people.map((u) => (
+            <PersonSearch value={q} onChange={setQ} />
+            {shownPeople.map((u) => (
               <button type="button" key={u.id} className={`row ${picked.includes(u.id) ? 'picked' : ''}`} onClick={() => toggle(u.id)}>
                 <Avatar person={u} />
                 <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
@@ -220,24 +271,37 @@ function ChatAdd({ panel, onClose }) {
               </button>
             ))}
             {!people.length && <p className="note">{groupType === 'project' && !projectId ? 'Choose a project first.' : 'No one else is available.'}</p>}
+            {people.length > 0 && !shownPeople.length && <p className="note">No matches.</p>}
             <button className="primary" type="submit">Create group</button>
           </form>
         )}
         {panel === 'invite' && !group && (
-          mine.length ? mine.map((t) => (
-            <button type="button" className="row" key={t.id} onClick={() => { setGroupId(t.id); setError(''); }}>
-              <ThreadAvatar thread={t} />
-              <span className="row-copy"><b>{t.name}</b><span>{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</span></span>
-            </button>
-          )) : <p className="note">Create a group first.</p>
+          mine.length ? (
+            <>
+              <PersonSearch value={q} onChange={setQ} label="Search groups" placeholder="Group name" />
+              {shownGroups.map((t) => (
+                <button type="button" className="row" key={t.id} onClick={() => { setGroupId(t.id); setQ(''); setError(''); }}>
+                  <ThreadAvatar thread={t} />
+                  <span className="row-copy"><b>{t.name}</b><span>{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</span></span>
+                </button>
+              ))}
+              {!shownGroups.length && <p className="note">No matches.</p>}
+            </>
+          ) : <p className="note">Create a group first.</p>
         )}
         {panel === 'invite' && group && (
-          people.length ? people.map((u) => (
-            <button type="button" className="row" key={u.id} onClick={() => invite(u.id)}>
-              <Avatar person={u} />
-              <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
-            </button>
-          )) : <p className="note">Everyone available is already in this group.</p>
+          people.length ? (
+            <>
+              <PersonSearch value={q} onChange={setQ} />
+              {shownPeople.map((u) => (
+                <button type="button" className="row" key={u.id} onClick={() => invite(u.id)}>
+                  <Avatar person={u} />
+                  <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
+                </button>
+              ))}
+              {!shownPeople.length && <p className="note">No matches.</p>}
+            </>
+          ) : <p className="note">Everyone available is already in this group.</p>
         )}
       </div>
     </div>

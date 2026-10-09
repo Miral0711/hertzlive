@@ -13,11 +13,21 @@ import { fmtD } from '../../../frontend/src/shared/core';
 import { filingRules } from '../../../frontend/src/shared/filing';
 import { ANNOUNCEMENTS } from '../../../frontend/src/desktop/data';
 import { openExternal } from '../platform/router';
+import { isProjectAudience, matchesChatFilter, recentChatRows } from '../../../frontend/src/shared/chatExtras';
+
+const CHAT_FILTERS = [
+  ['all', 'All'],
+  ['unread', 'Unread'],
+  ['projects', 'Projects'],
+  ['people', 'People'],
+  ['groups', 'Groups'],
+];
 
 export default function Chats() {
   useStore();
   const { read, drafts } = useField();
   const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('all');
   const [panel, setPanel] = useState<string | null>(null);
   const { c } = useTheme();
   const person = me();
@@ -36,11 +46,16 @@ export default function Chats() {
     const thread = svc.thread(hit.threadId);
     return thread && !svc.phoneHides(thread.projectId);
   });
-  const groups = ([
-    ['Projects', filtered.filter(({ t: th }: any) => !['dm', 'group'].includes(th.kind))],
-    ['Groups', filtered.filter(({ t: th }: any) => th.kind === 'group')],
-    ['People', filtered.filter(({ t: th }: any) => th.kind === 'dm')],
-  ] as [string, any[]][]).filter(([, list]) => list.length);
+  const listed = recentChatRows(filtered, {
+    threadOf: (row: any) => row.t,
+    atOf: (row: any) => row.last?.at || row.t.lastMessageAt || row.t.createdAt || '',
+  });
+  const visible = listed.filter(({ t: th }: any) => {
+    if (!matchesChatFilter(th, filter)) return false;
+    if (filter === 'unread' && projectUnread(th, read, rows) < 1) return false;
+    return true;
+  });
+  const emptyTitle = query ? 'No matches' : filter === 'unread' ? 'No unread chats' : filter === 'projects' ? 'No projects' : filter === 'people' ? 'No people' : filter === 'groups' ? 'No groups' : 'No chats yet';
 
   const s = useStyles((c, th) => ({
     h1: { fontSize: 22, fontWeight: '600', color: c.ink },
@@ -49,6 +64,11 @@ export default function Chats() {
     input: { flex: 1, color: c.ink, fontSize: 16, paddingVertical: 8 },
     banner: { marginHorizontal: 14, marginVertical: 6, padding: 10, borderRadius: th.radius.r1, backgroundColor: c.warnSoft, color: c.warn },
     sect: { fontSize: 13, fontWeight: '600', color: c.ink3, textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4 },
+    filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 8 },
+    chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: c.surface2 },
+    chipOn: { backgroundColor: c.accent },
+    chipText: { fontSize: 13, fontWeight: '600', color: c.ink2 },
+    chipTextOn: { color: c.accentInk },
     empty: { padding: 32, alignItems: 'center' },
     emptyH: { fontSize: 17, fontWeight: '600', color: c.ink, marginBottom: 6 },
     emptyP: { color: c.ink3, textAlign: 'center' },
@@ -78,6 +98,13 @@ export default function Chats() {
             placeholder="Search messages, photos, projects" accessibilityLabel="Search messages, photos, projects"
           />
         </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
+          {CHAT_FILTERS.map(([key, label]) => (
+            <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: filter === key }} onPress={() => setFilter(key)} style={[s.chip, filter === key && s.chipOn]}>
+              <Text style={filter === key ? s.chipTextOn : s.chipText}>{label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
         {!state.online && <Text style={s.banner}>Your message will send when the network is back.</Text>}
         {hits.length > 0 && (
           <View>
@@ -91,18 +118,13 @@ export default function Chats() {
             ))}
           </View>
         )}
-        {groups.map(([name, list]) => (
-          <View key={name}>
-            <Text style={s.sect}>{name}</Text>
-            {list.map(({ t: th, last }: any) => (
-              <ChatRow key={th.id} thread={th} last={last} unread={unreadCount(th.id, read[th.id])} draft={drafts[th.id]} />
-            ))}
-          </View>
+        {visible.map(({ t: th, last }: any) => (
+          <ChatRow key={th.projectId && isProjectAudience(th) ? `project:${th.projectId}` : th.id} thread={th} last={last} unread={projectUnread(th, read, rows)} draft={drafts[th.id]} />
         ))}
         <FilingDesk />
-        {!filtered.length && !hits.length && (
+        {!visible.length && !hits.length && (
           <View style={s.empty}>
-            <Text style={s.emptyH}>{query ? 'No matches' : 'No chats yet'}</Text>
+            <Text style={s.emptyH}>{emptyTitle}</Text>
             <Text style={s.emptyP}>{query ? 'Try a word from a message, a project, or a person’s name.' : 'Conversations you belong to will show up here.'}</Text>
           </View>
         )}
@@ -121,6 +143,7 @@ function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
   const [picked, setPicked] = useState<string[]>([]);
   const [groupId, setGroupId] = useState('');
   const [error, setError] = useState('');
+  const [q, setQ] = useState('');
   const projects = svc.projects().filter((p: any) => p && !svc.phoneHides(p.id));
   const mine = svc.myGroups();
   const group = mine.find((t: any) => t.id === groupId) || null;
@@ -128,6 +151,9 @@ function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
     : step === 'group' ? (groupType === 'project' ? svc.projectChatPeople(projectId) : svc.chatPeople())
       : group ? (group.groupType === 'project' || (!group.groupType && group.projectId) ? svc.projectChatPeople(group.projectId) : svc.chatPeople()).filter((u: any) => !(group.memberIds || []).includes(u.id))
         : [];
+  const needle = q.trim().toLowerCase();
+  const shownPeople = people.filter((u: any) => !needle || `${u.name} ${u.title || ''}`.toLowerCase().includes(needle));
+  const shownGroups = mine.filter((t: any) => !needle || (t.name || '').toLowerCase().includes(needle));
   const title = step === 'dm' ? 'New chat' : step === 'group' ? 'Create group' : step === 'invite' ? 'Invite a person' : 'New';
   const s = useStyles((c) => ({
     back: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,30,41,0.4)' },
@@ -160,17 +186,23 @@ function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
           <ScrollView>
             {step === 'menu' && (
               <>
-                <Pressable onPress={() => setStep('dm')}><Text style={s.name}>New chat</Text></Pressable>
-                <Pressable onPress={() => setStep('group')} style={{ marginTop: 16 }}><Text style={s.name}>Create group</Text></Pressable>
-                <Pressable onPress={() => setStep('invite')} style={{ marginTop: 16 }}><Text style={s.name}>Invite a person</Text></Pressable>
+                <Pressable onPress={() => { setQ(''); setStep('dm'); }}><Text style={s.name}>New chat</Text></Pressable>
+                <Pressable onPress={() => { setQ(''); setStep('group'); }} style={{ marginTop: 16 }}><Text style={s.name}>Create group</Text></Pressable>
+                <Pressable onPress={() => { setQ(''); setStep('invite'); }} style={{ marginTop: 16 }}><Text style={s.name}>Invite a person</Text></Pressable>
               </>
             )}
-            {step === 'dm' && people.map((u: any) => (
-              <Pressable key={u.id} style={s.row} onPress={() => { try { open(svc.openDirectChat(u.id)); } catch (e: any) { setError(e.message); } }}>
-                <Avatar person={u} size="sm" />
-                <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
-              </Pressable>
-            ))}
+            {step === 'dm' && (
+              <>
+                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Name or role" accessibilityLabel="Search people" autoCapitalize="none" />
+                {shownPeople.map((u: any) => (
+                  <Pressable key={u.id} style={s.row} onPress={() => { try { open(svc.openDirectChat(u.id)); } catch (e: any) { setError(e.message); } }}>
+                    <Avatar person={u} size="sm" />
+                    <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
+                  </Pressable>
+                ))}
+                {people.length > 0 && !shownPeople.length && <Text style={s.note}>No matches.</Text>}
+              </>
+            )}
             {step === 'group' && (
               <View>
                 <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Group name" accessibilityLabel="Group name" />
@@ -188,7 +220,8 @@ function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
                   </View>
                 )}
                 <Text style={s.note}>{groupType === 'project' ? 'People already on this project.' : 'People in the studio.'}</Text>
-                {people.map((u: any) => {
+                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Name or role" accessibilityLabel="Search people" autoCapitalize="none" />
+                {shownPeople.map((u: any) => {
                   const on = picked.includes(u.id);
                   return (
                     <Pressable key={u.id} style={s.row} onPress={() => setPicked((ids) => on ? ids.filter((id) => id !== u.id) : [...ids, u.id])}>
@@ -198,28 +231,48 @@ function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
                     </Pressable>
                   );
                 })}
+                {people.length > 0 && !shownPeople.length && <Text style={s.note}>No matches.</Text>}
                 <Pressable style={s.go} onPress={() => { try { open(svc.createGroup({ name, groupType, projectId, memberIds: picked })); } catch (e: any) { setError(e.message); } }}>
                   <Text style={s.goText}>Create group</Text>
                 </Pressable>
               </View>
             )}
-            {step === 'invite' && !group && (mine.length ? mine.map((t: any) => (
-              <Pressable key={t.id} style={s.row} onPress={() => { setGroupId(t.id); setError(''); }}>
-                <ThreadAvatar thread={t} size="sm" />
-                <View style={{ flex: 1 }}><Text style={s.name}>{t.name}</Text><Text style={s.sub}>{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</Text></View>
-              </Pressable>
-            )) : <Text style={s.note}>Create a group first.</Text>)}
-            {step === 'invite' && group && (people.length ? people.map((u: any) => (
-              <Pressable key={u.id} style={s.row} onPress={() => { try { open(svc.inviteToGroup(groupId, u.id)); } catch (e: any) { setError(e.message); } }}>
-                <Avatar person={u} size="sm" />
-                <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
-              </Pressable>
-            )) : <Text style={s.note}>Everyone available is already in this group.</Text>)}
+            {step === 'invite' && !group && (mine.length ? (
+              <>
+                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Group name" accessibilityLabel="Search groups" autoCapitalize="none" />
+                {shownGroups.map((t: any) => (
+                  <Pressable key={t.id} style={s.row} onPress={() => { setGroupId(t.id); setQ(''); setError(''); }}>
+                    <ThreadAvatar thread={t} size="sm" />
+                    <View style={{ flex: 1 }}><Text style={s.name}>{t.name}</Text><Text style={s.sub}>{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</Text></View>
+                  </Pressable>
+                ))}
+                {!shownGroups.length && <Text style={s.note}>No matches.</Text>}
+              </>
+            ) : <Text style={s.note}>Create a group first.</Text>)}
+            {step === 'invite' && group && (people.length ? (
+              <>
+                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Name or role" accessibilityLabel="Search people" autoCapitalize="none" />
+                {shownPeople.map((u: any) => (
+                  <Pressable key={u.id} style={s.row} onPress={() => { try { open(svc.inviteToGroup(groupId, u.id)); } catch (e: any) { setError(e.message); } }}>
+                    <Avatar person={u} size="sm" />
+                    <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
+                  </Pressable>
+                ))}
+                {!shownPeople.length && <Text style={s.note}>No matches.</Text>}
+              </>
+            ) : <Text style={s.note}>Everyone available is already in this group.</Text>)}
           </ScrollView>
         </View>
       </Pressable>
     </Modal>
   );
+}
+
+function projectUnread(thread: any, read: Record<string, string>, rows: any[]) {
+  if (!isProjectAudience(thread)) return unreadCount(thread.id, read[thread.id]);
+  return rows
+    .filter(({ t }) => t.projectId === thread.projectId && isProjectAudience(t))
+    .reduce((n, { t }) => n + unreadCount(t.id, read[t.id]), 0);
 }
 
 function FilingDesk() {
@@ -270,7 +323,6 @@ function ChatRow({ thread, last, unread, draft }: { thread: any; last: any; unre
     head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
     title: { color: c.ink, fontSize: 16, fontWeight: unread ? '700' : '600', flexShrink: 1 },
     time: { color: c.ink3, fontSize: 12 },
-    aud: { color: c.accentText, fontSize: 12 },
     prev: { color: c.ink2, fontSize: 14 },
     draft: { color: c.crit },
     count: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
@@ -284,7 +336,6 @@ function ChatRow({ thread, last, unread, draft }: { thread: any; last: any; unre
           <Text style={s.title} numberOfLines={1}>{title}</Text>
           {last && <Text style={s.time}>{fmtT(last.at)}</Text>}
         </View>
-        {thread.kind !== 'dm' && <Text style={s.aud}>{audience(thread)}</Text>}
         <Text style={[s.prev, draft ? s.draft : null]} numberOfLines={1}>
           {draft ? `Draft: ${draft}` : `${last && last.by && thread.kind !== 'dm' ? `${firstName(last.by)}: ` : ''}${preview(last)}`}
         </Text>

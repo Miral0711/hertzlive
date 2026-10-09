@@ -6,7 +6,7 @@ import {
   state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment, can, go, user, taskStageLabel,
 } from '../../shared/core.js';
 import '../../shared/filing.js';
-import { QUICK_REPLIES, receiptFor, hiddenFrom } from '../../shared/chatExtras.js';
+import { QUICK_REPLIES, receiptFor, hiddenFrom, isProjectAudience, matchesChatFilter, recentChatRows } from '../../shared/chatExtras.js';
 import { Btn, Pill, Dropdown, DropdownItem } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import { P, first, name, role, staff } from '../helpers';
@@ -110,20 +110,48 @@ function listPreview(thread, last) {
   return { kind: 'text', text: body };
 }
 
+const CHAT_FILTERS = [['all', 'All'], ['unread', 'Unread'], ['projects', 'Projects'], ['people', 'People'], ['groups', 'Groups']];
+
+function listTitle(t) {
+  if (isProjectAudience(t)) return P(t.projectId)?.name || t.name;
+  return t.name;
+}
+
+function threadLast(t) {
+  return [...svc.messages(t.id)]
+    .filter((m) => !hiddenFrom(m, state.userId))
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    .at(-1) || null;
+}
+
+function listStamp(t) {
+  return threadLast(t)?.at || t.lastMessageAt || t.createdAt || '';
+}
+
+function listUnread(thread, source) {
+  if (!isProjectAudience(thread)) return unreadCount(thread.id);
+  return source
+    .filter((t) => t.projectId === thread.projectId && isProjectAudience(t))
+    .reduce((n, t) => n + unreadCount(t.id), 0);
+}
+
 export function ConversationList({ threads, filterable = false, footer = null }) {
   useDraftTick();
   const [q, setQ] = useState('');
-  const filter = filterable ? (state.desk.chatFilter || 'all') : 'all';
+  const filter = filterable ? (CHAT_FILTERS.some(([k]) => k === state.desk.chatFilter) ? state.desk.chatFilter : 'all') : 'all';
   const needle = q.trim().toLowerCase();
-  const rows = threads
-    .filter((t) => filter !== 'unread' || unreadCount(t.id))
-    .filter((t) => filter !== 'groups' || t.kind !== 'dm')
-    .filter((t) => !needle || t.name.toLowerCase().includes(needle) || svc.messages(t.id).some((m) => conversationPreview(m).toLowerCase().includes(needle)));
+  const listed = recentChatRows(threads, { atOf: listStamp });
+  const rows = listed
+    .filter((t) => matchesChatFilter(t, filter))
+    .filter((t) => filter !== 'unread' || listUnread(t, threads) > 0)
+    .filter((t) => !needle || listTitle(t).toLowerCase().includes(needle) || t.name.toLowerCase().includes(needle) || svc.messages(t.id).some((m) => conversationPreview(m).toLowerCase().includes(needle)));
   const setFilter = (v) => { state.desk.chatFilter = v; render(); };
   const empty = needle ? 'No conversations match your search.'
     : filter === 'unread' ? 'No unread conversations.'
-      : filter === 'groups' ? 'No group conversations.'
-        : 'No conversations available for your role.';
+      : filter === 'projects' ? 'No project conversations.'
+        : filter === 'people' ? 'No people conversations.'
+          : filter === 'groups' ? 'No group conversations.'
+            : 'No conversations available for your role.';
   return (
     <>
       {filterable && (
@@ -139,8 +167,8 @@ export function ConversationList({ threads, filterable = false, footer = null })
               className="min-h-9 w-full rounded-full border-0 bg-surface-2 py-2 pl-9 pr-3 text-ink placeholder:text-ink-3 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft"
             />
           </label>
-          <div role="group" aria-label="Filter conversations" className="mt-2 flex gap-2">
-            {[['all', 'All'], ['unread', 'Unread'], ['groups', 'Groups']].map(([k, l]) => (
+          <div role="group" aria-label="Filter conversations" className="mt-2 flex gap-2 overflow-x-auto">
+            {CHAT_FILTERS.map(([k, l]) => (
               <button
                 key={k}
                 type="button"
@@ -168,8 +196,8 @@ export function ConversationList({ threads, filterable = false, footer = null })
           </button>
         ))}
         {rows.map((t) => {
-          const last = [...svc.messages(t.id)].filter((m) => !hiddenFrom(m, state.userId)).at(-1);
-          const unread = unreadCount(t.id);
+          const last = threadLast(t);
+          const unread = listUnread(t, threads);
           const preview = listPreview(t, last);
           const current = t.id === state.desk.thread && !state.desk.chatList;
           return (
@@ -185,10 +213,9 @@ export function ConversationList({ threads, filterable = false, footer = null })
               <span className="flex min-w-0 flex-1 items-center border-b border-line py-3 group-last:border-b-0">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
-                    <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{t.name}</b>
+                    <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{listTitle(t)}</b>
                     <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at || t.lastMessageAt, true)}</time>
                   </span>
-                  {t.kind !== 'dm' && <span className="block truncate text-[12px] text-accent-text">{t.groupType === 'work' ? `${P(t.projectId)?.name || 'Project'} · Work group` : (KIND_LABEL[t.kind] || 'Group')}</span>}
                   <span className="mt-0.5 flex items-center gap-2">
                     <span className={`flex min-w-0 flex-1 items-center gap-1 text-[14px] leading-5 ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
                       {preview.kind === 'mine' && <Icon name="checkcheck" small className="text-ink-3" />}
@@ -607,7 +634,7 @@ const contextLine = (t) => {
 };
 function WorkGroupList({ thread }) {
   const tasks = svc.tasks({ projectId: thread.projectId, all: true });
-  const groups = svc.workGroupsFor(thread.id);
+  const groups = svc.threads().filter((t) => t.groupType === 'work' && t.projectId === thread.projectId);
   const openTasks = tasks.filter((item) => !svc.workGroupForTask(item.id));
   return (
     <div className="min-h-0 flex-1 overflow-auto bg-ground px-3 py-3">

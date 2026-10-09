@@ -76,3 +76,44 @@ export function siteHasSuggestion(r) {
 export function hiddenFrom(message, userId) {
   return (message?.hiddenFor || []).includes(userId);
 }
+
+const PROJECT_AUDIENCE = ['client', 'internal', 'site'];
+
+export function isProjectAudience(thread) {
+  return PROJECT_AUDIENCE.includes(thread?.kind);
+}
+
+export function isWorkGroup(thread) {
+  return thread?.groupType === 'work';
+}
+
+// One recent row per person, custom group, and project. Client, office, and site
+// chats fold into that project's latest thread. Work groups open from inside it.
+export function recentChatRows(rows, { threadOf, atOf } = {}) {
+  const threadOfRow = threadOf || ((row) => row.thread || row.t || row);
+  const atOfRow = atOf || ((row) => row.at || '');
+  const projects = new Map();
+  const rest = [];
+  rows.forEach((row) => {
+    const thread = threadOfRow(row);
+    if (!thread || isWorkGroup(thread)) return;
+    const stamp = String(atOfRow(row) || '');
+    if (isProjectAudience(thread) && thread.projectId) {
+      const prev = projects.get(thread.projectId);
+      if (!prev || stamp.localeCompare(prev.stamp) > 0) projects.set(thread.projectId, { row, stamp });
+      return;
+    }
+    rest.push({ row, stamp });
+  });
+  return [...projects.values(), ...rest]
+    .sort((a, b) => b.stamp.localeCompare(a.stamp))
+    .map((item) => item.row);
+}
+
+export function matchesChatFilter(thread, filter) {
+  if (!filter || filter === 'all' || filter === 'unread') return true;
+  if (filter === 'projects') return isProjectAudience(thread);
+  if (filter === 'people') return thread?.kind === 'dm';
+  if (filter === 'groups') return thread?.kind === 'group' && !isWorkGroup(thread);
+  return true;
+}

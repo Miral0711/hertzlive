@@ -596,6 +596,14 @@ export function SiteCompose({ thread, what, label, onCancel, onPhoto, onSend, on
   );
 }
 
+function PeopleSearch({ value, onChange, label = 'Search people', placeholder = 'Name or role' }) {
+  return (
+    <Field label={label}>
+      <Input value={value} aria-label={label} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    </Field>
+  );
+}
+
 export function ChatStartDialog({ onClose, onOpen }) {
   const [step, setStep] = useState('menu');
   const [name, setName] = useState('');
@@ -604,6 +612,7 @@ export function ChatStartDialog({ onClose, onOpen }) {
   const [picked, setPicked] = useState([]);
   const [groupId, setGroupId] = useState('');
   const [error, setError] = useState('');
+  const [q, setQ] = useState('');
   const projects = svc.projects().filter((p) => p && !svc.phoneHides(p.id));
   const mine = svc.myGroups();
   const group = mine.find((t) => t.id === groupId) || null;
@@ -611,6 +620,9 @@ export function ChatStartDialog({ onClose, onOpen }) {
     : step === 'group' ? (groupType === 'project' ? svc.projectChatPeople(projectId) : svc.chatPeople())
       : group ? (group.groupType === 'project' || (!group.groupType && group.projectId) ? svc.projectChatPeople(group.projectId) : svc.chatPeople()).filter((u) => !(group.memberIds || []).includes(u.id))
         : [];
+  const needle = q.trim().toLowerCase();
+  const shownPeople = people.filter((u) => !needle || `${u.name} ${u.title || ''}`.toLowerCase().includes(needle));
+  const shownGroups = mine.filter((t) => !needle || (t.name || '').toLowerCase().includes(needle));
   const title = step === 'dm' ? 'New chat' : step === 'group' ? 'Create group' : step === 'invite' ? 'Invite a person' : 'New';
   function go(thread) { onOpen(thread.id); }
   function start(userId) {
@@ -633,17 +645,23 @@ export function ChatStartDialog({ onClose, onOpen }) {
       {error && <p className="mb-3 text-sm font-semibold text-crit" role="alert">{error}</p>}
       {step === 'menu' && (
         <div className="flex flex-col gap-2">
-          <Btn onClick={() => setStep('dm')}>New chat</Btn>
-          <Btn onClick={() => setStep('group')}>Create group</Btn>
-          <Btn onClick={() => setStep('invite')}>Invite a person</Btn>
+          <Btn onClick={() => { setQ(''); setStep('dm'); }}>New chat</Btn>
+          <Btn onClick={() => { setQ(''); setStep('group'); }}>Create group</Btn>
+          <Btn onClick={() => { setQ(''); setStep('invite'); }}>Invite a person</Btn>
         </div>
       )}
-      {step === 'dm' && people.map((u) => (
-        <button type="button" key={u.id} className="flex w-full items-center gap-3 border-0 border-b border-line bg-transparent px-1 py-2 text-left" onClick={() => start(u.id)}>
-          <PersonAvatar person={u} size="sm" />
-          <span className="min-w-0"><b className="block truncate">{u.name}</b><span className="block truncate text-[13px] text-ink-3">{u.title}</span></span>
-        </button>
-      ))}
+      {step === 'dm' && (
+        <>
+          <PeopleSearch value={q} onChange={setQ} />
+          {shownPeople.map((u) => (
+            <button type="button" key={u.id} className="flex w-full items-center gap-3 border-0 border-b border-line bg-transparent px-1 py-2 text-left" onClick={() => start(u.id)}>
+              <PersonAvatar person={u} size="sm" />
+              <span className="min-w-0"><b className="block truncate">{u.name}</b><span className="block truncate text-[13px] text-ink-3">{u.title}</span></span>
+            </button>
+          ))}
+          {people.length > 0 && !shownPeople.length && <Empty compact>No matches.</Empty>}
+        </>
+      )}
       {step === 'group' && (
         <div className="flex flex-col gap-3">
           <Field label="Group name"><Input value={name} aria-label="Group name" onChange={(e) => setName(e.target.value)} /></Field>
@@ -660,8 +678,9 @@ export function ChatStartDialog({ onClose, onOpen }) {
             </Field>
           )}
           <p className="m-0 text-[13px] text-ink-3">{groupType === 'project' ? 'People already on this project.' : 'People in the studio.'}</p>
+          <PeopleSearch value={q} onChange={setQ} />
           <div className="max-h-64 overflow-auto">
-            {people.map((u) => {
+            {shownPeople.map((u) => {
               const on = picked.includes(u.id);
               return (
                 <button type="button" key={u.id} aria-pressed={on} className={`flex w-full items-center gap-3 border-0 border-b border-line px-1 py-2 text-left ${on ? 'bg-accent-soft' : 'bg-transparent'}`} onClick={() => setPicked((ids) => on ? ids.filter((id) => id !== u.id) : [...ids, u.id])}>
@@ -672,6 +691,7 @@ export function ChatStartDialog({ onClose, onOpen }) {
               );
             })}
             {!people.length && <Empty compact>{groupType === 'project' && !projectId ? 'Choose a project first.' : 'No one else is available.'}</Empty>}
+            {people.length > 0 && !shownPeople.length && <Empty compact>No matches.</Empty>}
           </div>
           <ModalActions>
             <Btn onClick={() => { setStep('menu'); setError(''); }}>Back</Btn>
@@ -680,23 +700,35 @@ export function ChatStartDialog({ onClose, onOpen }) {
         </div>
       )}
       {step === 'invite' && !group && (
-        mine.length ? mine.map((t) => (
-          <button type="button" key={t.id} className="flex w-full items-center gap-3 border-0 border-b border-line bg-transparent px-1 py-2 text-left" onClick={() => { setGroupId(t.id); setError(''); }}>
-            <ThreadAvatar thread={t} size="sm" />
-            <span className="min-w-0"><b className="block truncate">{t.name}</b><span className="block truncate text-[13px] text-ink-3">{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</span></span>
-          </button>
-        )) : <Empty compact>Create a group first.</Empty>
+        mine.length ? (
+          <>
+            <PeopleSearch value={q} onChange={setQ} label="Search groups" placeholder="Group name" />
+            {shownGroups.map((t) => (
+              <button type="button" key={t.id} className="flex w-full items-center gap-3 border-0 border-b border-line bg-transparent px-1 py-2 text-left" onClick={() => { setGroupId(t.id); setQ(''); setError(''); }}>
+                <ThreadAvatar thread={t} size="sm" />
+                <span className="min-w-0"><b className="block truncate">{t.name}</b><span className="block truncate text-[13px] text-ink-3">{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</span></span>
+              </button>
+            ))}
+            {!shownGroups.length && <Empty compact>No matches.</Empty>}
+          </>
+        ) : <Empty compact>Create a group first.</Empty>
       )}
       {step === 'invite' && group && (
-        people.length ? people.map((u) => (
-          <button type="button" key={u.id} className="flex w-full items-center gap-3 border-0 border-b border-line bg-transparent px-1 py-2 text-left" onClick={() => invite(u.id)}>
-            <PersonAvatar person={u} size="sm" />
-            <span className="min-w-0"><b className="block truncate">{u.name}</b><span className="block truncate text-[13px] text-ink-3">{u.title}</span></span>
-          </button>
-        )) : <Empty compact>Everyone available is already in this group.</Empty>
+        people.length ? (
+          <>
+            <PeopleSearch value={q} onChange={setQ} />
+            {shownPeople.map((u) => (
+              <button type="button" key={u.id} className="flex w-full items-center gap-3 border-0 border-b border-line bg-transparent px-1 py-2 text-left" onClick={() => invite(u.id)}>
+                <PersonAvatar person={u} size="sm" />
+                <span className="min-w-0"><b className="block truncate">{u.name}</b><span className="block truncate text-[13px] text-ink-3">{u.title}</span></span>
+              </button>
+            ))}
+            {!shownPeople.length && <Empty compact>No matches.</Empty>}
+          </>
+        ) : <Empty compact>Everyone available is already in this group.</Empty>
       )}
       {step !== 'menu' && step !== 'group' && (
-        <ModalActions><Btn onClick={() => { setStep(step === 'invite' && group ? 'invite' : 'menu'); if (step === 'invite' && group) setGroupId(''); setError(''); }}>Back</Btn></ModalActions>
+        <ModalActions><Btn onClick={() => { setQ(''); setStep(step === 'invite' && group ? 'invite' : 'menu'); if (step === 'invite' && group) setGroupId(''); setError(''); }}>Back</Btn></ModalActions>
       )}
     </Modal>
   );

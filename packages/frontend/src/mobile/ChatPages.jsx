@@ -222,7 +222,7 @@ export function WorkGroups() {
   const people = parent ? svc.workMembers(parent.id).filter((u) => u.id !== state.userId) : [];
   const chosen = people.filter((u) => picked.includes(u.id));
   const existing = task ? svc.workGroupForTask(task.id) : null;
-  const groups = parent ? svc.workGroupsFor(parent.id) : [];
+  const groups = parent ? svc.threads().filter((t) => t.groupType === 'work' && t.projectId === parent.projectId) : [];
   const openTasks = tasks.filter((item) => !svc.workGroupForTask(item.id));
   useEffect(() => {
     const preset = params.get('task');
