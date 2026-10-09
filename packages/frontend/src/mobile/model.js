@@ -1,4 +1,4 @@
-import { state, svc, user, me, can, fmtT, fmtD, fmtDT, uid, persist } from '../shared/core';
+import { state, svc, user, me, can, fmtT, fmtD, fmtDT, uid, persist, taskStageLabel } from '../shared/core';
 import { render } from '../shared/store';
 import { NOTIFICATIONS } from '../shared/data2';
 import { FILE_KINDS, ROOM_WORDS } from '../shared/filing';
@@ -15,6 +15,7 @@ export const firstName = (id) => (user(id).name || 'Someone').split(' ')[0];
 
 export const audience = (thread) => {
   if (!thread) return t('chat');
+  if (thread.groupType === 'work') return `${projectName(thread.projectId)} · Work group`;
   if (thread.kind === 'dm') {
     const other = (thread.memberIds || []).find((id) => id !== state.userId);
     return other ? (user(other).title || t('chat')) : t('chat');
@@ -96,15 +97,19 @@ export function postMessage(threadId, fields) {
   const thread = svc.thread(threadId);
   if (!can('thread', 'w') || !thread || !onPhone(thread.projectId)) return null;
   const id = uid();
+  const at = stamp();
+  const prevStamp = thread.lastMessageAt;
   state.db.MESSAGES.push({
     id,
     threadId,
     by: state.userId,
-    at: stamp(),
+    at,
     ...fields,
   });
+  if (thread.groupType === 'work') thread.lastMessageAt = at;
   if (!persist()) {
     state.db.MESSAGES.pop();
+    if (thread.groupType === 'work') thread.lastMessageAt = prevStamp;
     return null;
   }
   render();
@@ -416,4 +421,4 @@ export function photoItems(projectId) {
     .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
 }
 
-export { me, can, user, fmtT, fmtD, fmtDT, state, svc, TODAY, persist, render, uid };
+export { me, can, user, fmtT, fmtD, fmtDT, state, svc, TODAY, persist, render, uid, taskStageLabel };

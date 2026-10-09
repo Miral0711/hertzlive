@@ -5,7 +5,7 @@ import { Page, Note, Swatch, backName } from './frame';
 import Icon from './Icon';
 import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
-  toggleReaction, deleteMessage, hideMessage, toggleDecision, editMessage, can, myThreads, preview,
+  toggleReaction, deleteMessage, hideMessage, toggleDecision, editMessage, can, myThreads, preview, taskStageLabel,
 } from './model';
 import { FILE_KINDS, filingLabel } from '../shared/filing';
 import { REACTIONS, siteHasSuggestion } from '../shared/chatExtras';
@@ -142,6 +142,25 @@ export function GroupInfo() {
           </div>
         </Link>
       ))}
+      {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
+        <>
+          <h2 className="sect">Tasks / Work groups</h2>
+          <p className="note">A work group is only for the people you choose. The rest of this group will not see it.</p>
+          <Link className="primary" to={`/mobile/chats/${thread.id}/work`}>Create Work Group</Link>
+          {svc.tasks({ projectId: thread.projectId, all: true }).map((task) => {
+            const existing = svc.workGroupForTask(task.id);
+            const taken = !existing && svc.workGroupRecord(task.id);
+            const to = existing ? `/mobile/chats/${existing.id}` : taken ? null : `/mobile/chats/${thread.id}/work?task=${task.id}`;
+            const body = (
+              <>
+                <span className="row-copy"><b>{task.title}</b><span>{taskStageLabel(task)}{existing ? ' · Open work group' : taken ? ' · Already has a work group' : ''}</span></span>
+              </>
+            );
+            return to ? <Link className="row" key={task.id} to={to}>{body}</Link> : <div className="row" key={task.id}>{body}</div>;
+          })}
+          {!svc.tasks({ projectId: thread.projectId, all: true }).length && <p className="note">No tasks on this project.</p>}
+        </>
+      )}
       <h2 className="sect">Options</h2>
       <button type="button" className="day-row" onClick={() => {
         svc.setChatMuted(threadId, !muted);
@@ -170,6 +189,138 @@ export function GroupInfo() {
           {u.id !== state.userId ? <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a> : <span className="day-acts">You</span>}
         </div>
       ))}
+    </Page>
+  );
+}
+
+export function WorkGroups() {
+  useStore();
+  const { threadId } = useParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const parent = svc.thread(threadId);
+  const tasks = parent ? svc.tasks({ projectId: parent.projectId, all: true }) : [];
+  const [taskId, setTaskId] = useState(params.get('task') || '');
+  const [taskTitle, setTaskTitle] = useState('');
+  const [name, setName] = useState('');
+  const [picked, setPicked] = useState([]);
+  const [step, setStep] = useState(params.get('task') ? 'people' : 'list');
+  const [error, setError] = useState('');
+  const task = tasks.find((item) => item.id === taskId) || null;
+  const people = parent ? svc.workMembers(parent.id).filter((u) => u.id !== state.userId) : [];
+  const chosen = people.filter((u) => picked.includes(u.id));
+  const existing = task ? svc.workGroupForTask(task.id) : null;
+  useEffect(() => {
+    const preset = params.get('task');
+    if (!preset) return;
+    const open = svc.workGroupForTask(preset);
+    if (open) navigate(`/mobile/chats/${open.id}`, { replace: true });
+    else if (!name) {
+      const presetTask = tasks.find((item) => item.id === preset);
+      if (presetTask) setName(presetTask.title);
+    }
+  }, [params, navigate, tasks, name]);
+  if (!parent || parent.kind === 'dm' || parent.groupType === 'work') {
+    return <Page back="/mobile/chats" title="Work groups"><div className="empty"><h3>This group isn’t available</h3></div></Page>;
+  }
+  function chooseTask(id) {
+    const next = tasks.find((item) => item.id === id);
+    const open = svc.workGroupForTask(id);
+    if (open) { navigate(`/mobile/chats/${open.id}`); return; }
+    setTaskId(id);
+    setName(next?.title || '');
+    setPicked([]);
+    setError('');
+    setStep('people');
+  }
+  function create() {
+    try {
+      const thread = svc.createWorkGroup({ parentGroupId: parent.id, taskId, taskTitle, name, memberIds: picked });
+      navigate(`/mobile/chats/${thread.id}`);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  function continueNew(e) {
+    e.preventDefault();
+    if (!name.trim()) { setError('Give the work group a name.'); return; }
+    const open = taskId && svc.workGroupForTask(taskId);
+    if (open) { navigate(`/mobile/chats/${open.id}`); return; }
+    if (taskId && svc.workGroupRecord(taskId)) { setError('This task already has a work group.'); return; }
+    setError('');
+    setStep('people');
+  }
+  const title = step === 'review' ? 'Review' : step === 'people' ? 'People' : step === 'task' ? 'New work group' : 'Tasks / Work groups';
+  return (
+    <Page back={`/mobile/chats/${parent.id}/info`} backLabel="Chat" title={title} sub={parent.name}>
+      {step !== 'list' && (
+        <button type="button" className="text-btn" onClick={() => { setError(''); setStep(step === 'review' ? 'people' : 'list'); }}>Back</button>
+      )}
+      {error ? <p className="warn-text">{error}</p> : null}
+      {step === 'list' && (
+        <>
+          <p className="note">Create a new work group in this project, or open one a task already has. Messages stay with the people you choose.</p>
+          {svc.canManageWork(parent) && <button type="button" className="primary" onClick={() => { setTaskId(''); setError(''); setStep('task'); }}>New work group</button>}
+          {tasks.map((item) => {
+            const open = svc.workGroupForTask(item.id);
+            const taken = !open && svc.workGroupRecord(item.id);
+            return (
+              <button type="button" className="row" key={item.id} disabled={taken} onClick={() => !taken && chooseTask(item.id)}>
+                <span className="row-copy"><b>{item.title}</b><span>{taskStageLabel(item)}{open ? ' · Open work group' : taken ? ' · Already has a work group' : ''}</span></span>
+              </button>
+            );
+          })}
+          {!tasks.length && <p className="note">No tasks on this project.</p>}
+        </>
+      )}
+      {step === 'task' && (
+        <form className="stack" onSubmit={continueNew}>
+          <p className="help">New work group in {projectName(parent.projectId)}, inside {parent.name}.</p>
+          <label>Work group name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kitchen island installation" /></label>
+          <label>Task
+            <select aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
+              <option value="">New task on this project</option>
+              {tasks.map((item) => {
+                const open = svc.workGroupForTask(item.id);
+                return <option key={item.id} value={item.id}>{item.title}{open ? ' · already has a work group' : ''}</option>;
+              })}
+            </select>
+          </label>
+          {!taskId && <label>Task name<input aria-label="Task name" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Leave blank to use the work group name" /></label>}
+          <button className="primary" type="submit">Continue</button>
+        </form>
+      )}
+      {step === 'people' && (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) { setError('Give the work group a name.'); return; } if (!picked.length) { setError('Add at least one person from this group.'); return; } setError(''); setStep('review'); }}>
+          <label>Work group name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <p className="help">{task ? `Linked to ${task.title}` : `New task: ${taskTitle.trim() || name}`}. Choose people from {parent.name}.</p>
+          {people.map((u) => {
+            const on = picked.includes(u.id);
+            return (
+              <button type="button" key={u.id} className={`row ${on ? 'picked' : ''}`} onClick={() => setPicked((ids) => on ? ids.filter((id) => id !== u.id) : [...ids, u.id])}>
+                <Avatar person={u} />
+                <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
+                <span className="pick" aria-hidden="true">{on ? <Icon name="check" /> : null}</span>
+              </button>
+            );
+          })}
+          {!people.length && <p className="note">No one else is in this group.</p>}
+          <button className="primary" type="submit">Review</button>
+        </form>
+      )}
+      {step === 'review' && (
+        <div className="stack">
+          <p><b>{name}</b></p>
+          <p className="note">{task?.title || taskTitle.trim() || name} · {task ? taskStageLabel(task) : 'New task'} · {parent.name}</p>
+          <p>These people will see the conversation: you{chosen.length ? `, ${chosen.map((u) => u.name).join(', ')}` : ''}.</p>
+          <div className="person-line">
+            <Avatar person={user(state.userId)} />
+            {chosen.map((u) => <Avatar key={u.id} person={u} />)}
+          </div>
+          <p className="note">Messages stay in this work group. They are not sent to everyone in {parent.name}.</p>
+          {existing ? <button type="button" className="primary" onClick={() => navigate(`/mobile/chats/${existing.id}`)}>Open work group</button> : <button type="button" className="primary" onClick={create}>Create work group</button>}
+        </div>
+      )}
     </Page>
   );
 }

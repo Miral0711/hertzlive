@@ -19,7 +19,7 @@ import {
   IssueReview, ProjectUpdateDialog, SiteIssueDialog, SiteReviewDialog,
 } from '../chat/site';
 import { conversationThreads, markChatRead, pendingFocus } from '../chat/store';
-import { ChatInfoDialog, ChatStartDialog, ForwardDialog, MessageActionsDialog, VoiceCallDialog } from '../chat/messenger';
+import { ChatInfoDialog, ChatStartDialog, ForwardDialog, MessageActionsDialog, VoiceCallDialog, WorkGroupDialog } from '../chat/messenger';
 import { usePhone } from '../phone';
 import { Stat } from '../studio/common';
 
@@ -362,6 +362,7 @@ export const dialogs = {
   'video-call': VideoCallDialog,
   'voice-call': VoiceCallDialog,
   'chat-info': ChatInfoDialog,
+  'work-group': WorkGroupDialog,
   'message-actions': MessageActionsDialog,
   'forward-message': ForwardDialog,
   'project-update': ProjectUpdateDialog,

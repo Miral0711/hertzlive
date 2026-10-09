@@ -123,6 +123,11 @@ export const fmtDT = (iso) => `${fmtD(iso)} · ${fmtT(iso)}`;
 export const hh = (h) =>
   `${String(Math.floor(h)).padStart(2, "0")}:${h % 1 ? "30" : "00"}`;
 export const uid = () => "x" + Math.random().toString(36).slice(2, 8);
+export function taskStageLabel(task) {
+  if (!task) return "";
+  if (task.status === "done" || task.stage === "done") return "Done";
+  return { todo: "To do", in_progress: "In progress", waiting: "Waiting", review: "Review" }[task.stage] || "Open";
+}
 export const user = (id) =>
   (state?.db?.USERS || USERS).find((u) => u.id === id) || {
     name: "Unknown",
@@ -547,15 +552,16 @@ export const svc = {
   threads() {
     const u = me();
     const r = effectiveRole();
+    const inWorkGroup = (t) => t.groupType === "work" && (t.memberIds || []).includes(u.id);
     if (r === "client")
       return state.db.THREADS.filter(
-        (t) => t.kind === "client" && this.myProjectIds().includes(t.projectId),
+        (t) => inWorkGroup(t) || (t.kind === "client" && this.myProjectIds().includes(t.projectId)),
       );
     if (r === "contractor")
       return state.db.THREADS.filter(
-        (t) => t.kind === "site" && (u.siteIds || []).includes(t.siteId),
+        (t) => inWorkGroup(t) || (t.kind === "site" && (u.siteIds || []).includes(t.siteId)),
       );
-    if (r === "hr") return [];
+    if (r === "hr") return state.db.THREADS.filter(inWorkGroup);
     return state.db.THREADS.filter(
       (t) => t.memberIds.includes(u.id) || state.role === "partner",
     );
@@ -939,15 +945,20 @@ export const svc = {
     if (!can("thread", "w") || !this.thread(threadId))
       throw new Error("forbidden");
     const id = uid();
+    const at = localStamp();
+    const thread = state.db.THREADS.find((t) => t.id === threadId);
+    const prevStamp = thread && thread.lastMessageAt;
     state.db.MESSAGES.push({
       id,
       threadId,
       by: state.userId,
-      at: localStamp(),
+      at,
       ...m,
     });
+    if (thread && thread.groupType === "work") thread.lastMessageAt = at;
     if (!persist()) {
       state.db.MESSAGES.pop();
+      if (thread && thread.groupType === "work") thread.lastMessageAt = prevStamp;
       throw new Error("Message could not be saved on this device");
     }
     return id;
@@ -1847,6 +1858,121 @@ export const svc = {
       thread.memberIds = before;
       state.db.AUDIT.shift();
       throw new Error("Could not save this invite.");
+    }
+    render();
+    return thread;
+  },
+  // One work group per task. A second create for that task reopens the existing conversation.
+  workGroupRecord(taskId) {
+    return (state.db.THREADS || []).find((t) => t.groupType === "work" && t.taskId === taskId) || null;
+  },
+  workGroupForTask(taskId) {
+    const found = this.workGroupRecord(taskId);
+    return found ? this.thread(found.id) : null;
+  },
+  workGroupsFor(parentGroupId) {
+    return this.threads().filter((t) => t.groupType === "work" && t.parentGroupId === parentGroupId);
+  },
+  canManageWork(thread) {
+    if (!can("thread", "w") || !thread) return false;
+    if (state.role === "partner") return true;
+    return (thread.memberIds || []).includes(state.userId);
+  },
+  workMembers(parentGroupId) {
+    const parent = this.thread(parentGroupId);
+    if (!parent || parent.kind === "dm" || parent.groupType === "work") return [];
+    const seen = new Set();
+    return (parent.memberIds || []).filter((id) => {
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return Boolean(user(id).id);
+    }).map((id) => user(id));
+  },
+  createWorkGroup({ parentGroupId, taskId, taskTitle, name, memberIds }) {
+    const parent = this.thread(parentGroupId);
+    if (!parent || parent.kind === "dm" || parent.groupType === "work") throw new Error("Choose a project group.");
+    if (!this.canManageWork(parent)) throw new Error("You can’t create a work group here.");
+    const title = (name || "").trim();
+    if (!title) throw new Error("Give the work group a name.");
+    let task = taskId ? (state.db.TASKS || []).find((t) => t.id === taskId) : null;
+    let madeTask = false;
+    if (task && (task.projectId !== parent.projectId || !can("task", "r"))) throw new Error("Choose a task on this project.");
+    if (!task) {
+      if (!can("task", "w")) throw new Error("Choose a task on this project.");
+      const taskName = (taskTitle || name || "").trim();
+      if (!taskName) throw new Error("Name the task for this work group.");
+      task = (state.db.TASKS || []).find((t) => t.projectId === parent.projectId && (t.title || "").trim().toLowerCase() === taskName.toLowerCase()) || null;
+      if (!task) {
+        task = { id: uid(), projectId: parent.projectId, title: taskName, owner: state.userId, due: "", status: "open", stage: "todo", description: "" };
+        state.db.TASKS.push(task);
+        madeTask = true;
+      }
+    }
+    const existing = this.workGroupRecord(task.id);
+    if (existing) {
+      const visible = this.thread(existing.id);
+      if (visible) return visible;
+      throw new Error("This task already has a work group.");
+    }
+    const allowed = new Set(this.workMembers(parent.id).map((u) => u.id));
+    const members = [...new Set([state.userId, ...(memberIds || []).filter((id) => allowed.has(id))])];
+    if (members.length < 2) throw new Error("Add at least one person from this group.");
+    const now = localStamp();
+    const thread = {
+      id: uid(),
+      kind: "group",
+      groupType: "work",
+      name: title,
+      projectId: parent.projectId,
+      parentGroupId: parent.id,
+      taskId: task.id,
+      createdBy: state.userId,
+      memberIds: members,
+      createdAt: now,
+      lastMessageAt: now,
+    };
+    state.db.THREADS.push(thread);
+    this.log(`Work group · ${title}`, "Thread " + thread.id);
+    if (!persist()) {
+      state.db.THREADS.pop();
+      if (madeTask) state.db.TASKS.pop();
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this work group.");
+    }
+    render();
+    return thread;
+  },
+  renameWorkGroup(threadId, name) {
+    const thread = this.thread(threadId);
+    if (!thread || thread.groupType !== "work") throw new Error("Choose a work group.");
+    if (!this.canManageWork(thread)) throw new Error("You can’t rename this work group.");
+    const title = (name || "").trim();
+    if (!title) throw new Error("Give the work group a name.");
+    const prev = thread.name;
+    thread.name = title;
+    this.log(`Work group renamed · ${title}`, "Thread " + thread.id);
+    if (!persist()) {
+      thread.name = prev;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this name.");
+    }
+    render();
+    return thread;
+  },
+  setWorkMembers(threadId, memberIds) {
+    const thread = this.thread(threadId);
+    if (!thread || thread.groupType !== "work") throw new Error("Choose a work group.");
+    if (!this.canManageWork(thread)) throw new Error("You can’t change this work group.");
+    const allowed = new Set(this.workMembers(thread.parentGroupId).map((u) => u.id));
+    const next = [...new Set([state.userId, ...(memberIds || []).filter((id) => allowed.has(id))])];
+    if (next.length < 1) throw new Error("Keep at least one person.");
+    const prev = thread.memberIds.slice();
+    thread.memberIds = next;
+    this.log(`Work group members · ${thread.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      thread.memberIds = prev;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save these people.");
     }
     render();
     return thread;

@@ -3,7 +3,7 @@ import {
   Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore,
 } from 'react';
 import {
-  state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment, can, go, user,
+  state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment, can, go, user, taskStageLabel,
 } from '../../shared/core.js';
 import '../../shared/filing.js';
 import { QUICK_REPLIES, receiptFor, hiddenFrom } from '../../shared/chatExtras.js';
@@ -186,9 +186,9 @@ export function ConversationList({ threads, filterable = false, footer = null })
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
                     <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{t.name}</b>
-                    <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at, true)}</time>
+                    <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at || t.lastMessageAt, true)}</time>
                   </span>
-                  {t.kind !== 'dm' && <span className="block truncate text-[12px] text-accent-text">{KIND_LABEL[t.kind] || 'Group'}</span>}
+                  {t.kind !== 'dm' && <span className="block truncate text-[12px] text-accent-text">{t.groupType === 'work' ? `${P(t.projectId)?.name || 'Project'} · Work group` : (KIND_LABEL[t.kind] || 'Group')}</span>}
                   <span className="mt-0.5 flex items-center gap-2">
                     <span className={`flex min-w-0 flex-1 items-center gap-1 text-[14px] leading-5 ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
                       {preview.kind === 'mine' && <Icon name="checkcheck" small className="text-ink-3" />}
@@ -597,6 +597,10 @@ function contextProject() {
 // thread's own kind (client/site/internal) doesn't already say which project it's for.
 const KIND_LABEL = { client: 'Client group', site: 'Site team', internal: 'Office', dm: 'Direct message', group: 'Group' };
 const contextLine = (t) => {
+  if (t.groupType === 'work') {
+    const proj = t.projectId ? P(t.projectId)?.name : null;
+    return proj ? `${proj} · Work group` : 'Work group';
+  }
   const label = KIND_LABEL[t.kind] || 'Members of this conversation';
   const proj = t.projectId ? P(t.projectId)?.name : null;
   return proj ? `${label} · ${proj}` : label;
@@ -606,6 +610,90 @@ function BarButton({ label, icon, onClick, className = '' }) {
     <button type="button" aria-label={label} title={label} onClick={onClick} className={`inline-grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-transparent text-inherit hover:bg-black/10 ${className}`}>
       <Icon name={icon} />
     </button>
+  );
+}
+
+function WorkSection({ thread, messages, children }) {
+  const [tab, setTab] = useState('chat');
+  const [name, setName] = useState(thread.name);
+  const [error, setError] = useState('');
+  useEffect(() => { setTab('chat'); setName(thread.name); setError(''); }, [thread.id, thread.name]);
+  const task = (state.db.TASKS || []).find((item) => item.id === thread.taskId);
+  const parent = svc.thread(thread.parentGroupId);
+  const members = (thread.memberIds || []).map((id) => user(id)).filter((u) => u?.id);
+  const spare = svc.workMembers(thread.parentGroupId).filter((u) => !(thread.memberIds || []).includes(u.id));
+  const manage = svc.canManageWork(thread);
+  const files = messages.filter((m) => !m.deleted && (m.photo || m.file || m.kind === 'file'));
+  function saveName() {
+    try { svc.renameWorkGroup(thread.id, name); setError(''); } catch (e) { setError(e.message); }
+  }
+  function change(id, remove) {
+    const ids = remove ? thread.memberIds.filter((x) => x !== id) : [...thread.memberIds, id];
+    try { svc.setWorkMembers(thread.id, ids); setError(''); } catch (e) { setError(e.message); }
+  }
+  const tabs = [['chat', 'Chat'], ['task', 'Task'], ['files', 'Files'], ['members', 'Members']];
+  return (
+    <>
+      <div className="flex gap-1 border-b border-line bg-surface px-2.5 py-1.5" role="tablist" aria-label="Work group">
+        {tabs.map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`min-h-[30px] flex-1 rounded-full border-0 px-2 text-[13px] font-semibold ${tab === k ? 'bg-accent text-accent-ink' : 'bg-transparent text-ink-2'}`}>{label}</button>
+        ))}
+      </div>
+      <p className="m-0 border-b border-line px-3 py-2 text-[13px] text-ink-2">
+        <b className="text-ink">{task?.title || thread.name}</b>
+        {task ? ` · ${taskStageLabel(task)}` : ''}
+        {parent && <> · <button type="button" className="border-0 bg-transparent p-0 font-semibold text-accent-text" onClick={() => openThreadFocus(parent.id)}>{parent.name}</button></>}
+        <span className="mt-0.5 block text-ink-3">Only the people in this work group can see these messages.</span>
+      </p>
+      {error && <p className="m-0 px-3 py-1 text-sm font-semibold text-crit" role="alert">{error}</p>}
+      {tab === 'chat' && children}
+      {tab === 'task' && (
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+          {task ? (
+            <>
+              <p className="m-0 font-semibold">{task.title}</p>
+              <p className="my-1 text-sm text-ink-3">{taskStageLabel(task)}{task.due ? ` · due ${fmtD(task.due)}` : ''} · {user(task.owner).name}</p>
+              {task.description && <p className="text-sm">{task.description}</p>}
+              {(task.checklist || []).map((item) => <p key={item.id} className="m-0 text-sm text-ink-2">{item.done ? 'Done' : 'Open'} · {item.text}</p>)}
+            </>
+          ) : <p className="text-ink-3">This task isn’t available.</p>}
+        </div>
+      )}
+      {tab === 'files' && (
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+          {files.length ? files.map((m) => (
+            <button key={m.id} type="button" className="flex w-full min-h-11 border-0 border-b border-line bg-transparent py-2 text-left" onClick={() => { state.desk.hi = m.id; setTab('chat'); render(); }}>
+              <span className="min-w-0"><b className="block truncate">{m.file?.name || m.text || 'Photo'}</b><small className="text-ink-3">{fmtT(m.at)}</small></span>
+            </button>
+          )) : <p className="m-0 text-ink-3">Nothing shared in this work group yet.</p>}
+        </div>
+      )}
+      {tab === 'members' && (
+        <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+          {manage && (
+            <div className="mb-3 flex gap-2">
+              <input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} className="min-h-9 min-w-0 flex-1 rounded-r1 border border-line bg-surface px-3 text-ink" />
+              <Btn sm kind="primary" onClick={saveName}>Rename</Btn>
+            </div>
+          )}
+          <div className="mb-3 flex flex-wrap gap-1">
+            {members.map((u) => <span key={u.id} title={u.name} className="inline-grid h-8 w-8 place-items-center rounded-full bg-surface-3 text-xs font-semibold">{(u.ini || u.name || '?').slice(0, 2)}</span>)}
+          </div>
+          {members.map((u) => (
+            <div key={u.id} className="flex min-h-11 items-center gap-2 border-b border-line">
+              <span className="min-w-0 flex-1"><b className="block truncate">{u.name}</b><small className="text-ink-3">{u.title}</small></span>
+              {manage && u.id !== state.userId && <Btn sm onClick={() => change(u.id, true)}>Remove</Btn>}
+            </div>
+          ))}
+          {manage && spare.map((u) => (
+            <div key={u.id} className="flex min-h-11 items-center gap-2 border-b border-line">
+              <span className="min-w-0 flex-1">{u.name}<small className="block text-ink-3">{u.title}</small></span>
+              <Btn sm onClick={() => change(u.id, false)}>Add</Btn>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -654,7 +742,7 @@ export function ChatView({ workspace = false }) {
   const pinned = ms.filter((m) => m.decision && !m.deleted);
   const canPin = role() === 'partner' || role() === 'site_manager';
   const sib = !desk.chatList && cur.projectId && cur.kind !== 'dm'
-    ? svc.threads().filter((x) => x.projectId === cur.projectId && x.kind !== 'dm') : [];
+    ? svc.threads().filter((x) => x.projectId === cur.projectId && x.kind !== 'dm' && x.groupType !== 'work') : [];
   const projectChats = ['client', 'internal', 'site'].includes(cur.kind)
     ? sib.filter((x) => ['client', 'internal', 'site'].includes(x.kind)) : [];
   return (
@@ -766,12 +854,17 @@ export function ChatView({ workspace = false }) {
           {cur.kind === 'internal' && (
             <p className="mx-auto mt-2 max-w-sm rounded-lg bg-warn-soft px-3 py-1.5 text-center text-xs font-medium text-warn">Office only. The client never sees this.</p>
           )}
-          <Messages
-            threadId={cur.id}
-            ms={ms}
-            grouped={cur.kind !== 'dm'}
-          />
-          <Composer key={cur.id + state.userId} thread={cur} last={last} />
+          {cur.groupType === 'work' ? (
+            <WorkSection thread={cur} messages={ms}>
+              <Messages threadId={cur.id} ms={ms} grouped />
+              <Composer key={cur.id + state.userId} thread={cur} last={last} />
+            </WorkSection>
+          ) : (
+            <>
+              <Messages threadId={cur.id} ms={ms} grouped={cur.kind !== 'dm'} />
+              <Composer key={cur.id + state.userId} thread={cur} last={last} />
+            </>
+          )}
         </>
       )}
     </aside>

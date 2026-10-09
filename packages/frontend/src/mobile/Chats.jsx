@@ -121,7 +121,7 @@ function ChatRow({ thread, last, unread, draft }) {
       <span className="row-copy">
         <b className={unread ? 'unread' : ''}>
           <span>{title}</span>
-          {last && <small>{fmtT(last.at)}</small>}
+          {(last?.at || thread.lastMessageAt) && <small>{fmtT(last?.at || thread.lastMessageAt)}</small>}
         </b>
         {thread.kind !== 'dm' && <span className="audience">{audience(thread)}</span>}
         <span className={draft ? 'draft' : ''}>

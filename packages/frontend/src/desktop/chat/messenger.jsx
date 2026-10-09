@@ -1,13 +1,13 @@
 // Phone-parity pieces for the desktop chat: message actions, forward, chat info,
 // voice note, and the site-update forms. Existing attach kinds stay in AttachMenu.
 import { useEffect, useRef, useState } from 'react';
-import { state, svc, toast, render, user } from '../../shared/core.js';
+import { state, svc, toast, render, user, taskStageLabel } from '../../shared/core.js';
 import { FILE_KINDS } from '../../shared/filing.js';
 import { REACTIONS, reminderAt, forwardFields, SAMPLE_MEDIA, MEDIA_TABS } from '../../shared/chatExtras.js';
 import { Btn, Field, Input, Empty, ToggleChip } from '../../ui/ui';
 import Icon from '../../ui/Icon';
 import Modal, { ModalActions } from '../Modal';
-import { closeDialog, openDialog } from '../session';
+import { closeDialog, openDialog, openThread } from '../session';
 import { role } from '../helpers';
 import { Ph } from './media';
 import { Avatar as PersonAvatar, ThreadAvatar } from '../../mobile/faces';
@@ -270,6 +270,26 @@ export function ChatInfoDialog({ d }) {
         <span><b className="block">Mute notifications</b><small className="text-ink-3">Stops the unread mark on this phone</small></span>
         <span className="text-ink-2">{muted ? 'On' : 'Off'}</span>
       </button>
+      {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
+        <>
+          <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-ink-3">Tasks / Work groups</h3>
+          <p className="m-0 mb-2 text-[13px] text-ink-3">Create a new work group in this project, or open one a task already has. Only the people you choose can see it.</p>
+          {svc.canManageWork(thread) && <Btn sm onClick={() => openDialog({ kind: 'work-group', threadId: thread.id })}>Create Work Group</Btn>}
+          {svc.tasks({ projectId: thread.projectId, all: true }).map((task) => {
+            const existing = svc.workGroupForTask(task.id);
+            const taken = !existing && svc.workGroupRecord(task.id);
+            return (
+              <div key={task.id} className="flex min-h-11 items-center gap-2 border-t border-line py-2">
+                <span className="min-w-0 flex-1"><b className="block truncate">{task.title}</b><small className="text-ink-3">{taskStageLabel(task)}</small></span>
+                {existing && <Btn sm kind="primary" onClick={() => { closeDialog(); openThread(existing.id); }}>Open</Btn>}
+                {!existing && !taken && svc.canManageWork(thread) && <Btn sm onClick={() => openDialog({ kind: 'work-group', threadId: thread.id, taskId: task.id })}>Create</Btn>}
+                {taken && <small className="text-ink-3">Already has a work group</small>}
+              </div>
+            );
+          })}
+          {!svc.tasks({ projectId: thread.projectId, all: true }).length && <Empty compact>No tasks on this project.</Empty>}
+        </>
+      )}
       <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-ink-3">{thread.kind === 'dm' ? 'Contact' : `${members.length} people`}</h3>
       {members.map((u) => (
         <div key={u.id} className="flex min-h-11 items-center gap-3 border-t border-line py-2">
@@ -279,6 +299,100 @@ export function ChatInfoDialog({ d }) {
         </div>
       ))}
       <ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions>
+    </Modal>
+  );
+}
+
+export function WorkGroupDialog({ d }) {
+  const parent = svc.thread(d.threadId);
+  const tasks = parent ? svc.tasks({ projectId: parent.projectId, all: true }) : [];
+  const [taskId, setTaskId] = useState(d.taskId || '');
+  const [taskTitle, setTaskTitle] = useState('');
+  const [name, setName] = useState(() => (d.taskId ? (tasks.find((item) => item.id === d.taskId)?.title || '') : ''));
+  const [picked, setPicked] = useState([]);
+  const [step, setStep] = useState(d.taskId ? 'people' : 'task');
+  const [error, setError] = useState('');
+  const task = tasks.find((item) => item.id === taskId) || null;
+  const existing = task ? svc.workGroupForTask(task.id) : null;
+  const people = parent ? svc.workMembers(parent.id).filter((u) => u.id !== state.userId) : [];
+  const chosen = people.filter((u) => picked.includes(u.id));
+  if (!parent) return <Modal title="Work group"><p>This group isn’t available.</p><ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions></Modal>;
+  function create() {
+    try {
+      const thread = svc.createWorkGroup({ parentGroupId: parent.id, taskId, taskTitle, name, memberIds: picked });
+      closeDialog();
+      openThread(thread.id);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  function continueNew() {
+    if (!name.trim()) { setError('Give the work group a name.'); return; }
+    const open = taskId && svc.workGroupForTask(taskId);
+    if (open) { closeDialog(); openThread(open.id); return; }
+    if (taskId && svc.workGroupRecord(taskId)) { setError('This task already has a work group.'); return; }
+    setError('');
+    setStep('people');
+  }
+  return (
+    <Modal title={step === 'review' ? 'Review work group' : 'Create Work Group'} onClose={closeDialog}>
+      {error && <p className="mb-3 text-sm font-semibold text-crit" role="alert">{error}</p>}
+      {step === 'task' && (
+        <div className="flex flex-col gap-3">
+          <p className="m-0 text-sm text-ink-3">New work group in {svc.project(parent.projectId)?.name || 'this project'}, inside {parent.name}. Give it a name. Link a task, or start a new task on this project.</p>
+          <Field label="Work group name"><Input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kitchen island installation" /></Field>
+          <Field label="Task">
+            <select className="min-h-9 w-full rounded-r1 border border-line bg-surface px-3 text-ink" aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
+              <option value="">New task on this project</option>
+              {tasks.map((item) => {
+                const open = svc.workGroupForTask(item.id);
+                return <option key={item.id} value={item.id}>{item.title}{open ? ' · already has a work group' : ''}</option>;
+              })}
+            </select>
+          </Field>
+          {!taskId && <Field label="Task name"><Input aria-label="Task name" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Leave blank to use the work group name" /></Field>}
+          <ModalActions>
+            <Btn onClick={closeDialog}>Close</Btn>
+            <Btn kind="primary" onClick={continueNew}>Continue</Btn>
+          </ModalActions>
+        </div>
+      )}
+      {step === 'people' && (
+        <div className="flex flex-col gap-3">
+          <Field label="Work group name"><Input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <p className="m-0 text-[13px] text-ink-3">{task ? `Linked task: ${task.title}` : `New task: ${taskTitle.trim() || name}`}. People already in {parent.name}.</p>
+          <div className="max-h-64 overflow-auto">
+            {people.map((u) => {
+              const on = picked.includes(u.id);
+              return (
+                <button type="button" key={u.id} aria-pressed={on} className={`flex w-full items-center gap-3 border-0 border-b border-line px-1 py-2 text-left ${on ? 'bg-accent-soft' : 'bg-transparent'}`} onClick={() => setPicked((ids) => on ? ids.filter((id) => id !== u.id) : [...ids, u.id])}>
+                  <PersonAvatar person={u} size="sm" />
+                  <span className="min-w-0 flex-1"><b className="block truncate">{u.name}</b><span className="block truncate text-[13px] text-ink-3">{u.title}</span></span>
+                  {on && <Icon name="check" small />}
+                </button>
+              );
+            })}
+            {!people.length && <Empty compact>No one else is in this group.</Empty>}
+          </div>
+          <ModalActions>
+            <Btn onClick={() => setStep('task')}>Back</Btn>
+            <Btn kind="primary" onClick={() => { if (!name.trim()) { setError('Give the work group a name.'); return; } if (!picked.length) { setError('Add at least one person from this group.'); return; } setError(''); setStep('review'); }}>Review</Btn>
+          </ModalActions>
+        </div>
+      )}
+      {step === 'review' && (
+        <div className="flex flex-col gap-2">
+          <p className="m-0"><b>{name}</b></p>
+          <p className="m-0 text-sm text-ink-3">{task?.title || taskTitle.trim() || name} · {task ? taskStageLabel(task) : 'New task'} · {parent.name}</p>
+          <p className="m-0 text-sm">These people will see the conversation: you, {chosen.map((u) => u.name).join(', ') || 'no one else'}.</p>
+          <p className="m-0 text-sm text-ink-3">Messages stay in this work group. They are not sent to everyone in {parent.name}.</p>
+          {existing && <p className="m-0 text-sm">This task already has a work group. Opening it keeps a single conversation.</p>}
+          <ModalActions>
+            <Btn onClick={() => setStep('people')}>Back</Btn>
+            <Btn kind="primary" onClick={existing ? () => { closeDialog(); openThread(existing.id); } : create}>{existing ? 'Open work group' : 'Create work group'}</Btn>
+          </ModalActions>
+        </div>
+      )}
     </Modal>
   );
 }
