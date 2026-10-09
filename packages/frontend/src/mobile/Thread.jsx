@@ -13,7 +13,7 @@ import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, render,
 } from './model';
 
 const BASICS = [
@@ -178,8 +178,8 @@ export default function Thread() {
   const [fileName, setFileName] = useState('');
   const [drawingNo, setDrawingNo] = useState('');
   const [error, setError] = useState('');
-  const [showPins, setShowPins] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
+  const [openDue, setOpenDue] = useState(null);
   const [menu, setMenu] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
   const [editor, setEditor] = useState(null);
@@ -194,6 +194,7 @@ export default function Thread() {
   const from = params.get('from');
   const backTo = from && from.startsWith('/mobile/') ? from : '/mobile/chats';
   const scroller = useRef(null);
+  const box = useRef(null);
   const text = drafts[threadId] || '';
 
   const count = thread ? messagesOf(thread.id).length : 0;
@@ -209,6 +210,15 @@ export default function Thread() {
     if (message) setForwardMsg(message);
     navigate(`/mobile/chats/${threadId}`, { replace: true, state: null });
   }, [location.state, threadId, navigate]);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const next = Math.min(el.scrollHeight, 120);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
+  }, [text, threadId]);
 
   useEffect(() => {
     const el = scroller.current;
@@ -255,7 +265,25 @@ export default function Thread() {
   const msgs = messagesOf(thread.id);
   const related = siblings(thread);
   const pinned = msgs.filter((m) => m.decision && !m.deleted);
+  const due = svc.decisionsDue({ threadId: thread.id });
   const canPin = can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
+  const lastLive = [...msgs].reverse().find((m) => !m.deleted);
+  const showSuggest = staff() && can('thread', 'w') && lastLive && lastLive.by !== state.userId;
+  const showQuick = can('thread', 'w') && lastLive && lastLive.by !== state.userId && /\?/.test(lastLive.text || '');
+
+  function closeDecision() {
+    if (openDue) svc.decideDecision(openDue.id);
+    setOpenDue(null);
+    render();
+  }
+
+  function showInChat(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+    window.setTimeout(() => el.classList.remove('flash'), 1600);
+  }
 
   function send(e) {
     e?.preventDefault();
@@ -433,33 +461,27 @@ export default function Thread() {
         </div>
       )}
       {thread.kind === 'internal' && <p className="office-note">{t('officeOnly')}</p>}
-      {pinned.length > 0 && (
-        <button type="button" className="pinbar" onClick={() => setShowPins((v) => !v)}>
-          {pinned.length} decision{pinned.length === 1 ? '' : 's'} pinned
-        </button>
-      )}
-      {showPins && (
-        <div className="pinlist">
+      {(pinned.length > 0 || due.length > 0) && (
+        <div className="chat-decisions">
           {pinned.map((m) => (
-            <div className="pinrow" key={m.id}>
-              <button type="button" className="jump" onClick={() => document.getElementById(m.id)?.scrollIntoView({ block: 'center' })}>
-                <b>{(m.text || 'Decision').slice(0, 80)}</b>
-                <span>{firstName(m.by)} · {fmtT(m.at)}</span>
+            <div className="chat-pin" key={m.id}>
+              <button type="button" className="jump" onClick={() => showInChat(m.id)}>
+                <em>Pinned</em>
+                <b>{m.text || 'Decision'}</b>
               </button>
               {canPin && <button type="button" className="unpin" onClick={() => toggleDecision(m)}>Unpin</button>}
             </div>
           ))}
+          {due.map((d) => (
+            <button type="button" className="chat-due" id={`decision-${d.id}`} key={d.id} onClick={() => setOpenDue(d)}>
+              <em>Open</em>
+              <b>{d.title}</b>
+              <span>due {fmtD(d.due)}</span>
+            </button>
+          ))}
         </div>
       )}
       <div className="body chat chat-wallpaper" ref={scroller}>
-        {svc.decisionsDue({ threadId: thread.id }).map((d) => (
-          <div className="day-row" id={`decision-${d.id}`} key={d.id}>
-            <div>
-              <small>Still open · due {fmtD(d.due)}</small>
-              <b>{d.title}</b>
-            </div>
-          </div>
-        ))}
         {msgs.map((m, i) => {
           const prev = msgs[i - 1];
           const day = m.at.slice(0, 10);
@@ -560,26 +582,20 @@ export default function Thread() {
         })}
         {!msgs.length && <div className="empty"><h3>{thread.groupType === 'work' ? 'No messages yet' : 'Say hello'}</h3>{thread.groupType !== 'work' && <p>Photos and voice notes stay with this project.</p>}</div>}
       </div>
-      {staff() && can('thread', 'w') && (() => {
-        const last = [...msgs].reverse().find((m) => !m.deleted);
-        if (!last || last.by === state.userId) return null;
-        return <button type="button" className="suggest" onClick={async () => {
-          if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
-          try { setDraft(thread.id, await AIProvider.draftReply(thread, last)); }
-          catch (_) { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
-        }}>Suggest reply</button>;
-      })()}
-      {can('thread', 'w') && (() => {
-        const last = [...msgs].reverse().find((m) => !m.deleted);
-        if (!last || last.by === state.userId || !/\?/.test(last.text || '')) return null;
-        return (
-          <div className="quick">
-            {[t('yes'), t('ok'), t('onMyWay')].map((label) => (
-              <button type="button" key={label} onClick={() => { postMessage(thread.id, { text: label, replyTo: last.id }); markRead(thread.id); }}>{label}</button>
-            ))}
-          </div>
-        );
-      })()}
+      {(showSuggest || showQuick) && (
+        <div className="quick">
+          {showQuick && [t('yes'), t('ok'), t('onMyWay')].map((label) => (
+            <button type="button" key={label} onClick={() => { postMessage(thread.id, { text: label, replyTo: lastLive.id }); markRead(thread.id); }}>{label}</button>
+          ))}
+          {showSuggest && (
+            <button type="button" className="suggest" onClick={async () => {
+              if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
+              try { setDraft(thread.id, await AIProvider.draftReply(thread, lastLive)); }
+              catch (_) { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
+            }}>Suggest reply</button>
+          )}
+        </div>
+      )}
       {replyTo && (
         <div className="replybar">
           <span><b>{firstName(replyTo.by)}</b>{preview(replyTo)}</span>
@@ -592,6 +608,7 @@ export default function Thread() {
             <Icon name="plus" />
           </button>
           <textarea
+            ref={box}
             rows={1}
             placeholder={t('message')}
             aria-label={`Message to ${audience(thread)}`}
@@ -609,6 +626,21 @@ export default function Thread() {
           <Icon name="send" />
         </button>
       </form>}
+      {openDue && (
+        <div className="sheet-back" onClick={closeDecision} role="presentation">
+          <div className="sheet" role="dialog" aria-label={openDue.title} onClick={(e) => e.stopPropagation()}>
+            <h2>{openDue.title}</h2>
+            <p className="help">Still open · due {fmtD(openDue.due)}. Asked by {firstName(openDue.askedBy)}.</p>
+            {can('thread', 'w') && (
+              <button type="button" className="primary" onClick={() => {
+                setDraft(thread.id, `Hi, could you help decide "${openDue.title}" so we can keep the project on schedule? Thank you.`);
+                setOpenDue(null);
+              }}>Ask in this chat</button>
+            )}
+            <button type="button" className="text-btn" onClick={closeDecision}>Close</button>
+          </div>
+        </div>
+      )}
       {sheet && (
         <div className="sheet-back" onClick={() => setSheet(null)} role="presentation">
           <div className="sheet" role="dialog" aria-label="Add to chat" onClick={(e) => e.stopPropagation()}>

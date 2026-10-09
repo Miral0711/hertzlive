@@ -243,6 +243,7 @@ export function loadDb() {
     if (["#b1552f", "#945543"].includes(agency.accent?.toLowerCase())) agency.accent = AGENCY.accent;
     agency.paletteVersion = 2;
   }
+  if (state.db.DECISIONS_DUE) state.db.DECISIONS_DUE = state.db.DECISIONS_DUE.filter((d) => d.id !== "dd3");
   ensurePerformance(state.db, TODAY, uid);
   if (state.gamify?.optOut || state.gamify?.quiet) {
     const person = state.db.USERS.find((x) => x.id === state.userId);

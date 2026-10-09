@@ -21,7 +21,7 @@ export function backName(url) {
   return 'Back';
 }
 
-export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, stackTitle = false, footer = null, className = '' }) {
+export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, stackTitle = false, footer = null, className = '', board = false }) {
   return (
     <div className={`screen${className ? ` ${className}` : ''}`}>
       <header className={`top thread-top${sheet ? ' proj-top' : ''}${stackTitle ? ' stack-top' : ''}`}>
@@ -33,7 +33,7 @@ export function Page({ back, backLabel = 'Back', title, sub, children, bare = fa
           {sub ? <span>{sub}</span> : null}
         </div>
       </header>
-      <div className={`${bare ? 'body' : 'body canvas'}${sheet ? ' proj' : ''}`}>{children}</div>
+      <div className={`${bare ? 'body' : 'body canvas'}${sheet ? ' proj' : ''}${board ? ' hub' : ''}`}>{children}</div>
       {footer}
     </div>
   );

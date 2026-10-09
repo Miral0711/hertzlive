@@ -30,7 +30,7 @@ export function Who() {
   useStore();
   const navigate = useNavigate();
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
+    <Page board back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
       <Note>This changes whose records you see. It does not change the desktop login.</Note>
       {PEOPLE.map(({ id, hint }: any) => {
         const u = user(id);
@@ -59,7 +59,7 @@ export function People() {
   });
   const groups = ORDER.map((role) => [LABEL[role], list.filter((u: any) => u.role === role)] as [string, any[]]).filter(([, us]) => us.length);
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
+    <Page board back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
       <SearchBox value={q} onChangeText={setQ} placeholder="Search people" />
       {groups.map(([name, us]) => (
         <View key={name}>
@@ -110,7 +110,7 @@ export function Holidays() {
   const team = staff() ? (db().LEAVES || []).filter((l: any) => l.userId !== state.userId && l.status === 'approved' && l.to >= TODAY).slice(0, 5) : [];
   const s = useStyles(() => ({ acts: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'center' }, end: { alignItems: 'flex-end', gap: 4 } }));
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
+    <Page board back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
       {pending.length > 0 && (
         <View>
           <Sect>Leave requests</Sect>
@@ -165,7 +165,7 @@ export function Punches() {
   useStore();
   const month = svc.punches();
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
+    <Page board back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
       {month.rows.map((r: any) => (
         <Row key={r.date + r.in}>
           <RowCopy title={`${fmtD(r.date)}${r.late ? ' · late' : ''}`} sub={`${r.in}–${r.out || '—'} · ${r.site}`} />
@@ -180,7 +180,7 @@ export function Reviews() {
   useStore();
   const rows = svc.reviews(state.userId);
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
+    <Page board back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
       {rows.map((r: any) => (
         <DayBlock
           key={r.id} small={`${r.month} · ${r.score}/5 · ${user(r.by).name}`} title={r.reason}
@@ -199,7 +199,7 @@ export function Notice() {
   const [text, setText] = useState('');
   const threads = myThreads().filter(({ t }: any) => t.kind !== 'dm');
   if (state.role !== 'partner') {
-    return <Page back="/mobile/profile" backLabel="Profile" title="Notice"><Empty title="Only a partner can send a notice" /></Page>;
+    return <Page board back="/mobile/profile" backLabel="Profile" title="Notice"><Empty title="Only a partner can send a notice" /></Page>;
   }
   function send() {
     const value = text.trim();
@@ -208,7 +208,7 @@ export function Notice() {
     navigate('/mobile/chats');
   }
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
+    <Page board back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
       <Note>Goes to every project chat you are in, marked as a notice.</Note>
       <Filters options={ideas.map((i): [string, string] => [i, i])} value={text} onChange={setText} />
       <View style={{ gap: 10, marginTop: 12 }}>
@@ -227,7 +227,7 @@ export function Appearance() {
   useStore();
   const options = [['system', 'Phone'], ['light', 'Light'], ['dark', 'Dark']];
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Appearance">
+    <Page board back="/mobile/profile" backLabel="Profile" title="Appearance">
       {options.map(([id, label]) => (
         <ChoiceRow key={id} label={label} on={state.theme === id} onPress={() => { state.theme = id; persist(); render(); }} />
       ))}
@@ -241,7 +241,7 @@ export function Language() {
   const langs = ['English', 'हिन्दी', 'ગુજરાતી'];
   const [, setTick] = useState(current);
   return (
-    <Page back="/mobile/profile" backLabel="Profile" title="Language">
+    <Page board back="/mobile/profile" backLabel="Profile" title="Language">
       <Note>Menus and tabs only. Write or talk in any language.</Note>
       {langs.map((lang) => (
         <ChoiceRow key={lang} label={lang} on={current === lang} onPress={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }} />
@@ -323,7 +323,7 @@ export function Book() {
   }
 
   if (!can('booking', 'w')) {
-    return <Page back="/mobile/today" backLabel="Today" title="Booking"><Empty title="Booking isn’t available for this login" /></Page>;
+    return <Page board back="/mobile/today" backLabel="Today" title="Booking"><Empty title="Booking isn’t available for this login" /></Page>;
   }
 
   return (
@@ -382,7 +382,7 @@ export function StandIn() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   return (
-    <Page back="/mobile/holidays" backLabel="Holidays" title={`Who can cover ${firstName(userId)}?`} sub="Present today, shares a skill, lightest load first">
+    <Page board back="/mobile/holidays" backLabel="Holidays" title={`Who can cover ${firstName(userId)}?`} sub="Present today, shares a skill, lightest load first">
       {list.length ? list.map((row) => (
         <ViewCard key={row.u.id}>
           <CardText strong>{row.u.name}</CardText>

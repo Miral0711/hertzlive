@@ -224,12 +224,14 @@ export function Refs() {
     <Page sheet back={back} backLabel={backLabel} title="References" sub={project.name}>
       <Note>Client references and inspiration links.</Note>
       {rows.map((r) => (
-        <div className="row" key={r.id}>
+        <div className="row ref-row" key={r.id}>
           <span className="row-copy"><b>{r.title || r.url}</b><span>{r.src}{r.room ? ` · ${r.room}` : ''}</span></span>
-          <a className="icon-btn" href={r.url} target="_blank" rel="noopener noreferrer">Open</a>
-          {state.role !== 'client' && !r.promoted && can('moodboard', 'w') ? (
-            <button type="button" className="text-btn" onClick={() => { svc.promoteRef(r.id); render(); }}>Moodboard</button>
-          ) : r.promoted ? <span className="chip-status">On moodboard</span> : null}
+          <span className="ref-acts">
+            <a href={r.url} target="_blank" rel="noopener noreferrer">Open</a>
+            {state.role !== 'client' && !r.promoted && can('moodboard', 'w') ? (
+              <button type="button" onClick={() => { svc.promoteRef(r.id); render(); }}>Moodboard</button>
+            ) : r.promoted ? <span className="chip-status">On moodboard</span> : null}
+          </span>
         </div>
       ))}
       {can('ref', 'w') && (

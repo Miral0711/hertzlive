@@ -51,7 +51,7 @@ export default function Profile() {
           <h1>Profile</h1>
         </div>
       </header>
-      <div className="body canvas proj profile">
+      <div className="body canvas proj profile hub">
         <div className="who">
           <Avatar person={person} size="lg" />
           <div>
@@ -70,42 +70,48 @@ export default function Profile() {
             ))}
           </div>
         )}
-        <h2 className="sect">This phone</h2>
-        {staff() && (
-          <Row to="/mobile/punches" title="This month" detail={`${svc.punches().late} late · ${svc.punches().hours}h`} value={`${svc.punches().days} days`} />
-        )}
-        {staff() && can('performance', 'r') && (
-          <Row to="/mobile/performance" title="My performance" detail="Score, goals and recognition for this quarter" />
-        )}
-        {staff() && (
+        <section>
+          <h2 className="sect">This phone</h2>
+          {staff() && (
+            <Row to="/mobile/punches" title="This month" detail={`${svc.punches().late} late · ${svc.punches().hours}h`} value={`${svc.punches().days} days`} />
+          )}
+          {staff() && can('performance', 'r') && (
+            <Row to="/mobile/performance" title="My performance" detail="Score, goals and recognition for this quarter" />
+          )}
+          {staff() && (
+            <Row
+              title="Optional points list"
+              detail="Hide my points from that list. Work and the performance score are still recorded."
+              value={person?.ptsOptOut ? 'Hidden' : 'Visible'}
+              onClick={() => { svc.setOptOut(!person?.ptsOptOut); render(); }}
+            />
+          )}
           <Row
-            title="Optional points list"
-            detail="Hide my points from that list. Work and the performance score are still recorded."
-            value={person?.ptsOptOut ? 'Hidden' : 'Visible'}
-            onClick={() => { svc.setOptOut(!person?.ptsOptOut); render(); }}
+            title="Pretend no signal"
+            detail={state.online ? 'Messages send straight away' : 'Messages wait for a signal'}
+            value={state.online ? 'Off' : 'On'}
+            onClick={() => setOnline(!state.online)}
           />
-        )}
-        <Row
-          title="Pretend no signal"
-          detail={state.online ? 'Messages send straight away' : 'Messages wait for a signal'}
-          value={state.online ? 'Off' : 'On'}
-          onClick={() => setOnline(!state.online)}
-        />
-        <Row to="/mobile/appearance" title="Appearance" detail={look === 'Phone' ? 'Follows this phone' : 'Chosen on this phone'} value={look} />
-        <Row to="/mobile/language" title="Language" detail="Menus only" value={lang} />
+          <Row to="/mobile/appearance" title="Appearance" detail={look === 'Phone' ? 'Follows this phone' : 'Chosen on this phone'} value={look} />
+          <Row to="/mobile/language" title="Language" detail="Menus only" value={lang} />
+        </section>
 
-        <h2 className="sect">Studio</h2>
-        <Row to="/mobile/people" title="People and contractors" detail="Phone numbers, one tap to call" />
-        <Row to="/mobile/holidays" title={staff() ? 'Holidays and my leave' : 'Holidays'} detail="Office closed days" />
-        {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? 'Book a meeting' : 'Book a room'} detail="Pick a day and time" />}
-        {state.role === 'partner' && <Row to="/mobile/notice" title="Notice to everyone" detail="One message, every project chat" />}
-        {staff() && can('review', 'r') && <Row to="/mobile/reviews" title="My reviews" detail="Monthly score, strengths and growth" />}
+        <section>
+          <h2 className="sect">Studio</h2>
+          <Row to="/mobile/people" title="People and contractors" detail="Phone numbers, one tap to call" />
+          <Row to="/mobile/holidays" title={staff() ? 'Holidays and my leave' : 'Holidays'} detail="Office closed days" />
+          {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? 'Book a meeting' : 'Book a room'} detail="Pick a day and time" />}
+          {state.role === 'partner' && <Row to="/mobile/notice" title="Notice to everyone" detail="One message, every project chat" />}
+          {staff() && can('review', 'r') && <Row to="/mobile/reviews" title="My reviews" detail="Monthly score, strengths and growth" />}
+        </section>
 
-        <h2 className="sect">This demo</h2>
-        <Row to="/desktop/dashboard" title="Open desktop studio" detail="Planning, drawings and coordination" />
-        <Row to="/mobile/who" title="Switch person" detail="Try the app as someone else" />
-        <Row title="Start over" detail="Clear this demo’s changes" onClick={() => { startOver(); navigate('/mobile/chats'); }} />
-        <Row title="Sign out" detail="Return to the phone sign-in" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
+        <section>
+          <h2 className="sect">This demo</h2>
+          <Row to="/desktop/dashboard" title="Open desktop studio" detail="Planning, drawings and coordination" />
+          <Row to="/mobile/who" title="Switch person" detail="Try the app as someone else" />
+          <Row title="Start over" detail="Clear this demo’s changes" onClick={() => { startOver(); navigate('/mobile/chats'); }} />
+          <Row title="Sign out" detail="Return to the phone sign-in" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
+        </section>
         <p className="note">Filing, transcripts and answers are simulated on this device. Updates stay in this browser.</p>
       </div>
     </div>

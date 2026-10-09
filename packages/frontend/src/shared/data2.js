@@ -300,7 +300,6 @@ export const FOLLOWUPS = [
 export const DECISIONS_DUE = [
   { id: "dd1", projectId: "p1", threadId: "t1", title: "Pick kitchen counter: Dekton vs Kota", due: "2026-09-12", status: "open", askedBy: "u5" },
   { id: "dd2", projectId: "p1", threadId: "t1", title: "Approve pantry door sample, fluted oak", due: "2026-09-10", status: "open", askedBy: "u5" },
-  { id: "dd3", projectId: "p2", threadId: "t3", title: "Confirm café signage colour", due: "2026-09-05", status: "open", askedBy: "u7" },
 ];
 // Vendor ratings per project and trade. Asked once a project is finished.
 VENDORS.forEach((v) => { v.ratings = v.ratings || []; });

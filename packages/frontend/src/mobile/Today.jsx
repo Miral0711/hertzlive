@@ -487,7 +487,7 @@ export default function Today() {
           <Avatar person={person} size="sm" />
         </Link>
       </header>
-      <div className="body canvas day-body">
+      <div className="body canvas day-body hub">
         <div className="day-sheet">
           <section className="day-now">
             <div>
@@ -497,7 +497,7 @@ export default function Today() {
           </section>
         {!state.online && <p className="banner">Your message will send when the network is back.</p>}
           {siteThreads.length > 0 && can('thread', 'w') && (
-            <div className="day-row">
+            <div className="day-row day-post">
               <Link to={postTo}>
                 <b>Post a site update</b>
                 <span>Photo, voice, delivery or attendance</span>

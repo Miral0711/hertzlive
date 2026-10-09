@@ -490,9 +490,16 @@ function Composer({ thread, last }) {
   return (
     <div className={`chat-wallpaper px-1.5 pt-1 ${phone ? 'pb-[max(0.4rem,env(safe-area-inset-bottom))]' : 'pb-2'}`}>
       <p role="status" className="m-0 min-h-0 px-2 text-xs text-crit empty:hidden">{status}</p>
-      {staff() && last && last.by !== state.userId && (
-        <Btn kind="link" sm className="mb-1 ml-3" onClick={() => suggestReply(thread.id)}>Suggest reply</Btn>
-      )}
+      {(staff() && last && last.by !== state.userId) || (can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '')) ? (
+        <div className="mb-1 flex items-center gap-1.5 overflow-x-auto px-2">
+          {can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '') && QUICK_REPLIES.map((label) => (
+            <button key={label} type="button" className="h-7 min-h-0 shrink-0 rounded-full border border-line bg-surface px-2.5 text-[13px] font-semibold leading-none text-accent-text" onClick={() => sendMessage(thread.id, label, { replyTo: last.id })}>{label}</button>
+          ))}
+          {staff() && last && last.by !== state.userId && (
+            <button type="button" className="ml-auto h-7 min-h-0 shrink-0 border-0 bg-transparent px-1 text-[13px] font-semibold text-accent-text only:ml-0" onClick={() => suggestReply(thread.id)}>Suggest reply</button>
+          )}
+        </div>
+      ) : null}
       {(pending?.type === 'document' || pending?.type === 'audio') && (
         <PendingFileBar pending={pending} onCancel={() => setPending(null)} onSend={sendSimpleFile} />
       )}
@@ -570,13 +577,6 @@ function Composer({ thread, last }) {
           }}
         />
       )}
-      {can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '') && (
-        <div className="mb-1 flex flex-wrap gap-2 px-2">
-          {QUICK_REPLIES.map((label) => (
-            <Btn key={label} sm onClick={() => sendMessage(thread.id, label, { replyTo: last.id })}>{label}</Btn>
-          ))}
-        </div>
-      )}
       {state.desk.replyTo?.threadId === thread.id && (
         <div className="mb-1 flex items-center gap-2 px-2 text-sm">
           <span className="min-w-0 flex-1 truncate"><b className="text-accent-text">{name(state.db.MESSAGES.find((m) => m.id === state.desk.replyTo.id)?.by)}</b> {conversationPreview(state.db.MESSAGES.find((m) => m.id === state.desk.replyTo.id))}</span>
@@ -587,7 +587,7 @@ function Composer({ thread, last }) {
         className="flex w-full items-end gap-1.5"
         onSubmit={(e) => { e.preventDefault(); sendMessage(thread.id, text); }}
       >
-        <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-full bg-surface pl-1 pr-3 shadow-s1">
+        <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-full bg-surface pl-1 pr-3 shadow-s1 focus-within:shadow-[var(--shadow-1),0_0_0_1.5px_var(--accent)]">
           <AttachMenu bare onPickFile={onPickFile} onPickAction={onPickAction} />
           <input
             data-composer
@@ -597,7 +597,7 @@ function Composer({ thread, last }) {
             placeholder="Message"
             aria-label="Message"
             autoComplete="off"
-            className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1 text-ink placeholder:text-ink-3 focus:outline-none"
+            className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1 text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
           />
           {phone && (
             <button type="button" aria-label="Camera" onClick={() => onPickAction('camera')} className="inline-grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-transparent text-ink-3">
@@ -825,26 +825,31 @@ export function ChatView({ workspace = false }) {
         <ConversationList threads={scoped} />
       ) : (
         <>
-          {pinned.length > 0 && (
-            <details className="border-b border-line bg-accent-soft px-3 py-2">
-              <summary className="cursor-pointer font-semibold">{pinned.length} decision{pinned.length === 1 ? '' : 's'} pinned</summary>
+          {(pinned.length > 0 || svc.decisionsDue({ threadId: cur.id }).length > 0) && (
+            <div className="border-b border-line bg-surface">
               {pinned.map((m) => (
-                <div key={m.id} className="mt-1 flex items-center gap-2">
-                  <button type="button" className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left" onClick={() => { state.desk.hi = m.id; render(); }}>
-                    <b>{(m.text || 'Decision').slice(0, 80)}</b>
-                    <small className="block text-ink-3">{first(m.by)} · {fmtT(m.at)}</small>
+                <div key={m.id} className="flex items-center gap-2 border-t border-line px-3 py-1.5 first:border-t-0">
+                  <button type="button" className="flex min-h-0 min-w-0 flex-1 items-baseline gap-2 border-0 bg-transparent p-0 text-left" onClick={() => { state.desk.hi = m.id; render(); }}>
+                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-accent-text">Pinned</span>
+                    <b className="min-w-0 flex-1 truncate text-sm">{m.text || 'Decision'}</b>
                   </button>
-                  {canPin && <Btn sm onClick={() => svc.toggleDecision(m)}>Unpin</Btn>}
+                  {canPin && <button type="button" className="min-h-0 shrink-0 border-0 bg-transparent p-0 text-[13px] font-semibold text-accent-text" onClick={() => svc.toggleDecision(m)}>Unpin</button>}
                 </div>
               ))}
-            </details>
-          )}
-          {svc.decisionsDue({ threadId: cur.id }).map((d) => (
-            <div key={d.id} className="mx-2 mt-2 rounded-r1 bg-surface px-3 py-2">
-              <small className="font-semibold text-warn">Still open · due {fmtD(d.due)}</small>
-              <div className="font-semibold">{d.title}</div>
+              {svc.decisionsDue({ threadId: cur.id }).map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  className="flex w-full min-h-0 items-baseline gap-2 border-0 border-t border-line bg-transparent px-3 py-1.5 text-left first:border-t-0"
+                  onClick={() => openDialog({ kind: 'project-decision', id: d.id, fromChat: true })}
+                >
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-warn">Open</span>
+                  <b className="min-w-0 flex-1 truncate text-sm">{d.title}</b>
+                  <span className="shrink-0 text-xs text-ink-3">due {fmtD(d.due)}</span>
+                </button>
+              ))}
             </div>
-          ))}
+          )}
           {showWork ? <WorkGroupList thread={cur} /> : (
             <>
               {cur.kind === 'internal' && (

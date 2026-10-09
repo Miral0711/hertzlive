@@ -13,7 +13,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from '../p
 import { useStyles, useTheme } from '../platform/theme';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, render,
 } from '../store';
 import { AIProvider, toast } from '../../../frontend/src/shared/core';
 import { filingLabel } from '../../../frontend/src/shared/filing';
@@ -148,10 +148,10 @@ export default function Thread() {
   const [fileName, setFileName] = useState('');
   const [drawingNo, setDrawingNo] = useState('');
   const [error, setError] = useState('');
-  const [showPins, setShowPins] = useState(false);
   const [showWork, setShowWork] = useState(false);
   useEffect(() => { setShowWork(false); }, [threadId]);
   const [replyTo, setReplyTo] = useState<any>(null);
+  const [openDue, setOpenDue] = useState<any>(null);
   const [menu, setMenu] = useState<any>(null);
   const [forwardMsg, setForwardMsg] = useState<any>(null);
   const [editor, setEditor] = useState<any>(null);
@@ -179,21 +179,21 @@ export default function Thread() {
     swTextOn: { color: c.accentInk },
     banner: { color: c.ink3, fontSize: 12, fontWeight: '500', textAlign: 'center', paddingTop: 4, paddingBottom: 8, paddingHorizontal: 16 },
     office: { alignSelf: 'center', marginTop: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: c.warnSoft, color: c.warn, fontSize: 12, fontWeight: '500', textAlign: 'center', overflow: 'hidden' },
-    pinbar: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: c.accentSoft },
-    pinbarText: { fontWeight: '700', color: c.ink, fontSize: 16 },
-    pinrow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.accentSoft, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
-    jump: { flex: 1, minWidth: 0, gap: 2, paddingVertical: 10, paddingHorizontal: 16 },
+    decisions: { backgroundColor: c.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line },
+    pin: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 34, paddingVertical: 4, paddingHorizontal: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+    pinFirst: { borderTopWidth: 0 },
+    jump: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', color: c.accentText },
+    kickerOpen: { color: c.warn },
     jumpB: { fontWeight: '700', color: c.ink },
-    jumpS: { color: c.ink3, fontSize: 13 },
-    unpin: { paddingVertical: 10, paddingHorizontal: 14 },
-    unpinText: { color: c.accentText, fontWeight: '700' },
+    pinTitle: { flex: 1, fontWeight: '650', color: c.ink, fontSize: 14 },
+    dueMeta: { color: c.ink3, fontSize: 12 },
+    unpin: { paddingVertical: 4, paddingHorizontal: 2 },
+    unpinText: { color: c.accentText, fontWeight: '650', fontSize: 13 },
     body: { flex: 1, backgroundColor: c.chat },
     bodyIn: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 12 },
     day: { alignSelf: 'center', marginTop: 12, marginBottom: 6, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, backgroundColor: c.surface, shadowColor: th.dark ? '#000' : c.ink, shadowOpacity: th.dark ? 0.4 : 0.08, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
     dayText: { fontSize: 12, fontWeight: '600', color: c.ink2 },
-    dueRow: { paddingVertical: 8, paddingHorizontal: 12, marginTop: 8, borderRadius: 8, backgroundColor: c.surface },
-    dueSmall: { fontSize: 12, color: c.warn, fontWeight: '700' },
-    dueB: { fontSize: 15, fontWeight: '600', color: c.ink },
     cluster: { width: '100%', marginTop: 8, alignItems: 'flex-start' },
     clusterMine: { alignItems: 'flex-end' },
     clusterCont: { marginTop: 3 },
@@ -212,7 +212,7 @@ export default function Thread() {
     chipCheck: { borderColor: c.warnSoft, backgroundColor: c.warnSoft },
     chipAsk: { borderColor: c.critSoft, backgroundColor: c.critSoft },
     chipText: { fontSize: 12, color: c.ink2, flexShrink: 1 },
-    suggest: { alignSelf: 'flex-start', marginLeft: 12, marginBottom: 2, color: c.accentText, fontSize: 13, fontWeight: '600' },
+    suggest: { color: c.accentText, fontSize: 13, fontWeight: '650' },
     say: { flexShrink: 1, fontSize: 15.5, lineHeight: 21, color: c.ink },
     onAccent: { color: c.accentInk },
     onAccentMute: { color: c.accentInk, opacity: 0.78 },
@@ -229,8 +229,8 @@ export default function Thread() {
     emptyH: { fontSize: 17, fontWeight: '600', color: c.ink, marginTop: 8, marginBottom: 4 },
     emptyP: { color: c.ink2, textAlign: 'center' },
     emptyLink: { color: c.accent, fontWeight: '700', marginTop: 8 },
-    quick: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingTop: 8, paddingHorizontal: 12, backgroundColor: c.surface },
-    quickBtn: { borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
+    quick: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 6, paddingHorizontal: 10, paddingBottom: 2 },
+    quickBtn: { borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
     quickText: { color: c.accentText, fontWeight: '600' },
     replybar: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingTop: 8, paddingHorizontal: 12, backgroundColor: c.surface },
     replyText: { flex: 1, minWidth: 0, fontSize: 13, color: c.ink },
@@ -533,30 +533,35 @@ export default function Thread() {
         ) : (
         <>
         {thread.kind === 'internal' && <Text style={s.office}>{t('officeOnly')}</Text>}
-        {pinned.length > 0 && (
-          <Pressable style={s.pinbar} onPress={() => setShowPins((v) => !v)} accessibilityRole="button">
-            <Text style={s.pinbarText}>{pinned.length} decision{pinned.length === 1 ? '' : 's'} pinned</Text>
-          </Pressable>
-        )}
-        {showPins && pinned.map((m) => (
-          <View style={s.pinrow} key={m.id}>
-            <Pressable style={s.jump} onPress={() => jumpTo(m.id, true)}>
-              <Text style={s.jumpB}>{(m.text || 'Decision').slice(0, 80)}</Text>
-              <Text style={s.jumpS}>{firstName(m.by)} · {fmtT(m.at)}</Text>
-            </Pressable>
-            {canPin && <Pressable style={s.unpin} onPress={() => toggleDecision(m)}><Text style={s.unpinText}>Unpin</Text></Pressable>}
+        {(pinned.length > 0 || svc.decisionsDue({ threadId: thread.id }).length > 0) && (
+          <View style={s.decisions}>
+            {pinned.map((m, i) => (
+              <View style={[s.pin, i === 0 && s.pinFirst]} key={m.id}>
+                <Pressable style={s.jump} onPress={() => jumpTo(m.id, true)}>
+                  <Text style={s.kicker}>Pinned</Text>
+                  <Text style={s.pinTitle} numberOfLines={1}>{m.text || 'Decision'}</Text>
+                </Pressable>
+                {canPin && <Pressable style={s.unpin} onPress={() => toggleDecision(m)}><Text style={s.unpinText}>Unpin</Text></Pressable>}
+              </View>
+            ))}
+            {svc.decisionsDue({ threadId: thread.id }).map((d: any, i) => (
+              <Pressable
+                key={d.id}
+                style={[s.pin, pinned.length === 0 && i === 0 && s.pinFirst]}
+                accessibilityRole="button"
+                onPress={() => setOpenDue(d)}
+              >
+                <Text style={[s.kicker, s.kickerOpen]}>Open</Text>
+                <Text style={s.pinTitle} numberOfLines={1}>{d.title}</Text>
+                <Text style={s.dueMeta}>due {fmtD(d.due)}</Text>
+              </Pressable>
+            ))}
           </View>
-        ))}
+        )}
         <ScrollView
           ref={scroller} style={s.body} contentContainerStyle={s.bodyIn} keyboardShouldPersistTaps="handled"
           onLayout={(e) => { viewH.current = e.nativeEvent.layout.height; }}
         >
-          {svc.decisionsDue({ threadId: thread.id }).map((d: any) => (
-            <View style={s.dueRow} key={d.id}>
-              <Text style={s.dueSmall}>Still open · due {fmtD(d.due)}</Text>
-              <Text style={s.dueB}>{d.title}</Text>
-            </View>
-          ))}
           {msgs.map((m, i) => {
             const prev = msgs[i - 1];
             const day = m.at.slice(0, 10);
@@ -667,18 +672,18 @@ export default function Thread() {
             </View>
           )}
         </ScrollView>
-        {staff() && can('thread', 'w') && last && last.by !== state.userId && (
-          <Pressable onPress={async () => {
-            if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
-            try { setDraft(thread.id, await AIProvider.draftReply(thread, last)); }
-            catch { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
-          }}><Text style={s.suggest}>Suggest reply</Text></Pressable>
-        )}
-        {showQuick && (
+        {(showQuick || (staff() && can('thread', 'w') && last && last.by !== state.userId)) && (
           <View style={s.quick}>
-            {[t('yes'), t('ok'), t('onMyWay')].map((l: string) => (
+            {showQuick && [t('yes'), t('ok'), t('onMyWay')].map((l: string) => (
               <Btn key={l} style={s.quickBtn} textStyle={s.quickText} onPress={() => { postMessage(thread.id, { text: l, replyTo: last.id }); markRead(thread.id); }}>{l}</Btn>
             ))}
+            {staff() && can('thread', 'w') && last && last.by !== state.userId && (
+              <Pressable style={{ marginLeft: showQuick ? 'auto' : 0 }} onPress={async () => {
+                if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
+                try { setDraft(thread.id, await AIProvider.draftReply(thread, last)); }
+                catch { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
+              }}><Text style={s.suggest}>Suggest reply</Text></Pressable>
+            )}
           </View>
         )}
         {replyTo && (
@@ -711,6 +716,27 @@ export default function Thread() {
           </View>
         )}
         </>
+        )}
+        {openDue && (
+          <Pressable style={s.back} onPress={() => { if (openDue) svc.decideDecision(openDue.id); setOpenDue(null); render(); }} accessibilityRole="none">
+            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel={openDue.title}>
+              <View style={s.grab} />
+              <Text style={s.h2}>{openDue.title}</Text>
+              <Text style={s.help}>Still open · due {fmtD(openDue.due)}. Asked by {firstName(openDue.askedBy)}.</Text>
+              {can('thread', 'w') && (
+                <Pressable
+                  style={s.primary}
+                  onPress={() => {
+                    setDraft(thread.id, `Hi, could you help decide "${openDue.title}" so we can keep the project on schedule? Thank you.`);
+                    setOpenDue(null);
+                  }}
+                >
+                  <Text style={s.primaryText}>Ask in this chat</Text>
+                </Pressable>
+              )}
+              <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { if (openDue) svc.decideDecision(openDue.id); setOpenDue(null); render(); }}>Close</Btn>
+            </Pressable>
+          </Pressable>
         )}
         {sheet && (
           <Pressable style={s.back} onPress={() => setSheet(null)} accessibilityRole="none">

@@ -54,7 +54,7 @@ export default function Updates() {
           <Avatar person={person} size="sm" />
         </Link>
       </header>
-      <div className="body canvas proj">
+      <div className="body canvas proj hub">
         <p className="note">The record of what already changed. Work that needs you stays on Today.</p>
         {list.length > 6 && (
           <label className="search">

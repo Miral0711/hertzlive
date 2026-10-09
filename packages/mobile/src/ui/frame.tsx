@@ -55,16 +55,18 @@ export function BackButton({ to, label = 'Back', showLabel = true }: { to?: stri
 }
 
 // Detail page: back button + title (+ subtitle), scrollable canvas body, optional pinned footer.
-export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, footer = null }: {
+export function Page({ back, backLabel = 'Back', title, sub, children, bare = false, sheet = false, board = false, footer = null }: {
   back?: string; backLabel?: string; title: string; sub?: string; children?: React.ReactNode;
-  bare?: boolean; sheet?: boolean; stackTitle?: boolean; footer?: React.ReactNode;
+  bare?: boolean; sheet?: boolean; stackTitle?: boolean; board?: boolean; footer?: React.ReactNode;
 }) {
   const s = useStyles((c) => ({
     heading: { flex: 1, minWidth: 0 },
     h1: { fontSize: sheet ? 17 : 16, fontWeight: '600', color: c.ink },
     sub: { fontSize: 13, color: c.ink3, marginTop: 2 },
-    body: { flex: 1, backgroundColor: sheet || bare ? c.surface : c.ground },
-    content: sheet ? { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 28 } : { padding: bare ? 0 : 14, paddingTop: bare ? 0 : 8, paddingBottom: 24 },
+    body: { flex: 1, backgroundColor: board ? c.ground : (sheet || bare ? c.surface : c.ground) },
+    content: board
+      ? { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 28 }
+      : sheet ? { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 28 } : { padding: bare ? 0 : 14, paddingTop: bare ? 0 : 8, paddingBottom: 24 },
   }));
   return (
     <Screen>
