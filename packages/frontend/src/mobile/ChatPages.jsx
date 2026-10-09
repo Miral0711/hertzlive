@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { Page, Note, Swatch, backName } from './frame';
@@ -211,12 +211,15 @@ export function GroupInfo() {
 }
 
 export function WorkGroups() {
-  useStore();
+  const version = useStore();
   const { threadId } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const parent = svc.thread(threadId);
-  const tasks = parent ? svc.tasks({ projectId: parent.projectId, all: true }) : [];
+  const tasks = useMemo(
+    () => (parent && version != null ? svc.tasks({ projectId: parent.projectId, all: true }) : []),
+    [parent, version],
+  );
   const [taskId, setTaskId] = useState(params.get('task') || '');
   const [taskTitle, setTaskTitle] = useState('');
   const [name, setName] = useState('');
