@@ -552,19 +552,21 @@ export const svc = {
   threads() {
     const u = me();
     const r = effectiveRole();
-    const inWorkGroup = (t) => t.groupType === "work" && (t.memberIds || []).includes(u.id);
+    const member = (t) => (t.memberIds || []).includes(u.id);
+    // Every role sees a direct message or group they were added to, including work groups.
+    const joined = (t) => (t.kind === "dm" || t.kind === "group") && member(t);
     if (r === "client")
       return state.db.THREADS.filter(
-        (t) => inWorkGroup(t) || (t.kind === "client" && this.myProjectIds().includes(t.projectId)),
+        (t) => joined(t) || (t.kind === "client" && this.myProjectIds().includes(t.projectId)),
       );
     if (r === "contractor")
       return state.db.THREADS.filter(
-        (t) => inWorkGroup(t) || (t.kind === "site" && (u.siteIds || []).includes(t.siteId)),
+        (t) => joined(t) || (t.kind === "site" && (u.siteIds || []).includes(t.siteId)),
       );
-    if (r === "hr") return state.db.THREADS.filter(inWorkGroup);
-    return state.db.THREADS.filter(
-      (t) => t.memberIds.includes(u.id) || state.role === "partner",
-    );
+    // HR stays off project chats. Membership still applies through joined().
+    if (r === "hr") return state.db.THREADS.filter(joined);
+    if (r === "partner") return state.db.THREADS.slice();
+    return state.db.THREADS.filter(member);
   },
   thread(id) {
     return this.threads().find((t) => t.id === id) || null;

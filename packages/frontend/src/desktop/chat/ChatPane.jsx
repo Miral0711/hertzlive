@@ -730,7 +730,7 @@ export function ChatView({ workspace = false }) {
           <b className="flex-1">Chat</b>
           <Btn sm onClick={toggleChatPane}>Hide chat</Btn>
         </div>
-        <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">No chats for this role. HR uses direct messages on the phone app.</p>
+        <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">No conversations yet.</p>
       </aside>
     );
   }
