@@ -241,6 +241,7 @@ export function GroupInfo() {
   const docs = tab === 'Voice' ? voiceNotes : tab === 'Drawings' ? drawings : tab === 'Files' ? files : [];
   const samples = photos.length ? [] : (SAMPLE_MEDIA[thread.kind] || SAMPLE_MEDIA.internal);
   const sampleDocs = docs.length ? [] : (SAMPLE_DOCS[thread.kind] || SAMPLE_DOCS.internal);
+  const placeholders = sampleDocs.filter((item) => item.kind === ({ Files: 'File', Voice: 'Voice note', Drawings: 'Drawing' } as Record<string, string>)[tab]);
   const pinned = msgs.filter((m: any) => m.decision);
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   const about = ({
@@ -289,7 +290,8 @@ export function GroupInfo() {
           ))}
         </View>
       )}
-      {tab !== 'Photos' && tab !== 'Links' && !docs.length && sampleDocs.map((item) => (
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && !placeholders.length ? <Text style={k.note}>Nothing here yet.</Text> : null}
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && placeholders.map((item) => (
         <DayRow key={item.title}><RowB>{item.kind}</RowB><RowS>{item.title}</RowS></DayRow>
       ))}
       {tab !== 'Photos' && tab !== 'Links' && docs.map((m: any) => (
@@ -1011,11 +1013,7 @@ export function Call() {
       <Note>Posts a call card into this chat. Meet for the studio.</Note>
       {error ? <Warn>{error}</Warn> : null}
       <Primary label="Start Google Meet" onPress={() => {
-        try { setMade(svc.startCall(threadId, 'meet')); setError(''); render(); }
-        catch (err: any) { setError(err.message); }
-      }} />
-      <Primary label="Start Jitsi" onPress={() => {
-        try { setMade(svc.startCall(threadId, 'jitsi')); setError(''); render(); }
+        try { setMade(svc.startCall(threadId)); setError(''); render(); }
         catch (err: any) { setError(err.message); }
       }} />
       {made ? (

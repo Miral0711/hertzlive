@@ -337,7 +337,7 @@ function Message({ m, showName, firstInRun, lastInRun, later = [], threadMessage
       )}
       {m.call && live && (
         <Opts>
-          <span><b>Video call</b> · {m.call.provider === 'jitsi' ? 'Jitsi' : 'Google Meet'}<br />
+          <span><b>Video call</b> · {m.call.provider || 'Google Meet'}<br />
             {callUrl ? <a href={callUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text underline">{m.call.url}</a> : m.call.url}
           </span>
         </Opts>
@@ -693,7 +693,7 @@ export function ChatView({ workspace = false }) {
         )}
         {!desk.chatList && (
           <>
-            <BarButton label="Video call" icon="camera" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
+            <BarButton label="Video call" icon="video" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
             <BarButton label="Voice call" icon="call" onClick={() => {
               const otherId = cur.kind === 'dm' ? cur.memberIds.find((id) => id !== state.userId) : null;
               const other = otherId ? user(otherId) : null;

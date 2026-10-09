@@ -1,5 +1,5 @@
 // Feature module: chat. Exports page components and dialog components (see registry.js).
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { state, svc, toast, render, accessibleMessage, messageAttachment, fmtT, fmtD } from '../../shared/core.js';
 import { filingRules, FILE_KINDS, ROOM_WORDS } from '../../shared/filing.js';
@@ -19,7 +19,7 @@ import {
   IssueReview, ProjectUpdateDialog, SiteIssueDialog, SiteReviewDialog,
 } from '../chat/site';
 import { conversationThreads, markChatRead, pendingFocus } from '../chat/store';
-import { ChatInfoDialog, ForwardDialog, MessageActionsDialog, VoiceCallDialog } from '../chat/messenger';
+import { ChatInfoDialog, ChatStartDialog, ForwardDialog, MessageActionsDialog, VoiceCallDialog } from '../chat/messenger';
 import { usePhone } from '../phone';
 import { Stat } from '../studio/common';
 
@@ -133,6 +133,14 @@ function ChatDesk({ rows, check, rules, dms, tucked = false }) {
 
 function ChatsPage({ parts, q }) {
   const phone = usePhone();
+  const [add, setAdd] = useState(false);
+  const start = svc.chatCreatable() ? <Btn sm icon="plus" onClick={() => setAdd(true)}>New</Btn> : null;
+  const starter = add && (
+    <ChatStartDialog
+      onClose={() => setAdd(false)}
+      onOpen={(id) => { setAdd(false); openThreadFromList(id); }}
+    />
+  );
   // "#/chats?thread=id" and "#/chats/id" open that conversation.
   const wanted = q.thread || parts[0] || '';
   useEffect(() => {
@@ -173,6 +181,7 @@ function ChatsPage({ parts, q }) {
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-surface">
         {desk.readStorageError && <p role="status" className="m-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
+        {start && <div className="flex justify-end px-3 pt-2">{start}</div>}
         <ConversationList
           threads={conversationThreads()}
           filterable
@@ -189,12 +198,14 @@ function ChatsPage({ parts, q }) {
             </details>
           )}
         />
+        {starter}
       </div>
     );
   }
   return (
     <>
-      <PageHeader title="Chats" sub="Unread status is private to you in this browser." />
+      <PageHeader title="Chats" sub="Unread status is private to you in this browser.">{start}</PageHeader>
+      {starter}
       {desk.readStorageError && <p role="status" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
       <div className="grid h-[clamp(420px,calc(100dvh-230px),850px)] grid-cols-[minmax(260px,34%)_minmax(0,1fr)] overflow-hidden rounded-r2 border border-line bg-surface max-[980px]:grid-cols-1">
         <section aria-label="Conversation list" className={`flex min-h-0 min-w-0 flex-col ${hasConversation ? 'max-[980px]:hidden' : ''}`}>
@@ -279,7 +290,7 @@ function FileDialog({ d }) {
 function VideoCallDialog({ d }) {
   const start = (e) => {
     e.preventDefault();
-    svc.startCall(d.threadId, formData(e.currentTarget).provider);
+    svc.startCall(d.threadId);
     state.desk.dialog = null;
     toast('Call started.');
     render();
@@ -287,8 +298,7 @@ function VideoCallDialog({ d }) {
   return (
     <Modal title="Start video call">
       <form onSubmit={start}>
-        <label className="mb-2.5 flex items-center gap-2"><input type="radio" name="provider" value="meet" defaultChecked /> Google Meet</label>
-        <label className="mb-2.5 flex items-center gap-2"><input type="radio" name="provider" value="jitsi" /> Jitsi, no account needed, best for clients and contractors</label>
+        <p className="text-ink-3">Posts a Google Meet card into this chat.</p>
         <ModalActions>
           <Btn onClick={closeDialog}>Cancel</Btn>
           <Btn kind="primary" type="submit">Start call</Btn>

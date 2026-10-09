@@ -943,7 +943,7 @@ export const svc = {
       id,
       threadId,
       by: state.userId,
-      at: new Date().toISOString().slice(0, 16),
+      at: localStamp(),
       ...m,
     });
     if (!persist()) {
@@ -1742,12 +1742,114 @@ export const svc = {
     persist();
     return rec;
   },
-  // Video call card posted to the thread. Meet for the studio, Jitsi when outsiders have no Google account.
-  startCall(threadId, provider = "meet") {
+  // Video call card posted to the thread.
+  startCall(threadId) {
     const code = () => Math.random().toString(36).slice(2, 5);
-    const url = provider === "jitsi" ? `https://meet.jit.si/${this.cfg().short}-${uid().slice(1)}` : `https://meet.google.com/${code()}-${code()}${code().slice(0, 1)}-${code()}`;
-    const id = this.addMessage(threadId, { text: `Video call started`, call: { provider: provider === "jitsi" ? "Jitsi" : "Google Meet", url } });
+    const url = `https://meet.google.com/${code()}-${code()}${code().slice(0, 1)}-${code()}`;
+    const id = this.addMessage(threadId, { text: `Video call started`, call: { provider: "Google Meet", url } });
     return { id, url };
+  },
+  // Staff who can both write a thread and still see it in their chat list.
+  chatCreatable() {
+    return can("thread", "w") && ["partner", "designer", "site_manager"].includes(effectiveRole());
+  },
+  chatPeople() {
+    if (!this.chatCreatable()) return [];
+    return this.people().filter((u) => u.id && u.id !== state.userId);
+  },
+  projectChatPeople(projectId) {
+    const project = state.db.PROJECTS.find((p) => p.id === projectId);
+    if (!project || !this.myProjectIds().includes(projectId) || this.phoneHides(projectId)) return [];
+    const allowed = new Set(this.chatPeople().map((u) => u.id));
+    return (project.teamIds || [])
+      .filter((id, i, all) => id !== state.userId && allowed.has(id) && all.indexOf(id) === i)
+      .map((id) => user(id))
+      .filter((u) => u.id);
+  },
+  myGroups() {
+    if (!this.chatCreatable()) return [];
+    return this.threads().filter((t) => t.kind === "group" && (t.memberIds || []).includes(state.userId));
+  },
+  openDirectChat(userId) {
+    if (!this.chatCreatable()) throw new Error("You can’t start a chat.");
+    const other = this.chatPeople().find((u) => u.id === userId);
+    if (!other) throw new Error("Choose a person from the studio.");
+    const existing = state.db.THREADS.find((t) => t.kind === "dm" && (t.memberIds || []).includes(state.userId) && t.memberIds.includes(other.id));
+    if (existing) return existing;
+    const thread = {
+      id: uid(),
+      kind: "dm",
+      name: other.name,
+      memberIds: [state.userId, other.id],
+      projectId: null,
+      createdBy: state.userId,
+      createdAt: localStamp(),
+    };
+    state.db.THREADS.push(thread);
+    this.log(`Chat started · ${other.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      state.db.THREADS.pop();
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this chat.");
+    }
+    render();
+    return thread;
+  },
+  createGroup({ name, projectId, memberIds, groupType }) {
+    if (!this.chatCreatable()) throw new Error("You can’t create a group.");
+    const title = (name || "").trim();
+    if (!title) throw new Error("Give the group a name.");
+    const type = groupType === "project" ? "project" : groupType === "general" ? "general" : "";
+    if (!type) throw new Error("Choose a group type.");
+    const project = type === "project" ? state.db.PROJECTS.find((p) => p.id === projectId) : null;
+    if (type === "project" && (!project || !this.myProjectIds().includes(project.id) || this.phoneHides(project.id))) {
+      throw new Error("Choose a project for this group.");
+    }
+    const allowed = new Set((type === "project" ? this.projectChatPeople(project.id) : this.chatPeople()).map((u) => u.id));
+    const members = [state.userId, ...(memberIds || []).filter((id) => allowed.has(id))];
+    const unique = [...new Set(members)];
+    if (unique.length < 2) throw new Error("Add at least one person.");
+    const projectKey = project ? project.id : null;
+    const duplicate = state.db.THREADS.some((t) => t.kind === "group" && (t.name || "").trim().toLowerCase() === title.toLowerCase() && (t.projectId || null) === projectKey);
+    if (duplicate) throw new Error("A group with that name already exists.");
+    const thread = {
+      id: uid(),
+      kind: "group",
+      groupType: type,
+      name: title,
+      projectId: projectKey,
+      memberIds: unique,
+      createdBy: state.userId,
+      createdAt: localStamp(),
+    };
+    state.db.THREADS.push(thread);
+    this.log(`Group created · ${title}`, "Thread " + thread.id);
+    if (!persist()) {
+      state.db.THREADS.pop();
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this group.");
+    }
+    render();
+    return thread;
+  },
+  inviteToGroup(threadId, userId) {
+    if (!this.chatCreatable()) throw new Error("You can’t invite someone.");
+    const thread = state.db.THREADS.find((t) => t.id === threadId && t.kind === "group");
+    if (!thread || !(thread.memberIds || []).includes(state.userId)) throw new Error("Choose a group you belong to.");
+    if ((thread.memberIds || []).includes(userId)) throw new Error("That person is already in this group.");
+    const projectScoped = thread.groupType === "project" || (!thread.groupType && thread.projectId);
+    const allowed = new Set((projectScoped ? this.projectChatPeople(thread.projectId) : this.chatPeople()).map((u) => u.id));
+    if (!allowed.has(userId)) throw new Error(projectScoped ? "That person isn’t on this project." : "Choose a person from the studio.");
+    const before = thread.memberIds.slice();
+    thread.memberIds = [...before, userId];
+    this.log(`Invited to ${thread.name}`, "Thread " + thread.id);
+    if (!persist()) {
+      thread.memberIds = before;
+      state.db.AUDIT.shift();
+      throw new Error("Could not save this invite.");
+    }
+    render();
+    return thread;
   },
   portfolio() {
     return state.db.PORTFOLIO.filter((p) => p.public !== false);

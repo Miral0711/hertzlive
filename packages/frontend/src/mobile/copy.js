@@ -16,6 +16,7 @@ const ENGLISH = {
   ok: 'OK',
   onMyWay: 'On my way',
   clientGroup: 'Client group',
+  group: 'Group',
   office: 'Office',
   siteTeam: 'Site team',
   chat: 'Chat',

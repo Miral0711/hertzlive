@@ -99,6 +99,55 @@
   font-weight: 600;
   cursor: pointer;
 }
+.top.menu-open { position: relative; z-index: 6; }
+.chat-add { position: relative; }
+.chat-menu-back {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border: 0;
+  background: transparent;
+}
+.chat-menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 0;
+  z-index: 6;
+  min-width: 196px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+.chat-menu button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.chat-menu button:hover, .chat-menu button:focus-visible { background: var(--surface-2); }
+.sheet .type-row { display: flex; gap: 8px; }
+.sheet .type-row button {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sheet .type-row button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .av {
   width: 40px;
   height: 40px;

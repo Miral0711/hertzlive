@@ -19,7 +19,7 @@ export const audience = (thread) => {
     const other = (thread.memberIds || []).find((id) => id !== state.userId);
     return other ? (user(other).title || t('chat')) : t('chat');
   }
-  return { client: t('clientGroup'), internal: t('office'), site: t('siteTeam') }[thread.kind] || t('chat');
+  return { client: t('clientGroup'), internal: t('office'), site: t('siteTeam'), group: t('group') }[thread.kind] || t('chat');
 };
 
 export function dayLabel(iso) {
@@ -50,10 +50,11 @@ export function myThreads() {
   return svc.threads()
     .filter((t) => onPhone(t.projectId))
     .map((t) => ({ t, last: [...svc.messages(t.id)].filter((m) => !hiddenFromMe(m)).sort((a, b) => a.at.localeCompare(b.at)).at(-1) || null }))
-    .sort((a, b) => ((b.last || {}).at || '').localeCompare((a.last || {}).at || ''));
+    .sort((a, b) => ((b.last || {}).at || b.t.createdAt || '').localeCompare((a.last || {}).at || a.t.createdAt || ''));
 }
 
 export function threadTitle(t) {
+  if (t.kind === 'group') return t.name || projectName(t.projectId);
   if (t.projectId && t.kind !== 'dm') return projectName(t.projectId);
   return t.name;
 }

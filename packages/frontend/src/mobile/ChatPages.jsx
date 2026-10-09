@@ -80,6 +80,7 @@ export function GroupInfo() {
   const docs = tab === 'Voice' ? voice : tab === 'Drawings' ? drawings : tab === 'Files' ? files : msgs.filter((m) => !m.photo && !m.link && (m.voice || m.kind === 'file'));
   const samples = media.length ? [] : (SAMPLE_MEDIA[thread.kind] || SAMPLE_MEDIA.internal);
   const sampleDocs = docs.length ? [] : (SAMPLE_DOCS[thread.kind] || SAMPLE_DOCS.internal);
+  const placeholders = sampleDocs.filter((item) => item.kind === { Files: 'File', Voice: 'Voice note', Drawings: 'Drawing' }[tab]);
   const pinned = msgs.filter((m) => m.decision);
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   const about = {
@@ -124,7 +125,8 @@ export function GroupInfo() {
           ))}
         </div>
       )}
-      {tab !== 'Photos' && tab !== 'Links' && !docs.length && sampleDocs.map((item) => (
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && !placeholders.length && <p className="note">Nothing here yet.</p>}
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && placeholders.map((item) => (
         <div className="day-row" key={item.title}>
           <div>
             <b>{item.kind}</b>
@@ -856,13 +858,9 @@ export function Call() {
       <Note>Posts a call card into this chat. Meet for the studio.</Note>
       {error ? <p className="warn-text">{error}</p> : null}
       <button type="button" className="primary" onClick={() => {
-        try { setMade(svc.startCall(threadId, 'meet')); setError(''); render(); }
+        try { setMade(svc.startCall(threadId)); setError(''); render(); }
         catch (err) { setError(err.message); }
       }}>Start Google Meet</button>
-      <button type="button" className="ghost" onClick={() => {
-        try { setMade(svc.startCall(threadId, 'jitsi')); setError(''); render(); }
-        catch (err) { setError(err.message); }
-      }}>Start Jitsi</button>
       {made ? <p className="note"><a href={made.url} target="_blank" rel="noopener noreferrer">{made.url}</a></p> : null}
     </Page>
   );

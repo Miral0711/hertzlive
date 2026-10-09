@@ -74,7 +74,7 @@ export function conversationPreview(m) {
 
 export const conversationThreads = () =>
   svc.threads().sort((a, b) => {
-    const last = (t) => svc.messages(t.id).at(-1)?.at || '';
+    const last = (t) => svc.messages(t.id).at(-1)?.at || t.createdAt || '';
     return last(b).localeCompare(last(a));
   });
 
