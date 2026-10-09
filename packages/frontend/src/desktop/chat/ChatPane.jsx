@@ -1,14 +1,13 @@
 // Right-hand conversation pane (drawer <dialog> on narrow screens) and the shared thread view.
 import {
-  Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore,
+  useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore,
 } from 'react';
 import {
   state, svc, persist, toast, render, parseRoute, fmtT, fmtD, safeAssetUrl, AIProvider, messageAttachment,
 } from '../../shared/core.js';
 import { seedFilings } from '../../shared/filing.js';
-import { Btn, Pill, Dropdown, DropdownItem } from '../../ui/ui';
-import Icon from '../../ui/Icon';
-import { P, first, name, role, staff } from '../helpers';
+import { Btn, Pill, Dropdown, DropdownItem, IconButton } from '../../ui/ui';
+import { P, name, role, staff } from '../helpers';
 import { FilingChip } from '../parts';
 import { openDialog, openThread, toggleChatPane } from '../session';
 import { Ph } from './media';
@@ -23,7 +22,6 @@ import {
   chatDraft, conversationPreview, conversationThreads, draftRev, markChatRead, pendingFocus,
   setChatDraft, unreadCount, useDraftTick,
 } from './store';
-import { usePhone } from '../phone';
 
 // ---------- actions ----------
 export function openThreadFocus(id) {
@@ -103,95 +101,44 @@ async function suggestReply(tid) {
 }
 
 // ---------- conversation list ----------
-// Same stamps WhatsApp uses: a clock time for today, "Yesterday", the weekday, then a short date.
-function chatStamp(iso, withTime) {
-  if (!iso) return '';
-  const d = new Date(iso.length === 10 ? `${iso}T00:00` : iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((start(new Date()) - start(d)) / 864e5);
-  if (days <= 0) return withTime ? fmtT(iso) : 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return d.toLocaleDateString('en-IN', { weekday: withTime ? 'short' : 'long' });
-  return fmtD(iso);
-}
-function avatarStyle(label) {
-  let h = 0;
-  const s = label || '?';
-  for (let i = 0; i < s.length; i += 1) h = (h * 33 + s.charCodeAt(i)) % 360;
-  return { backgroundColor: `hsl(${h} 42% 40%)` };
-}
-const initial = (label) => (label || '?').trim().slice(0, 1).toUpperCase();
-function Avatar({ label, className = 'h-12 w-12 text-[17px]' }) {
-  return (
-    <span className={`inline-grid flex-none place-items-center rounded-full font-medium text-white ${className}`} style={avatarStyle(label)}>
-      {initial(label)}
-    </span>
-  );
-}
-// Last-line preview: "You:" / sender name in a group, a tick when you sent the last line in a direct chat.
-function listPreview(thread, last) {
-  const draft = chatDraft(thread.id).trim();
-  if (draft) return { kind: 'draft', text: draft };
-  if (!last) return { kind: 'empty', text: 'No messages yet' };
-  const body = conversationPreview(last);
-  const group = thread.kind !== 'dm';
-  if (last.deleted) return { kind: 'text', text: body };
-  if (last.by === state.userId) return { kind: 'mine', text: group ? `You: ${body}` : body };
-  if (group) return { kind: 'text', text: `${first(last.by)}: ${body}` };
-  return { kind: 'text', text: body };
-}
-
-export function ConversationList({ threads, filterable = false, footer = null }) {
+export function ConversationList({ threads, filterable = false }) {
   useDraftTick();
   const [q, setQ] = useState('');
-  const filter = filterable ? (state.desk.chatFilter || 'all') : 'all';
+  const unreadOnly = filterable && state.desk.chatFilter === 'unread';
   const needle = q.trim().toLowerCase();
   const rows = threads
-    .filter((t) => filter !== 'unread' || unreadCount(t.id))
-    .filter((t) => filter !== 'groups' || t.kind !== 'dm')
-    .filter((t) => !needle || t.name.toLowerCase().includes(needle) || svc.messages(t.id).some((m) => conversationPreview(m).toLowerCase().includes(needle)));
+    .filter((t) => !unreadOnly || unreadCount(t.id))
+    .filter((t) => !needle || t.name.toLowerCase().includes(needle) || conversationPreview(svc.messages(t.id).at(-1)).toLowerCase().includes(needle));
   const setFilter = (v) => { state.desk.chatFilter = v; render(); };
-  const empty = needle ? 'No conversations match your search.'
-    : filter === 'unread' ? 'No unread conversations.'
-      : filter === 'groups' ? 'No group conversations.'
-        : 'No conversations available for your role.';
   return (
     <>
       {filterable && (
-        <div className="bg-surface px-3 pb-1 pt-2">
-          <label className="relative block">
-            <Icon name="search" small className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search"
-              aria-label="Search conversations"
-              className="min-h-9 w-full rounded-full border-0 bg-surface-2 py-2 pl-9 pr-3 text-ink placeholder:text-ink-3 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft"
-            />
-          </label>
-          <div role="group" aria-label="Filter conversations" className="mt-2 flex gap-2">
-            {[['all', 'All'], ['unread', 'Unread'], ['groups', 'Groups']].map(([k, l]) => (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={filter === k}
-                onClick={() => setFilter(k)}
-                className={`rounded-full px-3 py-1 text-[13px] font-medium ${filter === k ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-ink-2'}`}
+        <div className="flex flex-col gap-2 border-b border-line px-4 py-3">
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search conversations"
+            aria-label="Search conversations"
+            className="min-h-9 rounded-r1 border border-line-2 bg-surface-2 px-3 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
+          />
+          <div role="group" aria-label="Filter conversations" className="flex gap-2">
+            {[['all', 'All', !unreadOnly], ['unread', 'Unread', unreadOnly]].map(([k, l, on]) => (
+              <Btn
+                key={k} sm aria-pressed={on} onClick={() => setFilter(k)}
+                className={on ? '!border-accent !bg-accent-soft !text-accent-text' : ''}
               >
                 {l}
-              </button>
+              </Btn>
             ))}
           </div>
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-auto bg-surface">
-        {footer}
+      <div className="min-h-0 flex-1 overflow-auto">
         {rows.map((t) => {
           const last = svc.messages(t.id).at(-1);
           const unread = unreadCount(t.id);
-          const preview = listPreview(t, last);
+          const draft = chatDraft(t.id).trim();
           const current = t.id === state.desk.thread && !state.desk.chatList;
           return (
             <button
@@ -200,33 +147,26 @@ export function ConversationList({ threads, filterable = false, footer = null })
               data-thread={t.id}
               aria-current={current ? 'true' : undefined}
               onClick={() => openThreadFocus(t.id)}
-              className={`group flex w-full items-center gap-3 border-0 px-3 text-left text-inherit active:bg-surface-3 ${current ? 'bg-surface-2' : 'bg-transparent hover:bg-surface-2'}`}
+              className={`flex min-h-[84px] w-full items-center gap-3 border-0 border-b border-line px-4 py-3.5 text-left text-inherit hover:bg-surface-2 ${current ? 'bg-accent-soft' : 'bg-transparent'}`}
             >
-              <Avatar label={t.name} />
-              <span className="flex min-w-0 flex-1 items-center border-b border-line py-3 group-last:border-b-0">
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline gap-2">
-                    <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{t.name}</b>
-                    <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at, true)}</time>
-                  </span>
-                  <span className="mt-0.5 flex items-center gap-2">
-                    <span className={`flex min-w-0 flex-1 items-center gap-1 text-[14px] leading-5 ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
-                      {preview.kind === 'mine' && <Icon name="checkcheck" small className="text-ink-3" />}
-                      <span className="truncate">
-                        {preview.kind === 'draft' && <span className="font-medium text-accent-text">Draft: </span>}
-                        {preview.text}
-                      </span>
-                    </span>
-                    {unread > 0 && (
-                      <span className="inline-grid h-5 min-w-5 flex-none place-items-center rounded-full bg-accent px-1 text-[11px] font-semibold text-accent-ink">{unread}</span>
-                    )}
-                  </span>
-                </span>
+              <span className="inline-grid h-10 w-10 flex-none place-items-center rounded-full bg-surface-3 text-[13px] font-semibold">{t.name.slice(0, 1)}</span>
+              <span className="min-w-0 flex-1">
+                <b className={`block leading-snug ${unread > 0 ? 'font-semibold text-ink' : 'font-medium text-ink-2'}`}>{t.name}</b>
+                <small className={`mt-1 block truncate text-xs ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>{draft || conversationPreview(last)}</small>
+              </span>
+              <span className="flex flex-none flex-col items-end gap-1 text-[11px]">
+                <small className="text-ink-3">{last ? fmtD(last.at) : ''}</small>
+                {draft && <span className="font-semibold text-accent-text">Draft</span>}
+                {unread > 0 && <span className="inline-grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 font-semibold text-accent-ink">{unread}</span>}
               </span>
             </button>
           );
         })}
-        {!rows.length && <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">{empty}</p>}
+        {!rows.length && (
+          <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">
+            {needle ? 'No conversations match your search.' : unreadOnly ? 'No unread conversations.' : 'No conversations available for your role.'}
+          </p>
+        )}
       </div>
     </>
   );
@@ -267,24 +207,18 @@ function Attachment({ m }) {
   );
 }
 
-function Message({ m, showName, firstInRun, lastInRun }) {
+function Message({ m }) {
   const mine = m.by === state.userId;
   const live = !m.deleted;
   const callUrl = live && m.call ? safeAssetUrl(m.call.url) : '';
-  const tail = lastInRun ? (mine ? 'rounded-lg rounded-br-[4px]' : 'rounded-lg rounded-bl-[4px]') : 'rounded-lg';
   return (
     <div
       data-msgid={m.id}
-      className={`max-w-[min(85%,28rem)] shrink-0 px-2 pb-1 pt-1 text-sm shadow-s1 [overflow-wrap:anywhere] ${firstInRun ? 'mt-2' : 'mt-0.5'} ${tail} ${mine ? 'chat-out self-end' : 'self-start bg-surface'} ${state.desk.hi === m.id ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
+      className={`max-w-[92%] shrink-0 overflow-hidden border px-3 py-2.5 text-sm [overflow-wrap:anywhere] rounded-r3 ${mine ? 'self-end border-transparent bg-mine' : 'self-start border-line bg-surface'} ${state.desk.hi === m.id ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
     >
-      {showName && !mine && (
-        <div className="mb-0.5 text-[13px] font-semibold text-accent-text">{name(m.by)}</div>
-      )}
-      {(m.pinned || m.notice) && live && (
-        <div className="mb-0.5 text-[11px] font-medium text-ink-3">
-          {m.pinned ? 'Pinned' : ''}{m.pinned && m.notice ? ' · ' : ''}{m.notice ? 'Notice to everyone' : ''}
-        </div>
-      )}
+      <div className="mb-1.5 text-xs font-semibold text-accent-text">
+        {name(m.by)}{m.pinned ? ' · pinned' : ''}{m.notice ? ' · notice to everyone' : ''}
+      </div>
       {m.deleted && <div className="text-ink-3"><i>This message was deleted</i></div>}
       {m.bill && live && (
         <Opts>
@@ -365,16 +299,15 @@ function Message({ m, showName, firstInRun, lastInRun }) {
       )}
       <SiteMessageAction m={m} />
       <MessageAssist m={m} />
-      <div className="mt-0.5 flex flex-wrap items-center justify-end gap-1">
-        {staff() && <span className="mr-auto max-w-[70%]"><FilingChip m={m} /></span>}
-        <time className="text-[11px] leading-none text-ink-3">{m.edited ? 'edited ' : ''}{fmtT(m.at)}</time>
-        {mine && live && <Icon name="checkcheck" small className="text-ink-3" />}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {staff() && <FilingChip m={m} />}
+        <time className="ml-auto text-[11px] text-ink-3">{m.edited ? 'edited · ' : ''}{fmtT(m.at)}</time>
       </div>
     </div>
   );
 }
 
-function Messages({ threadId, ms, grouped, notice }) {
+function Messages({ threadId, ms }) {
   const ref = useRef(null);
   const seen = useRef({ thread: null, n: 0 });
   const { hi } = state.desk;
@@ -387,29 +320,9 @@ function Messages({ threadId, ms, grouped, notice }) {
     if (target) target.scrollIntoView({ block: 'center' });
     else if (prev.thread !== threadId || ms.length > prev.n) el.scrollTop = el.scrollHeight;
   }, [threadId, ms.length, hi]);
-  const dayOf = (m) => {
-    const d = new Date(m.at);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-  };
-  const sameRun = (a, b) => a && b && a.by === b.by && dayOf(a) === dayOf(b);
   return (
-    <div ref={ref} className="chat-wallpaper flex min-h-0 flex-1 flex-col overflow-auto px-2.5 py-2">
-      {notice}
-      {ms.map((m, i) => {
-        const showDay = i === 0 || dayOf(m) !== dayOf(ms[i - 1]);
-        const firstInRun = showDay || !sameRun(ms[i - 1], m);
-        const lastInRun = i === ms.length - 1 || !sameRun(m, ms[i + 1]);
-        return (
-          <Fragment key={m.id}>
-            {showDay && (
-              <div className="sticky top-1 z-[1] my-2 self-center rounded-lg bg-surface px-3 py-1 text-[12px] font-medium text-ink-2 shadow-s1">
-                {chatStamp(m.at, false)}
-              </div>
-            )}
-            <Message m={m} showName={grouped && firstInRun} firstInRun={firstInRun} lastInRun={lastInRun} />
-          </Fragment>
-        );
-      })}
+    <div ref={ref} className="flex min-h-0 flex-1 flex-col gap-gap overflow-auto bg-chat px-3.5 py-4">
+      {ms.map((m) => <Message key={m.id} m={m} />)}
     </div>
   );
 }
@@ -427,7 +340,6 @@ function PendingFileBar({ pending, onCancel, onSend }) {
 }
 
 function Composer({ thread, last }) {
-  const phone = usePhone();
   useDraftTick();
   const [text, setText] = useState(() => chatDraft(thread.id));
   const [pending, setPending] = useState(null);
@@ -454,10 +366,10 @@ function Composer({ thread, last }) {
   };
 
   return (
-    <div className={`chat-wallpaper px-1.5 pt-1 ${phone ? 'pb-[max(0.4rem,env(safe-area-inset-bottom))]' : 'pb-2'}`}>
-      <p role="status" className="m-0 min-h-0 px-2 text-xs text-crit empty:hidden">{status}</p>
+    <div className="border-t border-line p-3">
+      <p role="status" className="m-0 min-h-0 text-xs text-crit empty:hidden">{status}</p>
       {staff() && last && last.by !== state.userId && (
-        <Btn kind="link" sm className="mb-1 ml-3" onClick={() => suggestReply(thread.id)}>Suggest reply</Btn>
+        <Btn kind="link" sm className="mb-2" onClick={() => suggestReply(thread.id)}>✨ Suggest reply</Btn>
       )}
       {(pending?.type === 'document' || pending?.type === 'audio') && (
         <PendingFileBar pending={pending} onCancel={() => setPending(null)} onSend={sendSimpleFile} />
@@ -490,30 +402,21 @@ function Composer({ thread, last }) {
         />
       )}
       <form
-        className="flex w-full items-end gap-1.5"
+        className="flex w-full gap-2"
         onSubmit={(e) => { e.preventDefault(); sendMessage(thread.id, text); }}
       >
-        <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-full bg-surface pl-1 pr-3 shadow-s1">
-          <AttachMenu bare onPickFile={onPickFile} onPickAction={onPickAction} />
-          <input
-            data-composer
-            name="text"
-            value={text}
-            onChange={(e) => { setText(e.target.value); setChatDraft(thread.id, e.target.value, state.userId, true); }}
-            placeholder="Message"
-            aria-label="Message"
-            autoComplete="off"
-            className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1 text-ink placeholder:text-ink-3 focus:outline-none"
-          />
-          {phone && (
-            <button type="button" aria-label="Camera" onClick={() => onPickAction('camera')} className="inline-grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-transparent text-ink-3">
-              <Icon name="camera" />
-            </button>
-          )}
-        </div>
-        <button type="submit" aria-label="Send" className="inline-grid h-11 w-11 flex-none place-items-center rounded-full border-0 bg-accent text-accent-ink">
-          <Icon name="send" small />
-        </button>
+        <AttachMenu onPickFile={onPickFile} onPickAction={onPickAction} />
+        <input
+          data-composer
+          name="text"
+          value={text}
+          onChange={(e) => { setText(e.target.value); setChatDraft(thread.id, e.target.value, state.userId, true); }}
+          placeholder={`Message ${thread.name}`}
+          aria-label="Message"
+          autoComplete="off"
+          className="min-h-10 w-full min-w-0 rounded-r1 border border-line bg-surface-2 px-3 text-ink focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
+        />
+        <Btn kind="primary" type="submit" className="!min-h-10">Send</Btn>
       </form>
     </div>
   );
@@ -528,22 +431,14 @@ function contextProject() {
 }
 // A short "who/what this is" line, not four separate tabs — project name folded in where a
 // thread's own kind (client/site/internal) doesn't already say which project it's for.
-const KIND_LABEL = { client: 'Shared with client', site: 'Site team', internal: 'Studio team only', dm: 'Direct message', group: 'Group' };
+const KIND_LABEL = { client: 'Shared with client', site: 'Site team', internal: 'Studio team only' };
 const contextLine = (t) => {
   const label = KIND_LABEL[t.kind] || 'Members of this conversation';
   const proj = t.projectId ? P(t.projectId)?.name : null;
   return proj ? `${label} · ${proj}` : label;
 };
-function BarButton({ label, icon, onClick, className = '' }) {
-  return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} className={`inline-grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-transparent text-inherit hover:bg-black/10 ${className}`}>
-      <Icon name={icon} />
-    </button>
-  );
-}
 
 export function ChatView({ workspace = false }) {
-  const phone = usePhone();
   const paneRef = useRef(null);
   const titleRef = useRef(null);
   useEffect(() => {
@@ -591,46 +486,46 @@ export function ChatView({ workspace = false }) {
       id="conversation"
       ref={paneRef}
       aria-label="Conversations"
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''} ${phone && workspace ? 'min-h-0 flex-1' : ''}`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''}`}
     >
-      <div className={`flex items-center gap-0.5 px-1 py-1 ${phone ? 'bg-nav text-nav-ink pt-[max(0.25rem,env(safe-area-inset-top))]' : 'min-h-14 border-b border-line bg-surface px-2 text-ink'}`}>
-        {!desk.chatList && (
-          <BarButton
-            label="Back to conversations"
-            icon="back"
-            onClick={showList}
-            className={!phone && workspace ? 'hidden max-[980px]:inline-grid' : ''}
-          />
+      <div className="flex min-h-20 flex-wrap items-center gap-2 border-b border-line p-4">
+        {/* "Back" only matters when the conversation list isn't already on screen — the narrow
+            (<980px) single-column layout, or the drawer this pane becomes on small viewports. */}
+        {(!desk.chatList || !workspace) && (
+          <div className="flex basis-full items-center justify-between gap-2 empty:hidden">
+            <span>{!desk.chatList ? <IconButton sm icon="back" label="Back to conversations" onClick={showList} className={workspace ? 'hidden max-[980px]:inline-grid' : ''} /> : null}</span>
+            <span>{!workspace ? <IconButton sm icon="x" label="Close chats" onClick={toggleChatPane} /> : null}</span>
+          </div>
         )}
-        {!desk.chatList && <Avatar label={cur.name} className="h-10 w-10 text-sm" />}
-        <div ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 px-2 focus:outline-none">
-          <b className="block truncate text-[16px] font-semibold leading-tight">
-            {desk.chatList ? (project && !desk.allChats ? project.name : 'Chats') : cur.name}
+        <div ref={titleRef} tabIndex={-1} className="min-w-0 basis-full focus:outline-none">
+          <b className="block font-semibold leading-snug">
+            {desk.chatList ? (project && !desk.allChats ? project.name : 'Conversations') : cur.name}
           </b>
-          {!desk.chatList && (
-            <small className={`block truncate text-xs ${phone ? 'opacity-80' : 'text-ink-3'}`}>{contextLine(cur)}</small>
-          )}
+          <small className="mt-1 block text-xs text-ink-3">{desk.chatList ? 'Choose a conversation' : contextLine(cur)}</small>
         </div>
         {!desk.chatList && (
-          <>
-            <BarButton label="Video call" icon="camera" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
-            <Dropdown
-              plain
-              align="right"
-              panelClassName="!w-56"
-              trigger={<><Icon name="more" /><span className="sr-only">Conversation actions</span></>}
-            >
-              <DropdownItem icon="photos" onClick={() => openDialog({ kind: 'media', threadId: cur.id, tab: 'Photos' })}>Media, links and docs</DropdownItem>
-              {sib.map((x) => (
-                <DropdownItem key={x.id} onClick={() => openThreadFocus(x.id)} className={x.id === cur.id ? '!bg-accent-soft !text-accent-text' : ''}>
-                  {x.name}
-                </DropdownItem>
-              ))}
+          <div className="flex items-center gap-2">
+            <Btn sm onClick={() => openDialog({ kind: 'media', threadId: cur.id, tab: 'Photos' })}>Media</Btn>
+            {sib.length > 1 && (
+              <Dropdown trigger="Context" align="left" panelClassName="!w-56">
+                {sib.map((x) => (
+                  <DropdownItem key={x.id} onClick={() => openThreadFocus(x.id)} className={x.id === cur.id ? '!bg-accent-soft !text-accent-text' : ''}>
+                    {x.name}
+                  </DropdownItem>
+                ))}
+              </Dropdown>
+            )}
+            {/* Video calling is a real but occasional workflow — one tap away, not a prominent
+                header button next to Media. */}
+            <Dropdown trigger="More" align="right" panelClassName="!w-48">
+              <DropdownItem onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })}>Start video call</DropdownItem>
             </Dropdown>
-          </>
+          </div>
         )}
-        {!workspace && <BarButton label="Close chats" icon="x" onClick={toggleChatPane} />}
       </div>
+      {!desk.chatList && cur.kind === 'internal' && (
+        <div className="bg-warn-soft px-3.5 py-2.5 font-medium text-warn">Internal only. Client never sees this thread.</div>
+      )}
       {desk.chatList && project && (
         <div className="flex gap-2 border-b border-line px-4 py-3">
           <Btn sm kind={!desk.allChats ? 'primary' : 'default'} onClick={() => { desk.allChats = false; render(); }}>This project</Btn>
@@ -641,14 +536,7 @@ export function ChatView({ workspace = false }) {
         <ConversationList threads={scoped} />
       ) : (
         <>
-          <Messages
-            threadId={cur.id}
-            ms={ms}
-            grouped={cur.kind !== 'dm'}
-            notice={cur.kind === 'internal' ? (
-              <p className="mx-auto my-1 max-w-sm rounded-lg bg-warn-soft px-3 py-1.5 text-center text-xs font-medium text-warn">Internal only. The client never sees this chat.</p>
-            ) : null}
-          />
+          <Messages threadId={cur.id} ms={ms} />
           <Composer key={cur.id + state.userId} thread={cur} last={last} />
         </>
       )}
@@ -666,7 +554,6 @@ const useNarrow = () => useSyncExternalStore(subscribeNarrow, () => window.match
 
 // Below 1250px the pane is a right-hand drawer (modal <dialog>): Escape / backdrop close it.
 function Drawer({ children }) {
-  const phone = usePhone();
   const ref = useRef(null);
   const unmounting = useRef(false);
   useEffect(() => {
@@ -689,9 +576,7 @@ function Drawer({ children }) {
       onClose={hide}
       onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}
       // backdrop:bg-black/30 is the same intentional dialog-scrim exception as Modal.jsx.
-      className={phone
-        ? 'fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none overflow-hidden border-0 bg-surface p-0 text-ink backdrop:bg-transparent'
-        : 'fixed left-auto right-0 top-[60px] m-0 h-[calc(100dvh-60px)] max-h-none w-[min(420px,100vw)] max-w-[100vw] overflow-hidden border-0 border-l border-line bg-surface p-0 text-ink shadow-s2 backdrop:bg-black/30'}
+      className="fixed left-auto right-0 top-[60px] m-0 h-[calc(100dvh-60px)] max-h-none w-[min(420px,100vw)] max-w-[100vw] overflow-hidden border-0 border-l border-line bg-surface p-0 text-ink shadow-s2 backdrop:bg-black/30 max-[600px]:top-[108px] max-[600px]:h-[calc(100dvh-108px)]"
     >
       <div className="h-full [&>aside]:h-full">{children}</div>
       {state.toast && (

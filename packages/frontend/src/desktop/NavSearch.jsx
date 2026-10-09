@@ -6,7 +6,6 @@ import { svc } from '../shared/core.js';
 import Icon from '../ui/Icon';
 import { href } from './nav';
 import { navFor } from './helpers';
-import { usePhone } from './phone';
 
 const KIND = { page: 'Pages', project: 'Projects', person: 'People', message: 'Messages', voice: 'Voice notes', photo: 'Photos' };
 const ORDER = ['page', 'project', 'person', 'message', 'voice', 'photo'];
@@ -74,7 +73,6 @@ function Mark({ text, q }) {
 }
 
 export default function NavSearch() {
-  const phone = usePhone();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -122,7 +120,7 @@ export default function NavSearch() {
           onChange={(e) => { setQ(e.target.value); setActive(0); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={phone ? 'Search' : 'Search projects, people, messages, voice notes, photos'}
+          placeholder="Search projects, people, messages, voice notes, photos"
           aria-label="Search projects, people, drawings and messages"
           aria-controls="nav-search-results"
           className="min-h-[38px] w-full rounded-r2 border border-transparent bg-surface-2 py-1.5 pl-9 pr-3.5 text-ink placeholder:text-ink-3 focus:border-line-2 focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-accent-soft"
