@@ -155,21 +155,27 @@ export function GroupInfo() {
       ))}
       {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
         <>
-          <h2 className="sect">Tasks / Work groups</h2>
-          <p className="note">A work group is only for the people you choose. The rest of this group will not see it.</p>
-          <Link className="primary" to={`/mobile/chats/${thread.id}/work`}>Create Work Group</Link>
-          {svc.tasks({ projectId: thread.projectId, all: true }).map((task) => {
-            const existing = svc.workGroupForTask(task.id);
-            const taken = !existing && svc.workGroupRecord(task.id);
-            const to = existing ? `/mobile/chats/${existing.id}` : taken ? null : `/mobile/chats/${thread.id}/work?task=${task.id}`;
-            const body = (
-              <>
-                <span className="row-copy"><b>{task.title}</b><span>{taskStageLabel(task)}{existing ? ' · Open work group' : taken ? ' · Already has a work group' : ''}</span></span>
-              </>
+          <h2 className="sect">Work groups</h2>
+          <p className="note">Private chats. Only the people you add can see one. A work group is not a project task.</p>
+          <Link className="primary" to={`/mobile/chats/${thread.id}/work`}>Create work group</Link>
+          {svc.threads().filter((item) => item.groupType === 'work' && item.projectId === thread.projectId).map((group) => {
+            const task = svc.tasks({ projectId: thread.projectId, all: true }).find((item) => item.id === group.taskId);
+            const same = task && task.title.trim().toLowerCase() === group.name.trim().toLowerCase();
+            return (
+              <Link className="row" key={group.id} to={`/mobile/chats/${group.id}`}>
+                <span className="row-copy"><b>{group.name}</b><span>{same ? `Private chat · ${taskStageLabel(task)}` : task ? `For the task “${task.title}”` : 'Private chat'}</span></span>
+              </Link>
             );
-            return to ? <Link className="row" key={task.id} to={to}>{body}</Link> : <div className="row" key={task.id}>{body}</div>;
           })}
-          {!svc.tasks({ projectId: thread.projectId, all: true }).length && <p className="note">No tasks on this project.</p>}
+          <h2 className="sect">Tasks</h2>
+          <p className="note">Jobs already on this project. Start a work group only when that job needs its own chat.</p>
+          {svc.tasks({ projectId: thread.projectId, all: true }).filter((task) => !svc.workGroupForTask(task.id)).map((task) => {
+            const taken = Boolean(svc.workGroupRecord(task.id));
+            const body = <span className="row-copy"><b>{task.title}</b><span>Task · {taskStageLabel(task)}{taken ? ' · Already has a work group' : ''}</span></span>;
+            return taken
+              ? <div className="row" key={task.id}>{body}</div>
+              : <Link className="row" key={task.id} to={`/mobile/chats/${thread.id}/work?task=${task.id}`}>{body}</Link>;
+          })}
         </>
       )}
       <h2 className="sect">Options</h2>
@@ -286,11 +292,12 @@ export function WorkGroups() {
               return (
                 <button type="button" className="row" key={group.id} onClick={() => navigate(`/mobile/chats/${group.id}`)}>
                   <ThreadAvatar thread={group} />
-                  <span className="row-copy"><b>{group.name}</b><span>{linked ? `${linked.title} · ${taskStageLabel(linked)}` : 'Work group'}</span></span>
+                  <span className="row-copy"><b>{group.name}</b><span>{linked && linked.title.trim().toLowerCase() !== group.name.trim().toLowerCase() ? `For the task “${linked.title}”` : `Private chat${linked ? ` · ${taskStageLabel(linked)}` : ''}`}</span></span>
                 </button>
               );
             })}
             <p className="work-label">Tasks</p>
+            <p className="note">Project jobs that do not have a private chat yet.</p>
             {openTasks.map((item) => {
               const taken = Boolean(svc.workGroupRecord(item.id));
               return (

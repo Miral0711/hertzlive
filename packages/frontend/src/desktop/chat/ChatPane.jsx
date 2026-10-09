@@ -649,12 +649,13 @@ function WorkGroupList({ thread }) {
             <ChatPicture thread={group} className="h-10 w-10" />
             <span className="min-w-0">
               <b className="block truncate text-ink">{group.name}</b>
-              <span className="block truncate text-[13px] text-ink-3">{linked ? `${linked.title} · ${taskStageLabel(linked)}` : 'Work group'}</span>
+              <span className="block truncate text-[13px] text-ink-3">{linked && linked.title.trim().toLowerCase() !== group.name.trim().toLowerCase() ? `For the task “${linked.title}”` : `Private chat${linked ? ` · ${taskStageLabel(linked)}` : ''}`}</span>
             </span>
           </button>
         );
       })}
       <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-accent-text">Tasks</p>
+      <p className="m-0 text-[13px] text-ink-3">Project jobs that do not have a private chat yet.</p>
       {openTasks.map((item) => {
         const taken = Boolean(svc.workGroupRecord(item.id));
         return (

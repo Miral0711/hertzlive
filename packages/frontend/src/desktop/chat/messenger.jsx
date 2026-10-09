@@ -221,6 +221,9 @@ export function ChatInfoDialog({ d }) {
   }[thread.kind] || 'Members of this conversation';
   const openMsg = (id) => { state.desk.hi = id; state.desk.dialog = null; render(); };
   const visual = tab === 'Photos' || tab === 'Links';
+  const projectTasks = thread.projectId ? svc.tasks({ projectId: thread.projectId, all: true }) : [];
+  const workGroups = svc.threads().filter((t) => t.groupType === 'work' && t.projectId === thread.projectId);
+  const tasksWithoutGroup = projectTasks.filter((task) => !svc.workGroupForTask(task.id));
   return (
     <Modal title={thread.name} wide>
       <div className="mb-4 flex flex-col items-center text-center">
@@ -282,22 +285,39 @@ export function ChatInfoDialog({ d }) {
       </button>
       {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
         <>
-          <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-ink-3">Tasks / Work groups</h3>
-          <p className="m-0 mb-2 text-[13px] text-ink-3">Create a new work group in this project, or open one a task already has. Only the people you choose can see it.</p>
-          {svc.canManageWork(thread) && <Btn sm onClick={() => openDialog({ kind: 'work-group', threadId: thread.id })}>Create Work Group</Btn>}
-          {svc.tasks({ projectId: thread.projectId, all: true }).map((task) => {
-            const existing = svc.workGroupForTask(task.id);
-            const taken = !existing && svc.workGroupRecord(task.id);
+          <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-ink-3">Work groups</h3>
+          <p className="m-0 mb-2 text-[13px] text-ink-3">Private chats. Only the people you add can see one. A work group is not a project task.</p>
+          {svc.canManageWork(thread) && <Btn sm onClick={() => openDialog({ kind: 'work-group', threadId: thread.id })}>Create work group</Btn>}
+          {workGroups.map((group) => {
+            const task = projectTasks.find((item) => item.id === group.taskId);
+            return (
+              <div key={group.id} className="flex min-h-11 items-center gap-2 border-t border-line py-2">
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate">{group.name}</b>
+                  <small className="text-ink-3">{workGroupCaption(group, task)}</small>
+                </span>
+                <Btn sm kind="primary" onClick={() => { closeDialog(); openThread(group.id); }}>Open chat</Btn>
+              </div>
+            );
+          })}
+          {!workGroups.length && <p className="m-0 text-[13px] text-ink-3">No work groups yet.</p>}
+
+          <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-ink-3">Tasks</h3>
+          <p className="m-0 mb-2 text-[13px] text-ink-3">Jobs already on this project. Start a work group only when that job needs its own chat.</p>
+          {tasksWithoutGroup.map((task) => {
+            const taken = Boolean(svc.workGroupRecord(task.id));
             return (
               <div key={task.id} className="flex min-h-11 items-center gap-2 border-t border-line py-2">
-                <span className="min-w-0 flex-1"><b className="block truncate">{task.title}</b><small className="text-ink-3">{taskStageLabel(task)}</small></span>
-                {existing && <Btn sm kind="primary" onClick={() => { closeDialog(); openThread(existing.id); }}>Open</Btn>}
-                {!existing && !taken && svc.canManageWork(thread) && <Btn sm onClick={() => openDialog({ kind: 'work-group', threadId: thread.id, taskId: task.id })}>Create</Btn>}
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate">{task.title}</b>
+                  <small className="text-ink-3">Task · {taskStageLabel(task)}</small>
+                </span>
+                {!taken && svc.canManageWork(thread) && <Btn sm onClick={() => openDialog({ kind: 'work-group', threadId: thread.id, taskId: task.id })}>Start group</Btn>}
                 {taken && <small className="text-ink-3">Already has a work group</small>}
               </div>
             );
           })}
-          {!svc.tasks({ projectId: thread.projectId, all: true }).length && <Empty compact>No tasks on this project.</Empty>}
+          {!tasksWithoutGroup.length && <p className="m-0 text-[13px] text-ink-3">Every project task already has a work group.</p>}
         </>
       )}
       <h3 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-ink-3">{thread.kind === 'dm' ? 'Contact' : `${members.length} people`}</h3>
@@ -594,6 +614,12 @@ export function SiteCompose({ thread, what, label, onCancel, onPhoto, onSend, on
       </div>
     </div>
   );
+}
+
+function workGroupCaption(group, task) {
+  if (!task) return 'Private chat';
+  const same = (task.title || '').trim().toLowerCase() === (group.name || '').trim().toLowerCase();
+  return same ? `Private chat · ${taskStageLabel(task)}` : `For the task “${task.title}”`;
 }
 
 function PeopleSearch({ value, onChange, label = 'Search people', placeholder = 'Name or role' }) {
