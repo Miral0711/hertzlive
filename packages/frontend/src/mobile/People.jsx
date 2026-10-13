@@ -109,10 +109,10 @@ export function Holidays() {
               <div>
                 <b>{user(l.userId).name} · {l.days} day{l.days > 1 ? 's' : ''}</b>
                 <span>{l.type} · {fmtD(l.from)} to {fmtD(l.to)} · {l.reason}</span>
-                <div className="mat-acts">
-                  <button type="button" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
-                  <button type="button" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
-                  <Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
+                <div className="sheet-acts">
+                  <button type="button" className="sheet-btn" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
+                  <button type="button" className="sheet-btn quiet" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
+                  <Link className="sheet-btn quiet" to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
                 </div>
               </div>
             </div>
@@ -252,8 +252,8 @@ export function Notice() {
   return (
     <Page board sheet back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
       <Note>Goes to every project chat you are in, marked as a notice.</Note>
-      <div className="filters">
-        {ideas.map((idea) => <button type="button" key={idea} onClick={() => setText(idea)}>{idea}</button>)}
+      <div className="notice-ideas">
+        {ideas.map((idea) => <button type="button" key={idea} className={text === idea ? 'on' : ''} onClick={() => setText(idea)}>{idea}</button>)}
       </div>
       <form className="stack" onSubmit={send}>
         <label>Message<textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} aria-label="Notice" /></label>

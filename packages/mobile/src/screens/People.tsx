@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import Icon from '../ui/Icon';
 import { Page, Note, backName } from '../ui/frame';
 import { Avatar } from '../ui/faces';
 import {
   CanvasH2, DayBlock, Empty, Field, Filters, IconBtn, Lab, LinkText, NoteText, Primary, Row, RowCopy, SearchBox, Select, Sect, ViewCard, CardText, WarnText,
 } from '../ui/libraryKit';
-import { useNavigate, useParams, useSearchParams, openExternal } from '../platform/router';
+import { Link, useNavigate, useParams, useSearchParams, openExternal } from '../platform/router';
 import { useStyles } from '../platform/theme';
 import {
   state, svc, user, me, staff, PEOPLE, viewAs, phoneOf, firstName, fmtD, TODAY, persist, render, myThreads, postMessage, can, useStore, core,
@@ -108,7 +108,14 @@ export function Holidays() {
   const mine = staff() ? (db().LEAVES || []).filter((l: any) => l.userId === state.userId && l.to >= TODAY) : [];
   const pending = can('leave', 'a') ? (db().LEAVES || []).filter((l: any) => l.status === 'pending') : [];
   const team = staff() ? (db().LEAVES || []).filter((l: any) => l.userId !== state.userId && l.status === 'approved' && l.to >= TODAY).slice(0, 5) : [];
-  const s = useStyles(() => ({ acts: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'center' }, end: { alignItems: 'flex-end', gap: 4 } }));
+  const s = useStyles((c) => ({
+    acts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' },
+    btn: { minHeight: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    btnT: { color: c.accentInk, fontSize: 13, fontWeight: '700' },
+    quiet: { backgroundColor: c.surface2 },
+    quietT: { color: c.ink },
+    end: { alignItems: 'flex-end', gap: 4 },
+  }));
   return (
     <Page board back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
       {pending.length > 0 && (
@@ -121,9 +128,9 @@ export function Holidays() {
                 lines={[`${l.type} · ${fmtD(l.from)} to ${fmtD(l.to)} · ${l.reason}`]}
               >
                 <View style={s.acts}>
-                  <LinkText onPress={() => { svc.decideLeave(l.id, true); render(); }}>Approve</LinkText>
-                  <LinkText onPress={() => { svc.decideLeave(l.id, false); render(); }}>Decline</LinkText>
-                  <LinkText to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</LinkText>
+                  <Pressable style={s.btn} onPress={() => { svc.decideLeave(l.id, true); render(); }} accessibilityRole="button"><Text style={s.btnT}>Approve</Text></Pressable>
+                  <Pressable style={[s.btn, s.quiet]} onPress={() => { svc.decideLeave(l.id, false); render(); }} accessibilityRole="button"><Text style={[s.btnT, s.quietT]}>Decline</Text></Pressable>
+                  <Link to={`/mobile/standin/${l.userId}?leave=${l.id}`} style={[s.btn, s.quiet]}><Text style={[s.btnT, s.quietT]}>Who covers?</Text></Link>
                 </View>
               </DayBlock>
             </View>
@@ -198,6 +205,13 @@ export function Notice() {
   const ideas = ['Office closed tomorrow', 'Site visit Saturday, all hands', 'Salary credited today'];
   const [text, setText] = useState('');
   const threads = myThreads().filter(({ t }: any) => t.kind !== 'dm');
+  const chips = useStyles((c) => ({
+    wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    chip: { maxWidth: '100%', minHeight: 36, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, justifyContent: 'center' },
+    on: { backgroundColor: c.accent, borderColor: c.accent },
+    t: { fontSize: 14, fontWeight: '600', color: c.ink },
+    tOn: { color: c.accentInk },
+  }));
   if (state.role !== 'partner') {
     return <Page board back="/mobile/profile" backLabel="Profile" title="Notice"><Empty title="Only a partner can send a notice" /></Page>;
   }
@@ -210,7 +224,13 @@ export function Notice() {
   return (
     <Page board back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
       <Note>Goes to every project chat you are in, marked as a notice.</Note>
-      <Filters options={ideas.map((i): [string, string] => [i, i])} value={text} onChange={setText} />
+      <View style={chips.wrap}>
+        {ideas.map((idea) => (
+          <Pressable key={idea} style={[chips.chip, text === idea && chips.on]} onPress={() => setText(idea)} accessibilityRole="button" accessibilityState={{ selected: text === idea }}>
+            <Text style={[chips.t, text === idea && chips.tOn]}>{idea}</Text>
+          </Pressable>
+        ))}
+      </View>
       <View style={{ gap: 10, marginTop: 12 }}>
         <Field label="Message" value={text} onChangeText={setText} multiline />
         <Primary onPress={send}>{`Send to ${threads.length} chats`}</Primary>
