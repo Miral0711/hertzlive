@@ -140,17 +140,28 @@ export function Contacts() {
   const project = projectOf(projectId);
   const groups = project ? svc.peopleFolder(projectId) : [];
   const s = useStyles((c) => ({
+    lead: { marginTop: 2, marginBottom: 12, marginHorizontal: 2, color: c.ink2, fontSize: 14, fontWeight: '600' },
+    sect: { marginTop: 8, marginBottom: 8, marginHorizontal: 2, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: c.ink2 },
+    card: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 10, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+    copy: { flex: 1, minWidth: 0 },
+    name: { fontSize: 16, fontWeight: '600', lineHeight: 21, color: c.ink },
+    title: { marginTop: 2, color: c.ink2, fontSize: 14, lineHeight: 19 },
+    when: { marginTop: 2, color: c.ink3, fontSize: 13, fontWeight: '600' },
+    acts: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 },
+    btn: { minHeight: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    btnT: { color: c.accentInk, fontSize: 13, fontWeight: '700' },
+    quiet: { backgroundColor: c.surface2 },
+    quietT: { color: c.ink },
     ini: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
     iniT: { color: c.accentInk, fontWeight: '600', fontSize: 13 },
-    wrap: { paddingHorizontal: 0 },
   }));
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name} bare>
-      <Hint>People in this project.</Hint>
-      {groups.filter((g: any) => g.people.length).map((g: any) => (
+    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name}>
+      <Text style={s.lead}>People in this project.</Text>
+      {groups.filter((g: any) => g.people.length).map((g: any, gi: number) => (
         <View key={g.name}>
-          <Sect>{g.name}</Sect>
+          <Text style={[s.sect, gi > 0 ? { marginTop: 18 } : { marginTop: 0 }]}>{g.name}</Text>
           {g.people.map((u: any) => {
             const person = user(u.id);
             const known = (state.db as any).USERS.some((x: any) => x.id === u.id);
@@ -158,23 +169,26 @@ export function Contacts() {
               ? (state.db as any).THREADS.find((t: any) => t.kind === 'dm' && (t.memberIds || []).includes(u.id) && (t.memberIds || []).includes(state.userId))
               : null;
             return (
-              <Row
-                key={u.id}
-                left={person?.id ? <Avatar person={person} /> : <View style={s.ini}><Text style={s.iniT}>{(u.name || '?').slice(0, 2)}</Text></View>}
-                right={known ? (
-                  <ActRow>
-                    {dm ? (
-                      <Link to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`} accessibilityLabel={`Message ${u.name}`}>
-                        <ActLabel>Message</ActLabel>
-                      </Link>
-                    ) : null}
-                    <ActBtn label="Call" accessibilityLabel={`Call ${u.name}`} onPress={() => openExternal(`tel:${phoneOf(person).replace(/\s/g, '')}`)} />
-                  </ActRow>
-                ) : null}
-              >
-                <RowTitle>{u.name}</RowTitle>
-                <RowSub>{u.title}{u.last ? ` · last active ${fmtD(u.last)}` : ''}</RowSub>
-              </Row>
+              <View key={u.id} style={s.card}>
+                {person?.id ? <Avatar person={person} /> : <View style={s.ini}><Text style={s.iniT}>{(u.name || '?').slice(0, 2)}</Text></View>}
+                <View style={s.copy}>
+                  <Text style={s.name}>{u.name}</Text>
+                  {u.title ? <Text style={s.title}>{u.title}</Text> : null}
+                  {u.last ? <Text style={s.when}>Last active {fmtD(u.last)}</Text> : null}
+                  {known ? (
+                    <View style={s.acts}>
+                      {dm ? (
+                        <Link to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`} style={s.btn} accessibilityLabel={`Message ${u.name}`}>
+                          <Text style={s.btnT}>Message</Text>
+                        </Link>
+                      ) : null}
+                      <Pressable style={[s.btn, s.quiet]} onPress={() => openExternal(`tel:${phoneOf(person).replace(/\s/g, '')}`)} accessibilityRole="button" accessibilityLabel={`Call ${u.name}`}>
+                        <Text style={[s.btnT, s.quietT]}>Call</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
             );
           })}
         </View>
@@ -182,11 +196,6 @@ export function Contacts() {
       {!groups.some((g: any) => g.people.length) && <Empty title="No people recorded" />}
     </Page>
   );
-}
-
-function ActLabel({ children }: { children: React.ReactNode }) {
-  const s = useStyles((c) => ({ t: { fontSize: 13, fontWeight: '700', color: c.accentText } }));
-  return <Text style={s.t}>{children}</Text>;
 }
 
 export function Attention() {

@@ -110,8 +110,8 @@ export function Contacts() {
   const groups = project ? svc.peopleFolder(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name} bare>
-      <Note>People in this project.</Note>
+    <Page className="sheet-cards" sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name}>
+      <p className="sheet-lead">People in this project.</p>
       {groups.filter((g) => g.people.length).map((g) => (
         <section key={g.name}>
           <h2 className="sect">{g.name}</h2>
@@ -122,16 +122,20 @@ export function Contacts() {
               ? state.db.THREADS.find((t) => t.kind === 'dm' && (t.memberIds || []).includes(u.id) && (t.memberIds || []).includes(state.userId))
               : null;
             return (
-              <div className="row" key={u.id}>
+              <article className="person-card" key={u.id}>
                 {person?.id ? <Avatar person={person} /> : <span className="av">{(u.name || '?').slice(0, 2)}</span>}
-                <span className="row-copy"><b>{u.name}</b><span>{u.title}{u.last ? ` · last active ${fmtD(u.last)}` : ''}</span></span>
-                {known ? (
-                  <span className="person-acts">
-                    {dm ? <Link to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`}>Message</Link> : null}
-                    <a href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>Call</a>
-                  </span>
-                ) : null}
-              </div>
+                <div className="person-copy">
+                  <b>{u.name}</b>
+                  {u.title ? <span>{u.title}</span> : null}
+                  {u.last ? <span className="person-when">Last active {fmtD(u.last)}</span> : null}
+                  {known ? (
+                    <div className="sheet-acts">
+                      {dm ? <Link className="sheet-btn" to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`}>Message</Link> : null}
+                      <a className="sheet-btn quiet" href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>Call</a>
+                    </div>
+                  ) : null}
+                </div>
+              </article>
             );
           })}
         </section>

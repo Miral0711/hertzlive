@@ -959,7 +959,7 @@ export function Assist() {
   }
 
   return (
-    <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={backTo} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
+    <Page className="ask-screen" sheet stackTitle back={backTo} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
       {issueId && !brief && <div className="empty"><h3>This issue isn’t available</h3></div>}
       {drawingNo && !sheetDrawing && <div className="empty"><h3>This sheet isn’t available</h3></div>}
       {!allowed && <div className="empty"><h3>This draft isn’t available for you</h3><p>Switch person if you need this action.</p></div>}
@@ -988,9 +988,10 @@ export function Assist() {
             <>
               <h2>Who receives this</h2>
               {chats.map((t) => (
-                <button key={t.id} type="button" className="day-row" aria-pressed={chosen === t.id} onClick={() => setSendTo(t.id)}>
+                <button key={t.id} type="button" className={`ask-dest${chosen === t.id ? ' on' : ''}`} aria-pressed={chosen === t.id} onClick={() => setSendTo(t.id)}>
                   <b>{audience(t)}</b>
-                  <span>{t.name}{chosen === t.id ? ' · sending here' : ''}</span>
+                  <span>{t.name}</span>
+                  {chosen === t.id ? <em>Sending here</em> : null}
                 </button>
               ))}
               {!chats.length && <p className="note">No conversation you can send this to.</p>}
@@ -1011,7 +1012,7 @@ export function Assist() {
             )) : <p className="note">Send a photo in a project chat first.</p>
           )}
           {error ? <p className="warn-text">{error}</p> : null}
-          <button className="primary" type="submit">{issueId ? 'Prepare issue brief' : 'Prepare draft'}</button>
+          <button className="primary ask-draft" type="submit">{issueId ? 'Prepare issue brief' : 'Prepare draft'}</button>
         </form>
       )}
       {result && (

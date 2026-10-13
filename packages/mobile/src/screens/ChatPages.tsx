@@ -811,6 +811,16 @@ export function Assist() {
   useStore();
   const k = useKit();
   const { c } = useTheme();
+  const dest = useStyles((col) => ({
+    card: { alignItems: 'flex-start', width: '100%', marginBottom: 8, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: col.line, borderRadius: 14, backgroundColor: col.surface },
+    on: { borderColor: col.accent, backgroundColor: col.accentSoft },
+    b: { fontSize: 15, fontWeight: '600', lineHeight: 20, color: col.ink },
+    s: { marginTop: 2, fontSize: 13, lineHeight: 18, color: col.ink2 },
+    here: { marginTop: 6, fontSize: 12, fontWeight: '700', color: col.accentText },
+    h2: { marginTop: 16, marginBottom: 8, marginHorizontal: 2, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: col.ink2 },
+    draft: { backgroundColor: col.surface, borderWidth: 1, borderColor: col.line },
+    draftT: { color: col.accentText },
+  }));
   const { projectId } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -915,7 +925,7 @@ export function Assist() {
   );
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title}
+      <Page sheet stackTitle back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title}
         sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
         {!!issueId && !brief && <EmptyBox h="This issue isn’t available" />}
         {!!drawingNo && !sheetDrawing && <EmptyBox h="This sheet isn’t available" />}
@@ -931,11 +941,13 @@ export function Assist() {
             {kind === 'ask' && !issueId && <Field label="Your question" value={question} onChangeText={setQuestion} multiline />}
             {kind === 'ask' && (
               <>
-                <Text style={k.h2}>Who receives this</Text>
+                <Text style={dest.h2}>Who receives this</Text>
                 {chats.map((t: any) => (
-                  <DayRow key={t.id} onPress={() => setSendTo(t.id)} pressed={chosen === t.id}>
-                    <RowB>{audience(t)}</RowB><RowS>{t.name}{chosen === t.id ? ' · sending here' : ''}</RowS>
-                  </DayRow>
+                  <Pressable key={t.id} style={[dest.card, chosen === t.id ? dest.on : null]} onPress={() => setSendTo(t.id)} accessibilityRole="button" accessibilityState={{ selected: chosen === t.id }}>
+                    <Text style={dest.b}>{audience(t)}</Text>
+                    <Text style={dest.s}>{t.name}</Text>
+                    {chosen === t.id ? <Text style={dest.here}>Sending here</Text> : null}
+                  </Pressable>
                 ))}
                 {!chats.length && <Soft>No conversation you can send this to.</Soft>}
                 {!issueId && chats.length > 0 && <Primary label="Send question" onPress={sendQuestion} />}
@@ -951,7 +963,9 @@ export function Assist() {
               <Check radio key={m.id} label={`${m.threadName}: ${(m.text || 'Photo').slice(0, 80)}`} on={!!picked[m.id]} onPress={() => setPicked({ [m.id]: true })} />
             )) : <Soft>Send a photo in a project chat first.</Soft>)}
             {error ? <Warn>{error}</Warn> : null}
-            <Primary label={issueId ? 'Prepare issue brief' : 'Prepare draft'} onPress={run} />
+            <Pressable style={[k.primary, dest.draft]} onPress={run} accessibilityRole="button">
+              <Text style={[k.primaryT, dest.draftT]}>{issueId ? 'Prepare issue brief' : 'Prepare draft'}</Text>
+            </Pressable>
           </View>
         )}
         {result && (
