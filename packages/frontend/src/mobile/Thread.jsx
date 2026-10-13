@@ -37,24 +37,6 @@ const MORE = [
   ['document', 'Document', 'file'],
   ['audio', 'Audio', 'mic'],
 ];
-const STEP = {
-  photo: 'Choose a photo. You can crop it, draw on it, and add a note before it is sent.',
-  drawing: 'Pick a drawing. This chat gets its name and revision.',
-  delivery: 'Say what arrived. This chat gets that line.',
-  sample: 'Add a picture of a finish or material, and say what it is.',
-  location: 'This sends the place below into the chat.',
-  bill: 'Write the amount you paid. A partner can approve it later.',
-  material: 'Say what the site needs. It is posted in this chat.',
-  attendance: 'This posts today’s attendance into this chat.',
-  file: 'Choose a file. This chat shows the file name.',
-  document: 'Choose a document. This chat keeps the file.',
-  audio: 'Choose an audio file.',
-  poll: 'Ask the chat a question with two or more answers.',
-  contact: 'Share someone from this chat, or type a name and phone.',
-  checkin: 'This tells the site chat that you have arrived.',
-  daylog: 'This writes what happened on site today. You can read it before anyone else sees it.',
-};
-
 function allowed(roles) {
   return !roles || roles.includes(state.role);
 }
@@ -176,7 +158,6 @@ export default function Thread() {
   const [amount, setAmount] = useState('');
   const [shot, setShot] = useState('');
   const [fileName, setFileName] = useState('');
-  const [drawingNo, setDrawingNo] = useState('');
   const [error, setError] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [openDue, setOpenDue] = useState(null);
@@ -189,12 +170,27 @@ export default function Thread() {
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [docUrl, setDocUrl] = useState('');
+  const [voiceMode, setVoiceMode] = useState(null);
+  const [voiceDur, setVoiceDur] = useState('0:00');
+  const [voiceHint, setVoiceHint] = useState('');
+  const [slideCancel, setSlideCancel] = useState(false);
   const location = useLocation();
   const [params] = useSearchParams();
   const from = params.get('from');
   const backTo = from && from.startsWith('/mobile/') ? from : '/mobile/chats';
   const scroller = useRef(null);
   const box = useRef(null);
+  const photoInput = useRef(null);
+  const fileInput = useRef(null);
+  const pendingKind = useRef('');
+  const recRef = useRef(null);
+  const streamRef = useRef(null);
+  const voiceChunks = useRef([]);
+  const voiceTimer = useRef(null);
+  const voiceStarted = useRef(0);
+  const voiceToken = useRef(0);
+  const holdRef = useRef(null);
+  const sendOnStop = useRef(false);
   const text = drafts[threadId] || '';
 
   const count = thread ? messagesOf(thread.id).length : 0;
@@ -230,6 +226,26 @@ export default function Thread() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [threadId, count]);
 
+  useEffect(() => () => {
+    voiceToken.current += 1;
+    sendOnStop.current = false;
+    clearInterval(voiceTimer.current);
+    const rec = recRef.current;
+    recRef.current = null;
+    if (rec && rec.state !== 'inactive') {
+      rec.onstop = () => streamRef.current?.getTracks().forEach((track) => track.stop());
+      try { rec.stop(); } catch { /* already stopped */ }
+    } else {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!voiceHint) return undefined;
+    const id = window.setTimeout(() => setVoiceHint(''), 2500);
+    return () => window.clearTimeout(id);
+  }, [voiceHint]);
+
   if (forwardMsg) {
     return (
       <div className="screen">
@@ -253,8 +269,9 @@ export default function Thread() {
       <div className="screen">
         <PhotoEdit
           src={editor.src}
-          noteLabel={ask || 'Add a note'}
+          noteLabel={ask || 'Add a caption'}
           noteRequired={Boolean(ask)}
+          initialNote={editor.note || ''}
           onCancel={() => setEditor(null)}
           onSend={sendEdited}
         />
@@ -301,7 +318,6 @@ export default function Thread() {
     setAmount('');
     setShot('');
     setFileName('');
-    setDrawingNo('');
     setPollQ('');
     setPollOpts(['', '']);
     setPollMulti(false);
@@ -315,17 +331,170 @@ export default function Thread() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    const what = e.target.dataset.kind || pendingKind.current || 'photo';
+    pendingKind.current = '';
     const reader = new FileReader();
     reader.onload = () => {
       const src = String(reader.result || '');
-      if (sheet && ['photo', 'sample', 'delivery'].includes(sheet.what)) {
-        setEditor({ what: sheet.what, src });
+      if (['photo', 'sample', 'delivery'].includes(what)) {
+        setEditor({ what, src, note: what === 'delivery' ? note.trim() : '' });
         setSheet(null);
         return;
       }
       setShot(src);
     };
     reader.readAsDataURL(file);
+  }
+
+  function readFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const what = pendingKind.current || 'file';
+    pendingKind.current = '';
+    if (!file) return;
+    setError('');
+    setNote('');
+    setFileName(file.name);
+    setDocUrl('');
+    if (what === 'document' || what === 'audio') {
+      const reader = new FileReader();
+      reader.onload = () => setDocUrl(String(reader.result || ''));
+      reader.readAsDataURL(file);
+    }
+    setSheet({ what, label: { file: 'File', document: 'Document', audio: 'Audio' }[what] || 'File' });
+  }
+
+  function openPicker(kind) {
+    pendingKind.current = kind;
+    const input = kind === 'photo' || kind === 'sample' || kind === 'delivery' ? photoInput.current : fileInput.current;
+    if (!input) return;
+    input.accept = kind === 'audio' ? 'audio/*' : (kind === 'photo' || kind === 'sample' || kind === 'delivery' ? 'image/*' : '');
+    input.value = '';
+    input.click();
+    setSheet(null);
+  }
+
+  function clock(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  function discardVoice() {
+    voiceToken.current += 1;
+    sendOnStop.current = false;
+    clearInterval(voiceTimer.current);
+    const rec = recRef.current;
+    recRef.current = null;
+    if (rec && rec.state !== 'inactive') {
+      rec.onstop = () => {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      };
+      try { rec.stop(); } catch { /* already stopped */ }
+    } else {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setVoiceMode(null);
+    setSlideCancel(false);
+    setVoiceDur('0:00');
+  }
+
+  function finishVoice(shouldSend) {
+    const rec = recRef.current;
+    if (!shouldSend || !rec || rec.state !== 'recording') {
+      discardVoice();
+      if (shouldSend) setVoiceHint('Hold to record. Release to send.');
+      return;
+    }
+    sendOnStop.current = true;
+    setVoiceMode(null);
+    setSlideCancel(false);
+    recRef.current = null;
+    clearInterval(voiceTimer.current);
+    rec.stop();
+  }
+
+  async function beginVoice(mode) {
+    const token = ++voiceToken.current;
+    setVoiceHint('');
+    setSlideCancel(false);
+    if (mode === 'locked') setSheet(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (token !== voiceToken.current || (mode === 'hold' && !holdRef.current)) {
+        stream.getTracks().forEach((track) => track.stop());
+        if (mode === 'hold' && !holdRef.current) setVoiceHint('Hold to record. Release to send.');
+        return;
+      }
+      streamRef.current = stream;
+      const mime = window.MediaRecorder?.isTypeSupported?.('audio/webm') ? 'audio/webm' : '';
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      voiceChunks.current = [];
+      rec.ondataavailable = (ev) => { if (ev.data.size) voiceChunks.current.push(ev.data); };
+      rec.onstop = () => {
+        const shouldSend = sendOnStop.current;
+        const startedAt = voiceStarted.current;
+        stream.getTracks().forEach((track) => track.stop());
+        if (streamRef.current === stream) streamRef.current = null;
+        if (!shouldSend) return;
+        const dur = clock(Date.now() - startedAt);
+        const blob = new Blob(voiceChunks.current, { type: rec.mimeType || 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = () => {
+          const audio = String(reader.result || '');
+          if (!audio) return;
+          postMessage(thread.id, { voice: { dur, audio } });
+          markRead(thread.id);
+        };
+        reader.readAsDataURL(blob);
+      };
+      recRef.current = rec;
+      voiceStarted.current = Date.now();
+      setVoiceDur('0:00');
+      voiceTimer.current = setInterval(() => setVoiceDur(clock(Date.now() - voiceStarted.current)), 200);
+      rec.start();
+      setVoiceMode(mode);
+    } catch {
+      setVoiceMode(null);
+      setVoiceHint('The microphone did not open. Allow the microphone, then try again.');
+    }
+  }
+
+  function micDown(e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    holdRef.current = { id: e.pointerId, x: e.clientX, at: Date.now(), cancel: false };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    beginVoice('hold');
+  }
+
+  function micMove(e) {
+    const hold = holdRef.current;
+    if (!hold || e.pointerId !== hold.id) return;
+    const cancel = e.clientX - hold.x < -64;
+    if (cancel !== hold.cancel) {
+      hold.cancel = cancel;
+      setSlideCancel(cancel);
+    }
+  }
+
+  function micUp(e) {
+    const hold = holdRef.current;
+    if (!hold || e.pointerId !== hold.id) return;
+    const cancel = hold.cancel;
+    const held = Date.now() - hold.at;
+    holdRef.current = null;
+    if (cancel) {
+      discardVoice();
+      return;
+    }
+    if (held < 700 || !recRef.current || recRef.current.state !== 'recording') {
+      discardVoice();
+      setVoiceHint('Hold to record. Release to send.');
+      return;
+    }
+    finishVoice(true);
   }
 
   function placeLine() {
@@ -337,11 +506,28 @@ export default function Thread() {
   function pick(item) {
     const key = item[0];
     if (key === 'voice') {
-      navigate(`/mobile/chats/${thread.id}/voice`);
+      beginVoice('locked');
       return;
     }
     if (key === 'camera') {
+      setSheet(null);
       navigate(`/mobile/camera?thread=${thread.id}`);
+      return;
+    }
+    if (key === 'photo') {
+      openPicker('photo');
+      return;
+    }
+    if (key === 'file' || key === 'document' || key === 'audio') {
+      openPicker(key);
+      return;
+    }
+    if (key === 'checkin') {
+      doCheckin();
+      return;
+    }
+    if (key === 'daylog') {
+      openDayLog();
       return;
     }
     openForm(item);
@@ -399,10 +585,6 @@ export default function Thread() {
       if (!words) { setError('Say what arrived.'); return; }
       fields.text = `Delivery: ${words}`;
       if (shot.startsWith('data:')) fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
-    } else if (what === 'drawing') {
-      const drawing = (projectOf(thread.projectId)?.drawings || []).find((d) => d.no === drawingNo);
-      if (!drawing) { setError('Pick a drawing.'); return; }
-      fields.text = `${drawing.name} · ${drawing.no} ${drawing.rev}`;
     } else if (what === 'location') {
       fields.text = words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}`;
     } else if (what === 'bill') {
@@ -602,29 +784,65 @@ export default function Thread() {
           <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><Icon name="x" /></button>
         </div>
       )}
-      {can('thread', 'w') && <form className="composer" onSubmit={send}>
-        <div className="pill">
-          <button type="button" className="round" aria-label="Add a photo, drawing or note" onClick={() => { setError(''); setSheet('plus'); }}>
-            <Icon name="plus" />
+      {voiceHint ? <p className="voice-hint">{voiceHint}</p> : null}
+      {can('thread', 'w') && <form className={`composer ${voiceMode === 'hold' ? 'holding' : ''}`} onSubmit={send}>
+        {voiceMode === 'locked' ? (
+          <div className="pill rec-hold">
+            <button type="button" className="round" aria-label="Delete voice note" onClick={discardVoice}>
+              <Icon name="trash" />
+            </button>
+            <span className="rec-time"><i />{voiceDur}</span>
+          </div>
+        ) : voiceMode === 'hold' ? (
+          <div className="pill rec-hold">
+            <span className={slideCancel ? 'rec-cancel' : ''}>{slideCancel ? 'Release to cancel' : 'Slide to cancel'}</span>
+            <span className="rec-time"><i />{voiceDur}</span>
+          </div>
+        ) : (
+          <div className="pill">
+            <button type="button" className="round" aria-label="Add to this chat" onClick={() => { setError(''); setSheet('plus'); }}>
+              <Icon name="plus" />
+            </button>
+            <textarea
+              ref={box}
+              rows={1}
+              placeholder={t('message')}
+              aria-label={`Message to ${audience(thread)}`}
+              value={text}
+              onChange={(e) => setDraft(thread.id, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+              }}
+            />
+            {!text.trim() && (
+              <button type="button" className="round cam" aria-label="Camera" onClick={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
+                <Icon name="camera" />
+              </button>
+            )}
+          </div>
+        )}
+        {voiceMode === 'locked' ? (
+          <button type="button" className="round send" aria-label="Send voice note" onClick={() => finishVoice(true)}>
+            <Icon name="send" />
           </button>
-          <textarea
-            ref={box}
-            rows={1}
-            placeholder={t('message')}
-            aria-label={`Message to ${audience(thread)}`}
-            value={text}
-            onChange={(e) => setDraft(thread.id, e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-            }}
-          />
-          <Link className="round" to={`/mobile/chats/${thread.id}/voice`} aria-label="Record a voice note">
+        ) : text.trim() && !voiceMode ? (
+          <button type="submit" className="round send" aria-label={t('send')}>
+            <Icon name="send" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="round send mic"
+            aria-label="Hold to record a voice note"
+            onPointerDown={micDown}
+            onPointerMove={micMove}
+            onPointerUp={micUp}
+            onPointerCancel={micUp}
+            onContextMenu={(e) => e.preventDefault()}
+          >
             <Icon name="mic" />
-          </Link>
-        </div>
-        <button type="submit" className="round send" aria-label={t('send')}>
-          <Icon name="send" />
-        </button>
+          </button>
+        )}
       </form>}
       {openDue && (
         <div className="sheet-back" onClick={closeDecision} role="presentation">
@@ -646,8 +864,15 @@ export default function Thread() {
           <div className="sheet" role="dialog" aria-label="Add to chat" onClick={(e) => e.stopPropagation()}>
             {sheet === 'plus' || sheet === 'more' ? (
               <>
-                <h2>{sheet === 'plus' ? 'Add to this chat' : 'More site updates'}</h2>
-                <p className="help">Tap one. The next step tells you what gets sent.</p>
+                <div className="sheet-title">
+                  {sheet === 'more' ? (
+                    <button type="button" className="sheet-back-link" aria-label="Back" onClick={() => setSheet('plus')}>
+                      <Icon name="chev" />
+                    </button>
+                  ) : <span />}
+                  <h2>{sheet === 'plus' ? 'Add to this chat' : 'More'}</h2>
+                  <span />
+                </div>
                 {error ? <p className="warn-text">{error}</p> : null}
                 <div className="tiles">
                   {tiles.map((item) => (
@@ -663,27 +888,39 @@ export default function Thread() {
                     </button>
                   )}
                 </div>
-                {sheet === 'more' && <button type="button" className="text-btn" onClick={() => setSheet('plus')}>Back to common updates</button>}
-                <button type="button" className="text-btn" onClick={() => setSheet(null)}>Cancel</button>
               </>
             ) : (
               <form className="stack" onSubmit={sendAttach}>
                 <h2>{sheet.label}</h2>
-                <p className="help">{STEP[sheet.what]}</p>
-                {(sheet.what === 'photo' || sheet.what === 'sample' || sheet.what === 'delivery') && (
+                {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                   <>
-                    {shot ? <img className="cam-preview" src={shot} alt="" /> : null}
-                    <label className="ghost file-pick">{shot ? 'Choose a different photo' : (sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo')}<input type="file" accept="image/*" onChange={readPhoto} /></label>
-                    {sheet.what === 'sample' && !shot && (
+                    {sheet.what === 'delivery' && (
+                      <label>What arrived?
+                        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="What arrived?" />
+                      </label>
+                    )}
+                    <label className={sheet.what === 'sample' ? 'primary file-pick' : 'ghost file-pick'}>
+                      {sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo'}
+                      <input type="file" accept="image/*" data-kind={sheet.what} onChange={readPhoto} />
+                    </label>
+                    {sheet.what === 'sample' && (
                       <button type="button" className="text-btn" onClick={() => { setEditor({ what: 'sample', src: '/images/p01.jpg' }); setSheet(null); }}>Use a sample picture</button>
+                    )}
+                    {sheet.what === 'sample' && (
+                      <label>Or name it without a photo
+                        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="What is this sample?" placeholder="What is this sample?" />
+                      </label>
                     )}
                   </>
                 )}
                 {sheet.what === 'drawing' && (
                   drawings.length ? drawings.map((d) => (
-                    <button type="button" className={`row ${drawingNo === d.no ? 'picked' : ''}`} key={d.no} onClick={() => setDrawingNo(d.no)}>
+                    <button type="button" className="row" key={d.no} onClick={() => {
+                      postMessage(thread.id, { kind: 'drawing', text: `${d.name} · ${d.no} ${d.rev}` });
+                      setSheet(null);
+                      markRead(thread.id);
+                    }}>
                       <span className="row-copy"><b>{d.name}</b><span>{d.no} · {d.rev}</span></span>
-                      <span className="pick" aria-hidden="true">{drawingNo === d.no ? <Icon name="check" /> : null}</span>
                     </button>
                   )) : <p className="note">{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</p>
                 )}
@@ -695,17 +932,24 @@ export default function Thread() {
                   </>
                 )}
                 {(sheet.what === 'document' || sheet.what === 'audio') && (
-                  <label className="ghost file-pick">{fileName || (sheet.what === 'audio' ? 'Choose audio' : 'Choose a document')}
-                    <input type="file" accept={sheet.what === 'audio' ? 'audio/*' : undefined} onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      setFileName(file?.name || '');
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => setDocUrl(String(reader.result || ''));
-                      reader.readAsDataURL(file);
-                      e.target.value = '';
-                    }} />
-                  </label>
+                  <>
+                    <p className="voice-line">{fileName}</p>
+                    {sheet.what === 'audio' && docUrl ? <audio src={docUrl} controls /> : null}
+                    <label className="ghost file-pick">Choose a different file
+                      <input type="file" accept={sheet.what === 'audio' ? 'audio/*' : undefined} onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        setFileName(file.name);
+                        const reader = new FileReader();
+                        reader.onload = () => setDocUrl(String(reader.result || ''));
+                        reader.readAsDataURL(file);
+                      }} />
+                    </label>
+                    <label>Add a caption
+                      <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a caption" placeholder="Add a caption" />
+                    </label>
+                  </>
                 )}
                 {sheet.what === 'poll' && (
                   <>
@@ -731,9 +975,9 @@ export default function Thread() {
                     <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Amount" placeholder="0" />
                   </label>
                 )}
-                {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio'].includes(sheet.what) && (
-                  <label>{sheet.what === 'photo' ? 'Add a note' : sheet.what === 'sample' ? 'What is this sample?' : sheet.what === 'delivery' ? 'What arrived?' : sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : sheet.what === 'file' ? 'Add a note' : 'Note'}
-                    <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={sheet.what === 'sample' ? 'What is this sample?' : sheet.what === 'delivery' ? 'What arrived?' : sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : 'Note'} placeholder={sheet.what === 'photo' || sheet.what === 'file' || sheet.what === 'attendance' ? 'Optional' : ''} />
+                {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio', 'sample', 'delivery', 'photo'].includes(sheet.what) && (
+                  <label>{sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : sheet.what === 'file' ? 'Add a caption' : 'Note'}
+                    <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : 'Add a caption'} placeholder={sheet.what === 'file' ? 'Add a caption' : 'Optional'} />
                   </label>
                 )}
                 {sheet.what === 'location' && (
@@ -742,12 +986,17 @@ export default function Thread() {
                   </label>
                 )}
                 {error ? <p className="warn-text">{error}</p> : null}
-                {sheet.what === 'checkin' ? (
-                  <button className="primary" type="button" onClick={doCheckin}>Check in</button>
-                ) : sheet.what === 'daylog' ? (
-                  <button className="primary" type="button" onClick={openDayLog}>Write today’s log</button>
-                ) : (
-                  <button className="primary" type="submit">Send</button>
+                {sheet.what !== 'drawing' && (
+                  <button
+                    className="primary"
+                    type="submit"
+                    disabled={
+                      ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
+                      || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
+                      || (sheet.what === 'contact' && !contactName.trim())
+                      || (sheet.what === 'poll' && (!pollQ.trim() || pollOpts.filter((o) => o.trim()).length < 2))
+                    }
+                  >{sheet.what === 'location' ? 'Send location' : 'Send'}</button>
                 )}
                 <button type="button" className="text-btn" onClick={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</button>
               </form>
@@ -755,6 +1004,8 @@ export default function Thread() {
           </div>
         </div>
       )}
+      <input ref={photoInput} className="file-off" type="file" accept="image/*" tabIndex={-1} aria-hidden="true" onChange={readPhoto} />
+      <input ref={fileInput} className="file-off" type="file" tabIndex={-1} aria-hidden="true" onChange={readFile} />
       {menu && (
         <div className="sheet-back" onClick={() => setMenu(null)} role="presentation">
             <div className="sheet" role="dialog" aria-label="More options" onClick={(e) => e.stopPropagation()}>

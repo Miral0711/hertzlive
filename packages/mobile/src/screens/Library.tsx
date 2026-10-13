@@ -237,7 +237,16 @@ export function Camera() {
         <PhotoEdit
           src={shot}
           onCancel={() => { setShot(''); setEditing(false); }}
-          onSend={(dataUrl: string, words: string) => { setShot(dataUrl); setCaption(words); setEditing(false); }}
+          onSend={(dataUrl: string, words: string) => {
+            if (preset) {
+              postMessage(preset, { text: words.trim() || 'Photo from site', photo: { dataUrl, hue: 28, seed: 4 }, kind: 'photo' });
+              navigate(`/mobile/chats/${preset}`);
+              return;
+            }
+            setShot(dataUrl);
+            setCaption(words);
+            setEditing(false);
+          }}
         />
       </Screen>
     );
@@ -272,8 +281,7 @@ export function Camera() {
       )}
       {!shot && (
         <View style={s.start}>
-          <Text style={[s.note, { marginTop: 10 }]}>{preset ? 'This photo goes into the chat you opened. Take it or choose one, then press Send.' : 'After the photo, you choose the chat and press Send.'}</Text>
-          {live && <Primary onPress={capture}>Take photo</Primary>}
+          {live ? <Primary onPress={capture}>Take photo</Primary> : <Text style={[s.note, { marginTop: 10 }]}>{camNote || 'The camera is opening.'}</Text>}
           <Pressable style={s.filePick} onPress={pickFile} accessibilityRole="button"><Text style={s.filePickT}>Choose a photo</Text></Pressable>
           <TextBtn onPress={() => { setShot(sampleUri()); setEditing(true); }}>Use a sample photo</TextBtn>
           {camNote ? <Text style={s.note}>{camNote}</Text> : null}

@@ -584,8 +584,69 @@ button.av { border: 0; cursor: pointer; }
   cursor: pointer;
 }
 .round.send, .composer .round.mic { background: var(--accent); color: var(--accent-ink); }
+.composer .round.mic { touch-action: none; user-select: none; }
 .composer .round:not(.send):not(.mic) { background: transparent; color: var(--ink-2); }
 .composer a.round { text-decoration: none; }
+.composer .round.cam { color: var(--ink-2); }
+.voice-hint {
+  margin: 0;
+  padding: 6px 16px 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--accent) 8%, var(--chat));
+}
+.composer .rec-hold {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 4px;
+  color: var(--ink-2);
+  font-weight: 650;
+}
+.composer .rec-cancel { color: var(--crit); }
+.rec-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+.rec-time i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e11d48;
+  animation: rec-pulse 1s ease-in-out infinite;
+}
+@keyframes rec-pulse { 50% { opacity: 0.35; } }
+.sheet-title {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sheet-title h2 { margin: 0; }
+.sheet-back-link {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.sheet-back-link .mi { transform: rotate(180deg); }
+.file-off {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
 
 .wa-id {
   display: flex;
@@ -770,6 +831,7 @@ button.av { border: 0; cursor: pointer; }
   background: var(--line);
 }
 .sheet h2 { margin: 0 0 14px; font-size: 16px; text-align: center; }
+.sheet .sheet-title h2 { margin: 0; }
 .sheet .search { margin: 0 0 8px; }
 .sheet .help { margin: -6px 8px 12px; text-align: center; color: var(--ink-2); font-size: 14px; line-height: 1.35; }
 .sheet .cam-preview { width: 100%; height: 140px; margin: 0; }

@@ -15,6 +15,7 @@ import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
   postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, render,
 } from '../store';
+import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import { AIProvider, toast } from '../../../frontend/src/shared/core';
 import { filingLabel } from '../../../frontend/src/shared/filing';
 import { siteHasSuggestion } from '../../../frontend/src/shared/chatExtras';
@@ -50,23 +51,22 @@ const MORE: any[] = [
   ['document', 'Document', 'file'],
   ['audio', 'Audio', 'mic'],
 ];
-const STEP: Record<string, string> = {
-  photo: 'Choose a photo. You can crop it, draw on it, and add a note before it is sent.',
-  drawing: 'Pick a drawing. This chat gets its name and revision.',
-  delivery: 'Say what arrived. This chat gets that line.',
-  sample: 'Add a picture of a finish or material, and say what it is.',
-  location: 'This sends the place below into the chat.',
-  bill: 'Write the amount you paid. A partner can approve it later.',
-  material: 'Say what the site needs. It is posted in this chat.',
-  attendance: 'This posts today’s attendance into this chat.',
-  file: 'Choose a file. This chat shows the file name.',
-  document: 'Choose a document. This chat keeps the file.',
-  audio: 'Choose an audio file.',
-  poll: 'Ask the chat a question with two or more answers.',
-  contact: 'Share someone from this chat, or type a name and phone.',
-  checkin: 'This tells the site chat that you have arrived.',
-  daylog: 'This writes what happened on site today. You can read it before anyone else sees it.',
+const clock = (ms: number) => {
+  const sec = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 };
+async function toDataUrl(uri: string) {
+  if (Platform.OS !== 'web' || !uri) return uri;
+  try {
+    const blob = await (await fetch(uri)).blob();
+    return await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result || ''));
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  } catch { return uri; }
+}
 function chipOf(m: any) {
   const f = state.filings?.[m.id];
   if (!f) return { status: '', label: 'File message' };
@@ -79,7 +79,7 @@ const KIND_LABEL: Record<string, string> = {
   material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in',
 };
 const allowed = (roles?: string[]) => !roles || roles.includes(state.role);
-const label = (what: string) => (({ photo: 'Add a note', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a note' } as any)[what] || 'Note');
+const label = (what: string) => (({ photo: 'Add a caption', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a caption' } as any)[what] || 'Note');
 
 function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }: any) {
   const shift = useRef(new Animated.Value(0)).current;
@@ -146,8 +146,17 @@ export default function Thread() {
   const [amount, setAmount] = useState('');
   const [shot, setShot] = useState('');
   const [fileName, setFileName] = useState('');
-  const [drawingNo, setDrawingNo] = useState('');
   const [error, setError] = useState('');
+  const [voiceMode, setVoiceMode] = useState<null | 'hold' | 'locked'>(null);
+  const [voiceDur, setVoiceDur] = useState('0:00');
+  const [voiceHint, setVoiceHint] = useState('');
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const voiceTimer = useRef<any>(null);
+  const voiceStarted = useRef(0);
+  const holding = useRef(false);
+  const holdX = useRef(0);
+  const cancelHold = useRef(false);
+  const voiceModeRef = useRef<null | 'hold' | 'locked'>(null);
   const [showWork, setShowWork] = useState(false);
   useEffect(() => { setShowWork(false); }, [threadId]);
   const [replyTo, setReplyTo] = useState<any>(null);
@@ -323,8 +332,9 @@ export default function Thread() {
       <Screen>
         <PhotoEdit
           src={editor.src}
-          noteLabel={ask || 'Add a note'}
+          noteLabel={ask || 'Add a caption'}
           noteRequired={Boolean(ask)}
+          initialNote={editor.note || ''}
           onCancel={() => setEditor(null)}
           onSend={sendEdited}
         />
@@ -349,18 +359,18 @@ export default function Thread() {
   }
 
   function openForm(item: any[]) {
-    setError(''); setNote(''); setAmount(''); setShot(''); setFileName('');     setDrawingNo('');
+    setError(''); setNote(''); setAmount(''); setShot(''); setFileName('');
     setPollQ(''); setPollOpts(['', '']); setPollMulti(false); setContactName(''); setContactPhone(''); setDocUrl('');
     setSheet({ what: item[0], label: item[1] });
   }
 
-  async function pickPhoto() {
+  async function pickPhoto(kind = 'photo') {
     try {
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       const asset = res.canceled ? null : res.assets?.[0];
       if (!asset) return;
-      if (sheet && ['photo', 'sample', 'delivery'].includes(sheet.what)) {
-        setEditor({ what: sheet.what, src: asset.uri });
+      if (kind === 'photo' || kind === 'sample' || kind === 'delivery') {
+        setEditor({ what: kind, src: asset.uri, note: kind === 'delivery' ? note.trim() : '' });
         setSheet(null);
         return;
       }
@@ -368,6 +378,74 @@ export default function Thread() {
     } catch {
       setError('Could not open your photos.');
     }
+  }
+
+  async function pickDoc(kind: string) {
+    setSheet(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: kind === 'audio' ? 'audio/*' : '*/*', copyToCacheDirectory: true });
+      const asset = res.canceled ? null : res.assets?.[0];
+      if (!asset) return;
+      setError('');
+      setNote('');
+      setFileName(asset.name || '');
+      setDocUrl(asset.uri || '');
+      setSheet({ what: kind, label: kind === 'audio' ? 'Audio' : kind === 'document' ? 'Document' : 'File' });
+    } catch {
+      setError('Could not open files.');
+      setSheet(kind === 'file' ? 'more' : 'more');
+    }
+  }
+
+  function setMode(mode: null | 'hold' | 'locked') {
+    voiceModeRef.current = mode;
+    setVoiceMode(mode);
+  }
+
+  async function beginVoice(mode: 'hold' | 'locked') {
+    setVoiceHint('');
+    if (mode === 'locked') setSheet(null);
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) throw new Error('denied');
+      if (mode === 'hold' && !holding.current) {
+        setVoiceHint('Hold to record. Release to send.');
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      if (mode === 'hold' && !holding.current) {
+        setVoiceHint('Hold to record. Release to send.');
+        return;
+      }
+      recorder.record();
+      voiceStarted.current = Date.now();
+      setVoiceDur('0:00');
+      clearInterval(voiceTimer.current);
+      voiceTimer.current = setInterval(() => setVoiceDur(clock(Date.now() - voiceStarted.current)), 200);
+      setMode(mode);
+      setSheet(null);
+    } catch {
+      setMode(null);
+      setVoiceHint('The microphone did not open. Allow the microphone, then try again.');
+    }
+  }
+
+  async function finishVoice(shouldSend: boolean) {
+    clearInterval(voiceTimer.current);
+    const elapsed = Date.now() - voiceStarted.current;
+    const mode = voiceModeRef.current;
+    setMode(null);
+    try { await recorder.stop(); } catch { /* not recording */ }
+    await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+    if (!shouldSend || !recorder.uri || (mode === 'hold' && elapsed < 700)) {
+      if (shouldSend) setVoiceHint('Hold to record. Release to send.');
+      return;
+    }
+    const audio = await toDataUrl(recorder.uri);
+    if (!audio) return;
+    postMessage(thread.id, { voice: { dur: clock(elapsed), audio } });
+    markRead(thread.id);
   }
 
   async function pickFile() {
@@ -387,8 +465,12 @@ export default function Thread() {
 
   function pick(item: any[]) {
     const key = item[0];
-    if (key === 'voice') { navigate(`/mobile/chats/${thread.id}/voice`); return; }
-    if (key === 'camera') { navigate(`/mobile/camera?thread=${thread.id}`); return; }
+    if (key === 'voice') { beginVoice('locked'); return; }
+    if (key === 'camera') { setSheet(null); navigate(`/mobile/camera?thread=${thread.id}`); return; }
+    if (key === 'photo') { setSheet(null); pickPhoto('photo'); return; }
+    if (key === 'file' || key === 'document' || key === 'audio') { pickDoc(key); return; }
+    if (key === 'checkin') { doCheckin(); return; }
+    if (key === 'daylog') { openDayLog(); return; }
     openForm(item);
   }
 
@@ -437,10 +519,6 @@ export default function Thread() {
       if (!words) { setError('Say what arrived.'); return; }
       fields.text = `Delivery: ${words}`;
       if (shot) fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
-    } else if (what === 'drawing') {
-      const drawing = (projectOf(thread.projectId)?.drawings || []).find((d: any) => d.no === drawingNo);
-      if (!drawing) { setError('Pick a drawing.'); return; }
-      fields.text = `${drawing.name} · ${drawing.no} ${drawing.rev}`;
     } else if (what === 'location') {
       fields.text = words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}`;
     } else if (what === 'bill') {
@@ -482,7 +560,6 @@ export default function Thread() {
   const drawings: any[] = thread.projectId && can('drawing', 'r') ? (projectOf(thread.projectId)?.drawings || []) : [];
   const last = [...msgs].reverse().find((m) => !m.deleted);
   const showQuick = can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '');
-  const isMedia = sheet && typeof sheet === 'object' && ['photo', 'sample', 'delivery'].includes(sheet.what);
 
   const Btn = ({ style, textStyle, onPress, children, ...rest }: any) => (
     <Pressable style={style} onPress={onPress} accessibilityRole="button" {...rest}><Text style={textStyle}>{children}</Text></Pressable>
@@ -692,27 +769,66 @@ export default function Thread() {
             <Pressable accessibilityLabel="Cancel reply" accessibilityRole="button" onPress={() => setReplyTo(null)}><Icon name="x" size={20} /></Pressable>
           </View>
         )}
+        {voiceHint ? <Text style={{ textAlign: 'center', color: c.ink2, fontSize: 13, fontWeight: '600', paddingTop: 6, paddingHorizontal: 16 }}>{voiceHint}</Text> : null}
         {can('thread', 'w') && (
           <View style={[s.composer, { paddingBottom: 8 + insets.bottom }]}>
-            <View style={s.pill}>
-              <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add a photo, drawing or note" onPress={() => { setError(''); setSheet('plus'); }}>
-                <Icon name="plus" />
+            {voiceMode === 'locked' ? (
+              <View style={[s.pill, { alignItems: 'center', paddingLeft: 4 }]}>
+                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Delete voice note" onPress={() => finishVoice(false)}>
+                  <Icon name="trash" />
+                </Pressable>
+                <Text style={{ marginLeft: 'auto', marginRight: 12, fontWeight: '700', color: c.ink }}>{voiceDur}</Text>
+              </View>
+            ) : voiceMode === 'hold' ? (
+              <View style={[s.pill, { alignItems: 'center', paddingHorizontal: 14 }]}>
+                <Text style={{ color: cancelHold.current ? c.crit : c.ink2, fontWeight: '600' }}>{cancelHold.current ? 'Release to cancel' : 'Slide to cancel'}</Text>
+                <Text style={{ marginLeft: 'auto', fontWeight: '700', color: c.ink }}>{voiceDur}</Text>
+              </View>
+            ) : (
+              <View style={s.pill}>
+                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add to this chat" onPress={() => { setError(''); setSheet('plus'); }}>
+                  <Icon name="plus" />
+                </Pressable>
+                <TextInput
+                  style={s.input} multiline placeholder={t('message')} placeholderTextColor={c.ink3}
+                  accessibilityLabel={`Message to ${audience(thread)}`}
+                  value={text} onChangeText={(v) => setDraft(thread.id, v)}
+                  onKeyPress={(e: any) => {
+                    if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
+                  }}
+                />
+                {!text.trim() && (
+                  <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Camera" onPress={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
+                    <Icon name="camera" />
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {voiceMode === 'locked' ? (
+              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel="Send voice note" onPress={() => finishVoice(true)}>
+                <Icon name="send" color={c.accentInk} />
               </Pressable>
-              <TextInput
-                style={s.input} multiline placeholder={t('message')} placeholderTextColor={c.ink3}
-                accessibilityLabel={`Message to ${audience(thread)}`}
-                value={text} onChangeText={(v) => setDraft(thread.id, v)}
-                onKeyPress={(e: any) => {
-                  if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
+            ) : text.trim() && !voiceMode ? (
+              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('send')} onPress={send}>
+                <Icon name="send" color={c.accentInk} />
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[s.round, s.roundAccent]}
+                accessibilityRole="button"
+                accessibilityLabel="Hold to record a voice note"
+                onPressIn={(e) => { holding.current = true; cancelHold.current = false; holdX.current = e.nativeEvent.pageX; beginVoice('hold'); }}
+                onTouchMove={(e) => { cancelHold.current = e.nativeEvent.pageX - holdX.current < -64; }}
+                onPressOut={() => {
+                  const cancel = cancelHold.current;
+                  holding.current = false;
+                  cancelHold.current = false;
+                  if (voiceModeRef.current === 'hold') finishVoice(!cancel);
                 }}
-              />
-              <Link to={`/mobile/chats/${thread.id}/voice`} style={s.round} accessibilityLabel="Record a voice note">
-                <Icon name="mic" />
-              </Link>
-            </View>
-            <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('send')} onPress={send}>
-              <Icon name="send" color={c.accentInk} />
-            </Pressable>
+              >
+                <Icon name="mic" color={c.accentInk} />
+              </Pressable>
+            )}
           </View>
         )}
         </>
@@ -745,8 +861,15 @@ export default function Thread() {
               <ScrollView keyboardShouldPersistTaps="handled">
                 {sheet === 'plus' || sheet === 'more' ? (
                   <View>
-                    <Text style={s.h2}>{sheet === 'plus' ? 'Add to this chat' : 'More site updates'}</Text>
-                    <Text style={s.help}>Tap one. The next step tells you what gets sent.</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {sheet === 'more' ? (
+                        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => setSheet('plus')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                          <View style={{ transform: [{ rotate: '180deg' }] }}><Icon name="chev" /></View>
+                        </Pressable>
+                      ) : <View style={{ width: 44 }} />}
+                      <Text style={[s.h2, { flex: 1, marginBottom: 0 }]}>{sheet === 'plus' ? 'Add to this chat' : 'More'}</Text>
+                      <View style={{ width: 44 }} />
+                    </View>
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
                     <View style={s.tiles}>
                       {tiles.map((item: any[]) => (
@@ -762,27 +885,24 @@ export default function Thread() {
                         </Pressable>
                       )}
                     </View>
-                    {sheet === 'more' && <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet('plus')}>Back to common updates</Btn>}
-                    <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(null)}>Cancel</Btn>
                   </View>
                 ) : (
                   <View style={s.stack}>
                     <Text style={s.h2}>{sheet.label}</Text>
-                    <Text style={s.help}>{STEP[sheet.what]}</Text>
-                    {isMedia && (
+                    {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                       <>
-                        {shot ? <Image style={s.preview} source={{ uri: shot }} resizeMode="cover" /> : null}
-                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={pickPhoto}>{shot ? 'Choose a different photo' : (sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo')}</Btn>
-                        {sheet.what === 'sample' && !shot && (
+                        {sheet.what === 'delivery' && <Field lbl="What arrived?" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What arrived?" />}
+                        <Btn style={sheet.what === 'sample' ? s.primary : s.ghost} textStyle={sheet.what === 'sample' ? s.primaryText : s.ghostText} onPress={() => pickPhoto(sheet.what)}>{sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo'}</Btn>
+                        {sheet.what === 'sample' && (
                           <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { setEditor({ what: 'sample', src: (Image as any).resolveAssetSource(photoSource(28, 1)).uri }); setSheet(null); }}>Use a sample picture</Btn>
                         )}
+                        {sheet.what === 'sample' && <Field lbl="Or name it without a photo" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What is this sample?" placeholder="What is this sample?" />}
                       </>
                     )}
                     {sheet.what === 'drawing' && (
                       drawings.length ? drawings.map((d) => (
-                        <Pressable key={d.no} style={[s.drow, drawingNo === d.no && s.drowOn]} onPress={() => setDrawingNo(d.no)} accessibilityRole="button">
+                        <Pressable key={d.no} style={s.drow} onPress={() => { postMessage(thread.id, { kind: 'drawing', text: `${d.name} · ${d.no} ${d.rev}` }); setSheet(null); markRead(thread.id); }} accessibilityRole="button">
                           <View style={s.dcopy}><Text style={s.dB}>{d.name}</Text><Text style={s.dS}>{d.no} · {d.rev}</Text></View>
-                          <View style={[s.pick, drawingNo === d.no && s.pickOn]}>{drawingNo === d.no ? <Icon name="check" size={14} color={c.accentInk} /> : null}</View>
                         </Pressable>
                       )) : <Text style={s.note}>{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</Text>
                     )}
@@ -794,14 +914,11 @@ export default function Thread() {
                       </>
                     )}
                     {(sheet.what === 'document' || sheet.what === 'audio') && (
-                      <Btn style={s.ghost} textStyle={s.ghostText} onPress={async () => {
-                        try {
-                          const res = await DocumentPicker.getDocumentAsync({ type: sheet.what === 'audio' ? 'audio/*' : '*/*', copyToCacheDirectory: true });
-                          const asset = res.canceled ? null : res.assets?.[0];
-                          setFileName(asset?.name || '');
-                          if (asset?.uri) setDocUrl(asset.uri);
-                        } catch { setError('Could not open files.'); }
-                      }}>{fileName || (sheet.what === 'audio' ? 'Choose audio' : 'Choose a document')}</Btn>
+                      <>
+                        <Text style={s.voiceLine}>{fileName}</Text>
+                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={() => pickDoc(sheet.what)}>Choose a different file</Btn>
+                        <Field lbl="Add a caption" multiline value={note} onChangeText={setNote} accessibilityLabel="Add a caption" placeholder="Add a caption" />
+                      </>
                     )}
                     {sheet.what === 'poll' && (
                       <View style={s.stack}>
@@ -821,7 +938,7 @@ export default function Thread() {
                       </View>
                     )}
                     {sheet.what === 'bill' && <Field lbl="Amount in ₹" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} accessibilityLabel="Amount" placeholder="0" />}
-                    {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio'].includes(sheet.what) && (
+                    {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio', 'sample', 'delivery', 'photo'].includes(sheet.what) && (
                       <Field
                         lbl={label(sheet.what)} multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]}
                         value={note} onChangeText={setNote} accessibilityLabel={label(sheet.what)}
@@ -830,12 +947,23 @@ export default function Thread() {
                     )}
                     {sheet.what === 'location' && <Field lbl="Add a note" multiline value={note} onChangeText={setNote} accessibilityLabel="Note" placeholder="Optional" />}
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
-                    {sheet.what === 'checkin' ? (
-                      <Btn style={s.primary} textStyle={s.primaryText} onPress={doCheckin}>Check in</Btn>
-                    ) : sheet.what === 'daylog' ? (
-                      <Btn style={s.primary} textStyle={s.primaryText} onPress={openDayLog}>Write today’s log</Btn>
-                    ) : (
-                      <Btn style={s.primary} textStyle={s.primaryText} onPress={sendAttach}>Send</Btn>
+                    {sheet.what !== 'drawing' && (
+                      <Btn
+                        style={[s.primary, (
+                          ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
+                          || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
+                          || (sheet.what === 'contact' && !contactName.trim())
+                          || (sheet.what === 'poll' && (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2))
+                        ) && { opacity: 0.45 }]}
+                        textStyle={s.primaryText}
+                        disabled={
+                          ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
+                          || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
+                          || (sheet.what === 'contact' && !contactName.trim())
+                          || (sheet.what === 'poll' && (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2))
+                        }
+                        onPress={sendAttach}
+                      >{sheet.what === 'location' ? 'Send location' : 'Send'}</Btn>
                     )}
                     <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</Btn>
                   </View>

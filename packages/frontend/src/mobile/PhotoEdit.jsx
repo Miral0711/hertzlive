@@ -69,7 +69,7 @@ function drawOp(ctx, op) {
   }
 }
 
-export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired = false, onCancel, onSend }) {
+export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequired = false, initialNote = '', onCancel, onSend }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const strokeRef = useRef(null);
@@ -84,7 +84,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
   const [cropSrc, setCropSrc] = useState(null);
   const [cropSel, setCropSel] = useState();
   const [cropPixels, setCropPixels] = useState(null);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialNote);
   const [noteError, setNoteError] = useState('');
   const cur = history ? history[index] : null;
 
@@ -354,7 +354,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
       </div>
       {!cropping && (
         <form className="pedit-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
-          <input value={note} placeholder={noteRequired ? noteLabel : 'Add a note'} aria-label={noteLabel} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
+          <input value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} aria-label={noteLabel} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
           <button type="submit" className="round send" aria-label="Send photo" disabled={!cur}><Icon name="send" /></button>
         </form>
       )}

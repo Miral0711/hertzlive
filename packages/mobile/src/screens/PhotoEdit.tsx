@@ -114,8 +114,8 @@ const toJpeg = async (uri: string, actions: any[] = [], base64 = false) => {
   return r;
 };
 
-export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired = false, onCancel, onSend }: {
-  src: string; noteLabel?: string; noteRequired?: boolean; onCancel: () => void; onSend: (dataUrl: string, words: string) => void;
+export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequired = false, initialNote = '', onCancel, onSend }: {
+  src: string; noteLabel?: string; noteRequired?: boolean; initialNote?: string; onCancel: () => void; onSend: (dataUrl: string, words: string) => void;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -130,7 +130,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
   const [textInput, setTextInput] = useState<{ x: number; y: number; sx: number; sy: number; value: string } | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialNote);
   const [noteError, setNoteError] = useState('');
   const [busy, setBusy] = useState(false);
   const cur = history ? history[index] : null;
@@ -436,7 +436,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
       {!cropping && (
         <View style={[bar, { paddingBottom: 8 + insets.bottom }]}>
           <TextInput
-            value={note} placeholder={noteRequired ? noteLabel : 'Add a note'} placeholderTextColor="#8696a0" accessibilityLabel={noteLabel}
+            value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} placeholderTextColor="#8696a0" accessibilityLabel={noteLabel}
             onChangeText={(v) => { setNote(v); setNoteError(''); }} onSubmitEditing={send}
             style={{ flex: 1, minWidth: 0, borderRadius: 22, backgroundColor: PANEL, color: '#fff', fontSize: 15, paddingVertical: 10, paddingHorizontal: 14 }}
           />
