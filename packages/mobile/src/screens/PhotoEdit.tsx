@@ -114,8 +114,8 @@ const toJpeg = async (uri: string, actions: any[] = [], base64 = false) => {
   return r;
 };
 
-export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired = false, onCancel, onSend }: {
-  src: string; noteLabel?: string; noteRequired?: boolean; onCancel: () => void; onSend: (dataUrl: string, words: string) => void;
+export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequired = false, initialNote = '', onCancel, onSend }: {
+  src: string; noteLabel?: string; noteRequired?: boolean; initialNote?: string; onCancel: () => void; onSend: (dataUrl: string, words: string) => void;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -130,7 +130,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
   const [textInput, setTextInput] = useState<{ x: number; y: number; sx: number; sy: number; value: string } | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialNote);
   const [noteError, setNoteError] = useState('');
   const [busy, setBusy] = useState(false);
   const cur = history ? history[index] : null;
@@ -230,6 +230,9 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
       setCrop(null);
     } else if (tool === 'crop') { setCropSrc(null); setCrop(null); }
     setTool(t);
+    if (t === 'text' && cur && disp.w) {
+      setTextInput({ x: cur.base.w * 0.12, y: cur.base.h * 0.42, sx: Math.max(8, disp.w * 0.12), sy: Math.max(8, disp.h * 0.42), value: '' });
+    }
   };
 
   // default crop box (80% of the photo, centered) once the crop image and display size are known
@@ -326,75 +329,50 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
   const ops = cur?.ops || [];
   const showInk = !cropping && !!tool && ['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool);
 
-  const topBtn = { color: '#fff', fontSize: 15 };
   const bar = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, paddingVertical: 8, paddingHorizontal: 10 };
-  const strip = { gap: 6, paddingHorizontal: 8, paddingBottom: 8, alignItems: 'center' as const };
+
+  const placeText = (value = '') => {
+    if (!cur || !disp.w) return;
+    setTextInput({ x: cur.base.w * 0.12, y: cur.base.h * 0.42, sx: Math.max(8, disp.w * 0.12), sy: Math.max(8, disp.h * 0.42), value });
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
-      <View style={bar}>
-        <Pressable onPress={onCancel} accessibilityRole="button" style={{ minWidth: 60 }}><Text style={topBtn}>Cancel</Text></Pressable>
-        <Text style={{ flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '600', color: '#fff' }}>Edit photo</Text>
-        <View style={{ minWidth: 60 }} />
-      </View>
-      <View accessibilityRole="toolbar" accessibilityLabel="Photo tools">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={strip} style={{ flexGrow: 0 }}>
-          {TOOLS.map(([key, label, icon]) => {
-            const disabled = cropping && key !== 'crop';
-            const on = tool === key;
-            return (
-              <Pressable
-                key={key} accessibilityLabel={label} accessibilityState={{ selected: on, disabled }} disabled={disabled || busy}
-                onPress={() => chooseTool(key)}
-                style={{ width: 44, paddingVertical: 4, borderRadius: 10, alignItems: 'center', backgroundColor: on ? c.accent : 'transparent', opacity: disabled ? 0.35 : 1 }}
-              >
-                <Icon name={icon} size={20} color={on ? '#fff' : '#d1d7db'} />
-                <Text style={{ fontSize: 10, color: on ? '#fff' : '#d1d7db' }}>{label}</Text>
-              </Pressable>
-            );
-          })}
-          {[['undo', 'Undo', cropping || index === 0, () => index > 0 && setIndex(index - 1)] as const,
-            ['redo', 'Redo', cropping || !history || index >= history.length - 1, () => history && index < history.length - 1 && setIndex(index + 1)] as const].map(([icon, label, disabled, fn]) => (
-            <Pressable key={label} accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={fn}
-              style={{ width: 44, paddingVertical: 4, borderRadius: 10, alignItems: 'center', opacity: disabled ? 0.35 : 1 }}>
-              <Icon name={icon} size={20} color="#d1d7db" />
-              <Text style={{ fontSize: 10, color: '#d1d7db' }}>{label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-      {cropping && (
-        <View style={bar}>
-          <Pressable onPress={cancelCrop} accessibilityRole="button"><Text style={topBtn}>Cancel crop</Text></Pressable>
-          <Pressable onPress={applyCrop} disabled={!crop || busy} accessibilityRole="button" style={{ backgroundColor: c.accent, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10, opacity: crop ? 1 : 0.35 }}>
-            <Text style={topBtn}>Apply crop</Text>
+      <View style={[bar, { paddingTop: 6 + insets.top }]}>
+        <Pressable onPress={cropping ? cancelCrop : onCancel} accessibilityRole="button" accessibilityLabel={cropping ? 'Cancel crop' : 'Close'} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="x" color="#fff" />
+        </Pressable>
+        {cropping ? (
+          <Pressable onPress={applyCrop} disabled={!crop || busy} accessibilityRole="button" accessibilityLabel="Apply crop"
+            style={{ marginLeft: 'auto', width: 36, height: 36, borderRadius: 18, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: crop && !busy ? 1 : 0.35 }}>
+            <Icon name="check" color="#fff" size={20} />
           </Pressable>
-        </View>
-      )}
-      {showInk && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={strip} style={{ flexGrow: 0 }}>
-          {COLORS.map((col) => (
-            <Pressable key={col} accessibilityLabel={`Color ${col}`} accessibilityState={{ selected: color === col }} onPress={() => setColor(col)}
-              style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: col, borderWidth: 2, borderColor: color === col ? '#fff' : 'transparent' }} />
-          ))}
-          {SIZES.map((sz) => (
-            <Pressable key={sz} accessibilityLabel={`Size ${sz}`} accessibilityState={{ selected: size === sz }} onPress={() => setSize(sz)}
-              style={{ width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: size === sz ? '#fff' : '#3b4a54', alignItems: 'center', justifyContent: 'center' }}>
-              <View style={{ width: sz / 1.4, height: sz / 1.4, borderRadius: sz / 2.8, backgroundColor: '#fff' }} />
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
-      {tool === 'text' && !cropping && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={strip} style={{ flexGrow: 0 }}>
-          {LABELS.map((label) => (
-            <Pressable key={label} onPress={() => setTextInput((cur2) => (cur2 ? { ...cur2, value: label } : cur2))}
-              style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: PANEL }}>
-              <Text style={{ color: '#fff', fontSize: 13 }}>{label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+            <View accessibilityRole="toolbar" accessibilityLabel="Photo tools" style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {TOOLS.map(([key, label, icon]) => {
+                const on = tool === key;
+                return (
+                  <Pressable
+                    key={key} accessibilityLabel={label} accessibilityState={{ selected: on }} disabled={busy}
+                    onPress={() => chooseTool(key)}
+                    style={{ width: 36, height: 40, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? 'rgba(255,255,255,0.16)' : 'transparent' }}
+                  >
+                    <Icon name={icon} size={22} color={on ? '#fff' : '#d1d7db'} />
+                  </Pressable>
+                );
+              })}
+              {([['undo', 'Undo', index === 0, () => index > 0 && setIndex(index - 1)],
+                ['redo', 'Redo', !history || index >= history.length - 1, () => history && index < history.length - 1 && setIndex(index + 1)]] as const).map(([icon, label, disabled, fn]) => (
+                <Pressable key={label} accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={fn}
+                  style={{ width: 36, height: 40, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}>
+                  <Icon name={icon} size={22} color="#d1d7db" />
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+      </View>
       <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8 }}
         onLayout={(e) => setStage({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
         {!cur || !disp.w ? <Text style={{ color: '#8696a0' }}>Loading photo…</Text> : (
@@ -427,16 +405,42 @@ export default function PhotoEdit({ src, noteLabel = 'Add a note', noteRequired 
                 autoFocus value={textInput.value} placeholder="Add text" accessibilityLabel="Text on the photo"
                 onChangeText={(v) => setTextInput({ ...textInput, value: v })}
                 onSubmitEditing={commitPendingText}
-                style={{ position: 'absolute', left: Math.min(textInput.sx, Math.max(0, disp.w - 120)), top: textInput.sy, minWidth: 120, borderRadius: 6, backgroundColor: '#fff', color, fontSize: 14, paddingVertical: 4, paddingHorizontal: 6 }}
+                style={{ position: 'absolute', left: Math.min(textInput.sx, Math.max(0, disp.w - 140)), top: textInput.sy, minWidth: 80, backgroundColor: 'transparent', color, fontSize: 22, fontWeight: '700', paddingVertical: 2, paddingHorizontal: 4 }}
               />
             )}
           </View>
         )}
       </View>
+      {showInk && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', flexGrow: 1 }} style={{ flexGrow: 0, marginBottom: 8 }}>
+          {COLORS.map((col) => (
+            <Pressable key={col} accessibilityLabel={`Color ${col}`} accessibilityState={{ selected: color === col }} onPress={() => setColor(col)}
+              style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: color === col ? '#fff' : 'transparent' }}>
+              <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: col }} />
+            </Pressable>
+          ))}
+          {SIZES.map((sz) => (
+            <Pressable key={sz} accessibilityLabel={`Size ${sz}`} accessibilityState={{ selected: size === sz }} onPress={() => setSize(sz)}
+              style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: size === sz ? '#fff' : 'transparent' }}>
+              <View style={{ width: Math.max(6, sz * 0.9), height: Math.max(6, sz * 0.9), borderRadius: 99, backgroundColor: '#fff' }} />
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+      {tool === 'text' && !cropping && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }} style={{ flexGrow: 0, marginBottom: 8 }}>
+          {LABELS.map((label) => (
+            <Pressable key={label} onPress={() => (textInput ? setTextInput({ ...textInput, value: label }) : placeText(label))}
+              style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: PANEL }}>
+              <Text style={{ color: '#fff', fontSize: 13 }}>{label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
       {!cropping && (
         <View style={[bar, { paddingBottom: 8 + insets.bottom }]}>
           <TextInput
-            value={note} placeholder={noteRequired ? noteLabel : 'Add a note'} placeholderTextColor="#8696a0" accessibilityLabel={noteLabel}
+            value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} placeholderTextColor="#8696a0" accessibilityLabel={noteLabel}
             onChangeText={(v) => { setNote(v); setNoteError(''); }} onSubmitEditing={send}
             style={{ flex: 1, minWidth: 0, borderRadius: 22, backgroundColor: PANEL, color: '#fff', fontSize: 15, paddingVertical: 10, paddingHorizontal: 14 }}
           />

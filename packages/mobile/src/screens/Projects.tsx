@@ -126,15 +126,12 @@ export default function Projects() {
     search: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
     input: { flex: 1, minWidth: 0, color: c.ink, fontSize: 16, paddingVertical: 8, outlineStyle: 'none' },
     project: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, shadowColor: th.dark ? '#000' : c.ink, shadowOpacity: th.dark ? 0.35 : 0.06, shadowOffset: { width: 0, height: 1 }, shadowRadius: 2, elevation: 1 },
-    late: { borderLeftWidth: 3, borderLeftColor: c.crit },
     pid: { width: 68, height: 68, borderRadius: 12, overflow: 'hidden', backgroundColor: c.accentSoft },
     pimg: { width: '100%', height: '100%' },
     copy: { flex: 1, minWidth: 0 },
     name: { fontSize: 16, fontWeight: '600', color: c.ink },
     code: { marginTop: 2, fontSize: 13, color: c.ink2 },
     pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-    due: { marginTop: 8, fontSize: 13, fontWeight: '600', color: c.ink2 },
-    dueLate: { color: c.crit },
     card: { marginTop: 4, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface },
   }));
 
@@ -158,11 +155,9 @@ export default function Projects() {
         {shown.map((p: any) => {
           const site = siteFor(p.id);
           const issues = openIssues(p.id);
-          const due = nextDeadline(p);
-          const late = due && due.date < TODAY;
           const drawings = p.drawings || [];
           return (
-            <Link key={p.id} to={`/mobile/projects/${p.id}`} style={[s.project, late && s.late]}>
+            <Link key={p.id} to={`/mobile/projects/${p.id}`} style={s.project}>
               <View style={s.pid}><Image source={photoSource(p.hue, p.id)} style={s.pimg} resizeMode="cover" /></View>
               <View style={s.copy}>
                 <Text style={s.name}>{p.name}</Text>
@@ -172,7 +167,6 @@ export default function Projects() {
                   {can('drawing', 'r') && drawings.length ? <Pill>{drawings.length === 1 ? '1 drawing' : `${drawings.length} drawings`}</Pill> : null}
                   {can('issue', 'r') ? <Pill tone={issues.length ? 'open' : 'ok'}>{issues.length ? `${issues.length} open` : 'Clear'}</Pill> : null}
                 </View>
-                {due ? <Text style={[s.due, late && s.dueLate]}>{due.title} · {late ? 'overdue' : 'due'} {fmtD(due.date)}</Text> : null}
               </View>
               <Icon name="chev" />
             </Link>

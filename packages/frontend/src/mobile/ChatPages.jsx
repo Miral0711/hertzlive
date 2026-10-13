@@ -11,6 +11,7 @@ import {
 import { FILE_KINDS, filingLabel } from '../shared/filing';
 import { REACTIONS, siteHasSuggestion } from '../shared/chatExtras';
 import { Avatar, GroupPhotoInput, ThreadAvatar } from './faces';
+import { Select } from '../ui/ui';
 
 const SAMPLE_MEDIA = {
   site: [
@@ -331,13 +332,13 @@ export function WorkGroups() {
           {photo ? <button type="button" className="text-btn" onClick={() => setPhoto('')}>Remove photo</button> : null}
           <label>Work group name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kitchen island installation" /></label>
           <label>Task
-            <select aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
+            <Select className="field-select" aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
               <option value="">New task on this project</option>
               {tasks.map((item) => {
                 const open = svc.workGroupForTask(item.id);
                 return <option key={item.id} value={item.id}>{item.title}{open ? ' · already has a work group' : ''}</option>;
               })}
-            </select>
+            </Select>
           </label>
           {!taskId && <label>Task name<input aria-label="Task name" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Leave blank to use the work group name" /></label>}
           <button className="primary" type="submit">Continue</button>
@@ -733,6 +734,7 @@ export function MessagePage() {
 export function Filing() {
   useStore();
   const { threadId, messageId } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const projects = svc.projects();
   const rooms = ['Kitchen', 'Living', 'Bathroom', 'Structure', 'Facade', 'Not set'];
@@ -743,30 +745,31 @@ export function Filing() {
   const [kind, setKind] = useState(current.kind || 'note');
   const [drawing, setDrawing] = useState(current.drawing || '');
   const [error, setError] = useState('');
+  const backTo = params.get('from') === 'chat' ? `/mobile/chats/${threadId}` : `/mobile/chats/${threadId}/messages/${messageId}`;
   return (
-    <Page back={`/mobile/chats/${threadId}/messages/${messageId}`} backLabel="Message" title="Where should this go?">
+    <Page back={backTo} backLabel={params.get('from') === 'chat' ? 'Chat' : 'Message'} title="Where should this go?">
       <form className="stack" onSubmit={(e) => {
         e.preventDefault();
         try {
           const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
           if (!saved) throw new Error('Filing could not be saved on this device.');
-          navigate(`/mobile/chats/${threadId}/messages/${messageId}`);
+          navigate(backTo);
         } catch (err) { setError(err.message); }
       }}>
         <label>Project
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
+          <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          </Select>
         </label>
         <label>Room
-          <select value={room} onChange={(e) => setRoom(e.target.value)} aria-label="Room">
+          <Select className="field-select" value={room} onChange={(e) => setRoom(e.target.value)} aria-label="Room">
             {rooms.map((r) => <option key={r}>{r}</option>)}
-          </select>
+          </Select>
         </label>
         <label>What is it
-          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="What is it">
+          <Select className="field-select" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="What is it">
             {kinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
+          </Select>
         </label>
         <label>Drawing number<input value={drawing} onChange={(e) => setDrawing(e.target.value)} placeholder="HA-2401-A-101" aria-label="Drawing number" /></label>
         {error ? <p className="warn-text">{error}</p> : null}
@@ -866,6 +869,14 @@ export function Assist() {
     client: 'Client update', concept: 'Finish palette', followup: 'Suggested follow-up',
   }[kind] || 'Draft';
 
+  const messageThreadId = messageId ? state.db.MESSAGES.find((m) => m.id === messageId)?.threadId : '';
+  const backTo = fromPage && fromPage.startsWith('/mobile/')
+    ? fromPage
+    : messageThreadId
+      ? `/mobile/chats/${messageThreadId}`
+      : projectId
+        ? `/mobile/projects/${projectId}`
+        : '/mobile/today';
   const chats = svc.threads().filter((t) => t.projectId === pid && ['client', 'internal', 'site'].includes(t.kind) && can('thread', 'w'));
   const chosen = chats.some((t) => t.id === sendTo) ? sendTo : (chats.find((t) => t.kind === 'internal') || chats.find((t) => t.kind === 'site') || chats[0])?.id || '';
 
@@ -948,7 +959,7 @@ export function Assist() {
   }
 
   return (
-    <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={fromPage && fromPage.startsWith('/mobile/') ? fromPage : messageId ? `/mobile/chats/${state.db.MESSAGES.find((m) => m.id === messageId)?.threadId || ''}/messages/${messageId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today'} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
+    <Page className="ask-screen" sheet stackTitle back={backTo} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
       {issueId && !brief && <div className="empty"><h3>This issue isn’t available</h3></div>}
       {drawingNo && !sheetDrawing && <div className="empty"><h3>This sheet isn’t available</h3></div>}
       {!allowed && <div className="empty"><h3>This draft isn’t available for you</h3><p>Switch person if you need this action.</p></div>}
@@ -958,16 +969,16 @@ export function Assist() {
           {drawingNo && sheetDrawing && <p className="note">{projectName(projectId)} · {drawingNo}. This question is about this sheet.</p>}
           {!['daily', 'followup', 'concept'].includes(kind) && !issueId && !drawingNo && (
             <label>Project
-              <select value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label="Project">
+              <Select className="field-select" value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label="Project">
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              </Select>
             </label>
           )}
           {kind === 'daily' && (
             <label>Site
-              <select value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Site">
+              <Select className="field-select" value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Site">
                 {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </Select>
             </label>
           )}
           {kind === 'ask' && !issueId && (
@@ -977,9 +988,10 @@ export function Assist() {
             <>
               <h2>Who receives this</h2>
               {chats.map((t) => (
-                <button key={t.id} type="button" className="day-row" aria-pressed={chosen === t.id} onClick={() => setSendTo(t.id)}>
+                <button key={t.id} type="button" className={`ask-dest${chosen === t.id ? ' on' : ''}`} aria-pressed={chosen === t.id} onClick={() => setSendTo(t.id)}>
                   <b>{audience(t)}</b>
-                  <span>{t.name}{chosen === t.id ? ' · sending here' : ''}</span>
+                  <span>{t.name}</span>
+                  {chosen === t.id ? <em>Sending here</em> : null}
                 </button>
               ))}
               {!chats.length && <p className="note">No conversation you can send this to.</p>}
@@ -1000,7 +1012,7 @@ export function Assist() {
             )) : <p className="note">Send a photo in a project chat first.</p>
           )}
           {error ? <p className="warn-text">{error}</p> : null}
-          <button className="primary" type="submit">{issueId ? 'Prepare issue brief' : 'Prepare draft'}</button>
+          <button className="primary ask-draft" type="submit">{issueId ? 'Prepare issue brief' : 'Prepare draft'}</button>
         </form>
       )}
       {result && (
@@ -1022,9 +1034,9 @@ export function Assist() {
       {result && kind === 'followup' && (
         <form className="stack" onSubmit={saveFollowup}>
           <label>Who
-            <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
+            <Select className="field-select" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
               {(result.proposal?.owners || []).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            </Select>
           </label>
           <label>Needed by<input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Needed by" /></label>
           {saved ? <p className="note">{saved}</p> : <button className="primary" type="submit">Save follow-up</button>}

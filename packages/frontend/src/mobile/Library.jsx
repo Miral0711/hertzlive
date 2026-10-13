@@ -215,7 +215,16 @@ export function Camera() {
         <PhotoEdit
           src={shot}
           onCancel={() => { setShot(''); setEditing(false); }}
-          onSend={(dataUrl, words) => { setShot(dataUrl); setCaption(words); setEditing(false); }}
+          onSend={(dataUrl, words) => {
+            if (preset) {
+              postMessage(preset, { text: words.trim() || 'Photo from site', photo: { dataUrl, hue: 28, seed: 4 }, kind: 'photo' });
+              navigate(`/mobile/chats/${preset}`);
+              return;
+            }
+            setShot(dataUrl);
+            setCaption(words);
+            setEditing(false);
+          }}
         />
       </div>
     );
@@ -238,11 +247,10 @@ export function Camera() {
       )}
       {!shot && (
         <div className="stack cam-start">
-          <p className="note">{preset ? 'This photo goes into the chat you opened. Take it or choose one, then press Send.' : 'After the photo, you choose the chat and press Send.'}</p>
-          {live && <button type="button" className="primary" onClick={capture}>Take photo</button>}
+          {live ? <button type="button" className="primary" onClick={capture}>Take photo</button> : <p className="note">{camNote || 'The camera is opening.'}</p>}
           <label className="ghost file-pick">Choose a photo<input type="file" accept="image/*" onChange={onFile} /></label>
           <button type="button" className="text-btn" onClick={() => { setShot('/images/p01.jpg'); setEditing(true); }}>Use a sample photo</button>
-          {camNote ? <p className="note">{camNote}</p> : null}
+          {live && camNote ? <p className="note">{camNote}</p> : null}
         </div>
       )}
       {shot && (

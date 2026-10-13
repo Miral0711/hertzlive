@@ -6,8 +6,9 @@ import { Page, Note, backName } from './frame';
 import {
   state, svc, user, me, staff, PEOPLE, viewAs, phoneOf, firstName, fmtD, TODAY, persist, render, myThreads, postMessage, can,
 } from './model';
-import { resetDb, hh } from '../shared/core';
+import { hh } from '../shared/core';
 import { Avatar } from './faces';
+import { Select } from '../ui/ui';
 
 const ORDER = ['partner', 'site_manager', 'designer', 'hr', 'contractor', 'client'];
 const LABEL = {
@@ -108,10 +109,10 @@ export function Holidays() {
               <div>
                 <b>{user(l.userId).name} · {l.days} day{l.days > 1 ? 's' : ''}</b>
                 <span>{l.type} · {fmtD(l.from)} to {fmtD(l.to)} · {l.reason}</span>
-                <div className="mat-acts">
-                  <button type="button" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
-                  <button type="button" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
-                  <Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
+                <div className="sheet-acts">
+                  <button type="button" className="sheet-btn" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
+                  <button type="button" className="sheet-btn quiet" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
+                  <Link className="sheet-btn quiet" to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
                 </div>
               </div>
             </div>
@@ -251,8 +252,8 @@ export function Notice() {
   return (
     <Page board sheet back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
       <Note>Goes to every project chat you are in, marked as a notice.</Note>
-      <div className="filters">
-        {ideas.map((idea) => <button type="button" key={idea} onClick={() => setText(idea)}>{idea}</button>)}
+      <div className="notice-ideas">
+        {ideas.map((idea) => <button type="button" key={idea} className={text === idea ? 'on' : ''} onClick={() => setText(idea)}>{idea}</button>)}
       </div>
       <form className="stack" onSubmit={send}>
         <label>Message<textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} aria-label="Notice" /></label>
@@ -404,15 +405,15 @@ export function Book() {
         </div>
         {purpose === 'site' && sites.length > 1 && (
           <label>Which site
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Which site">
+            <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Which site">
               {sites.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
           </label>
         )}
         <label>With
-          <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="With">
+          <Select className="field-select" value={who} onChange={(e) => setWho(e.target.value)} aria-label="With">
             {people.map((u) => <option key={u.id} value={u.id}>{firstName(u.id)}</option>)}
-          </select>
+          </Select>
         </label>
         {!meet && (
           <label>What for
@@ -473,11 +474,6 @@ export function StandIn() {
       {!can('leave', 'a') && <Note>A partner or HR names the cover and moves the open tasks.</Note>}
     </Page>
   );
-}
-
-export function startOver() {
-  resetDb();
-  render();
 }
 
 export { me };

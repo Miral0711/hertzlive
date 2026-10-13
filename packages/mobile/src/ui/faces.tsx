@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Rect } from 'react-native-svg';
-import { persist, projectOf, render, state, useStore, user } from '../store';
+import { projectOf, state, useStore, user } from '../store';
 import { useTheme } from '../platform/theme';
 import { photoSource } from './Photo';
 
@@ -29,12 +29,6 @@ export function faceIndex(person: any) {
   let h = 0;
   for (const ch of String(person.id)) h = (h * 33 + ch.charCodeAt(0)) >>> 0;
   return h % FACE_COUNT;
-}
-
-export function choosePortrait(userId: string, n: number) {
-  state.portraits = { ...(state.portraits || {}), [userId]: n };
-  persist();
-  render();
 }
 
 export function Face({ n = 0, size = 40 }: { n?: number; size?: number }) {

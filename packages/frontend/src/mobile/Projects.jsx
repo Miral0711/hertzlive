@@ -70,11 +70,9 @@ export default function Projects() {
         {shown.map((p) => {
           const site = siteFor(p.id);
           const issues = openIssues(p.id);
-          const due = nextDeadline(p);
-          const late = due && due.date < TODAY;
           const drawings = p.drawings || [];
           return (
-            <Link key={p.id} className={`project${late ? ' late' : ''}`} to={`/mobile/projects/${p.id}`}>
+            <Link key={p.id} className="project" to={`/mobile/projects/${p.id}`}>
               <span className="project-id photo" aria-hidden="true"><img src={photoUrl(p.hue, p.id)} alt="" /></span>
               <span className="project-copy">
                 <b>{p.name}</b>
@@ -86,7 +84,6 @@ export default function Projects() {
                     <span className={`pill${issues.length ? ' open' : ' ok'}`}>{issues.length ? `${issues.length} open` : 'Clear'}</span>
                   ) : null}
                 </span>
-                {due ? <span className={`project-due${late ? ' late' : ''}`}>{due.title} · {late ? 'overdue' : 'due'} {fmtD(due.date)}</span> : null}
               </span>
               <Icon name="chev" />
             </Link>

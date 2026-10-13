@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Children, isValidElement, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../shared/store';
 import { hh, inr, persist, AIProvider } from '../shared/core';
@@ -127,8 +127,18 @@ function buildToday(day) {
   return { actions, waiting };
 }
 
-function Acts({ children }) {
-  return <div className="day-acts">{children}</div>;
+function Acts({ children, choice = false }) {
+  if (!choice) return <div className="day-acts">{children}</div>;
+  const items = Children.toArray(children).filter(isValidElement);
+  const quiet = (child) => String(child.props.className || '').split(/\s+/).includes('quiet');
+  const primary = items.filter((child) => !quiet(child));
+  const more = items.filter(quiet);
+  return (
+    <>
+      {primary.length > 0 && <div className="day-primary">{primary}</div>}
+      {more.length > 0 && <div className="day-more">{more}</div>}
+    </>
+  );
 }
 
 function DayCard({ item, act }) {
@@ -140,7 +150,7 @@ function DayCard({ item, act }) {
         <small>Leave request</small>
         <b>{user(leave.userId).name} · {leave.days} day{leave.days === 1 ? '' : 's'}</b>
         <span>{leave.type} · {fmtD(leave.from)} to {fmtD(leave.to)}{leave.reason ? ` · ${leave.reason}` : ''}</span>
-        <Acts>
+        <Acts choice>
           <button type="button" onClick={() => act('leave', leave.id, true)}>Approve</button>
           <button type="button" className="quiet" onClick={() => act('leave', leave.id, false)}>Decline</button>
           <Link className="quiet" to={`/mobile/standin/${leave.userId}?leave=${leave.id}`}>Who covers?</Link>
@@ -155,7 +165,7 @@ function DayCard({ item, act }) {
         <small>Your approval</small>
         <b>{material.name}</b>
         <span>{[material.vendor, projectName(material.projectId)].filter(Boolean).join(' · ')}</span>
-        <Acts>
+        <Acts choice>
           <button type="button" onClick={() => act('material', material.id, true)}>Approve</button>
           <button type="button" className="quiet" onClick={() => act('material', material.id, false)}>Not this one</button>
           <Link className="quiet" to={`/mobile/assist?kind=ask&q=${encodeURIComponent(`Tell me more about the ${material.name}`)}`}>Ask</Link>
@@ -171,7 +181,7 @@ function DayCard({ item, act }) {
         <b>{change.title}</b>
         <span>{change.reason}</span>
         <span>{inr(change.cost)} extra · {change.days} day{change.days === 1 ? '' : 's'}</span>
-        <Acts>
+        <Acts choice>
           <button type="button" onClick={() => act('change', change.id, true)}>Approve</button>
           <button type="button" className="quiet" onClick={() => act('change', change.id, false)}>Decline</button>
         </Acts>
@@ -185,7 +195,7 @@ function DayCard({ item, act }) {
         <small>{task.from ? `Asked by ${firstName(task.from)}` : 'Assigned to you'}</small>
         <b>{task.title}</b>
         <span>{projectName(task.projectId)}{task.due ? ` · by ${fmtD(task.due)}` : ''}</span>
-        <Acts>
+        <Acts choice>
           <button type="button" onClick={() => act('task', task.id)}>Done</button>
           <Link className="quiet" to={`/mobile/projects/${task.projectId}`}>Open project</Link>
         </Acts>
@@ -220,19 +230,19 @@ function DayCard({ item, act }) {
           })}
         </ul>
         <span>Presence comes from your photos. Guard check is due at 18:00.</span>
-        <Acts><button type="button" className="quiet" onClick={() => act('guard')}>Guard check done</button></Acts>
+        <Acts choice><button type="button" className="quiet" onClick={() => act('guard')}>Guard check done</button></Acts>
       </article>
     );
   }
   if (item.kind === 'enquiry') {
     const { enquiry } = item;
     const phone = (enquiry.phone || '').replace(/\D/g, '');
+    const source = enquiry.source === 'whatsapp' ? 'WhatsApp' : enquiry.source ? `${enquiry.source[0].toUpperCase()}${enquiry.source.slice(1)}` : '';
     return (
-      <article className={row} id={item.key}>
-        <small>New enquiry{enquiry.source ? ` · ${enquiry.source}` : ''}</small>
+      <article className={`${row} day-enquiry`} id={item.key}>
         <b>{enquiry.name} · {svc.serviceType(enquiry.typeId)}</b>
-        <span>{[enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</span>
-        <Acts>
+        <span>{[source, enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</span>
+        <Acts choice>
           <button type="button" onClick={() => act('enquiry', enquiry.id, 'accepted')}>Accept</button>
           <button type="button" className="quiet" onClick={() => act('enquiry', enquiry.id, 'not_eligible')}>Not eligible</button>
           {phone ? <a className="quiet" href={`https://wa.me/${phone}`} target="_blank" rel="noopener noreferrer">WhatsApp</a> : null}
@@ -248,7 +258,7 @@ function DayCard({ item, act }) {
         <small>Client wants to meet</small>
         <b>{user(booking.clientId || booking.by).name} · {fmtD(booking.date)} {hh(booking.start)}</b>
         <span>{booking.title}{withWhom ? ` · with ${withWhom}` : ''}</span>
-        <Acts>
+        <Acts choice>
           <button type="button" onClick={() => act('booking', booking.id, true)}>Confirm</button>
           <button type="button" className="quiet" onClick={() => act('booking', booking.id, false)}>Decline</button>
         </Acts>
@@ -263,7 +273,7 @@ function DayCard({ item, act }) {
         <small>{item.label || `Site needs your answer${issue.due ? ` · reply by ${fmtD(issue.due)}` : ''}`}</small>
         <b>{issue.title}</b>
         <span>{[issue.type, issue.drawing, issue.raisedBy ? `raised by ${firstName(issue.raisedBy)}` : ''].filter(Boolean).join(' · ')}</span>
-        <Acts>
+        <Acts choice>
           {thread ? <Link to={`/mobile/chats/${thread.id}`}>Reply</Link> : <Link to={`/mobile/issues/${issue.id}`}>Open</Link>}
           {item.kind === 'issue' ? <button type="button" className="quiet" onClick={() => act('close', issue.id)}>Mark answered</button> : null}
         </Acts>
@@ -276,7 +286,7 @@ function DayCard({ item, act }) {
       <article className={row}>
         <small>Reminder</small>
         <b>{message?.text || 'Message'}</b>
-        <Acts>
+        <Acts choice>
           {message ? <Link to={`/mobile/chats/${message.threadId}#${message.id}`}>Open</Link> : null}
           <button type="button" className="quiet" onClick={() => act('followup', item.followup.id)}>Done</button>
         </Acts>
@@ -290,7 +300,7 @@ function DayCard({ item, act }) {
         <small>Client decision overdue</small>
         <b>{decision.title}</b>
         <span>{projectName(decision.projectId)} · due {fmtD(decision.due)}</span>
-        <Acts><button type="button" onClick={() => act('nudge', decision)}>Nudge client</button></Acts>
+        <Acts choice><button type="button" onClick={() => act('nudge', decision)}>Nudge client</button></Acts>
       </article>
     );
   }
@@ -299,9 +309,9 @@ function DayCard({ item, act }) {
     return (
       <article className={row}>
         <small>Payment overdue</small>
-        <b>Invoice {invoice.no} · {inr(invoice.amount)}</b>
-        <span>{projectName(invoice.projectId)}</span>
-        <Acts><button type="button" onClick={() => act('invoice', invoice)}>Draft reminder</button></Acts>
+        <b>Invoice {invoice.no}</b>
+        <span>{inr(invoice.amount)} · {projectName(invoice.projectId)}</span>
+        <Acts choice><button type="button" onClick={() => act('invoice', invoice)}>Draft reminder</button></Acts>
       </article>
     );
   }
@@ -312,7 +322,7 @@ function DayCard({ item, act }) {
         <small>Holiday</small>
         <b>{holiday.name} · {fmtD(holiday.date)}</b>
         <span>Tell every site so labour and deliveries are planned.</span>
-        <Acts><button type="button" onClick={() => act('holiday', holiday.date)}>Tell site groups</button></Acts>
+        <Acts choice><button type="button" onClick={() => act('holiday', holiday.date)}>Tell site groups</button></Acts>
       </article>
     );
   }
@@ -391,7 +401,9 @@ export default function Today() {
   const ahead = nextSentence(todayMeetings);
   const away = [...new Set(svc.projects().flatMap((p) => svc.away(day, p.id)).filter((a) => a.userId).map((a) => user(a.userId)?.name).filter(Boolean))];
   const live = liveSites()[0];
-  const reportTo = live ? `/mobile/projects/${live.projectId}/assist?kind=daily&site=${live.id}` : '/mobile/assist?kind=daily';
+  const reportTo = live
+    ? `/mobile/projects/${live.projectId}/assist?kind=daily&site=${live.id}&from=${encodeURIComponent('/mobile/today')}`
+    : '/mobile/assist?kind=daily';
   const postTo = siteThreads.length === 1 ? `/mobile/camera?thread=${site.t.id}` : '/mobile/camera';
   const lastId = Object.entries(read || {}).sort((a, b) => b[1].localeCompare(a[1]))[0]?.[0];
   const lastThread = lastId ? svc.thread(lastId) : null;
@@ -651,18 +663,18 @@ export default function Today() {
                 const thread = svc.threads().find((th) => th.kind === 'site' && th.siteId === f.site.id);
                 const text = (f.text || f.aiSummary || 'Update').trim();
                 return (
-                  <Link key={f.id} className="day-row" to={thread ? `/mobile/chats/${thread.id}` : `/mobile/projects/${f.site.projectId}`}>
+                  <Link key={f.id} className="day-row site-line" to={thread ? `/mobile/chats/${thread.id}` : `/mobile/projects/${f.site.projectId}`}>
                     <b>{fmtT(f.at)} · {firstName(f.by)}</b>
-                    <span>{text.slice(0, 90)}{text.length > 90 ? '…' : ''}</span>
+                    <span>{text}</span>
                   </Link>
                 );
               })}
               {lastThread && (
-                <Link className="day-row tool-link" to={`/mobile/chats/${lastThread.id}`}>
+                <Link className="day-row tool-link site-go" to={`/mobile/chats/${lastThread.id}`}>
                   <b>Continue {threadTitle(lastThread)}</b>
                 </Link>
               )}
-              {notice && <p className="note">{notice.text}</p>}
+              {notice && <p className="note studio-note">{notice.text}</p>}
             </div>
           </details>
           {svc.assistKinds().includes('ask') && (

@@ -719,6 +719,7 @@ export function Filing() {
   useStore();
   const k = useKit();
   const { threadId, messageId } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const projects = svc.projects();
   const rooms = ['Kitchen', 'Living', 'Bathroom', 'Structure', 'Facade', 'Not set'];
@@ -729,8 +730,10 @@ export function Filing() {
   const [kind, setKind] = useState(current.kind || 'note');
   const [drawing, setDrawing] = useState(current.drawing || '');
   const [error, setError] = useState('');
+  const fromChat = params.get('from') === 'chat';
+  const backTo = fromChat ? `/mobile/chats/${threadId}` : `/mobile/chats/${threadId}/messages/${messageId}`;
   return (
-    <Page back={`/mobile/chats/${threadId}/messages/${messageId}`} backLabel="Message" title="Where should this go?">
+    <Page back={backTo} backLabel={fromChat ? 'Chat' : 'Message'} title="Where should this go?">
       <View style={k.stack}>
         <Select label="Project" value={projectId} onChange={setProjectId} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
         <Select label="Room" value={room} onChange={setRoom} options={rooms.map((r) => ({ value: r, label: r }))} />
@@ -741,7 +744,7 @@ export function Filing() {
           try {
             const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
             if (!saved) throw new Error('Filing could not be saved on this device.');
-            navigate(`/mobile/chats/${threadId}/messages/${messageId}`);
+            navigate(backTo);
           } catch (err: any) { setError(err.message); }
         }} />
       </View>
@@ -808,6 +811,16 @@ export function Assist() {
   useStore();
   const k = useKit();
   const { c } = useTheme();
+  const dest = useStyles((col) => ({
+    card: { alignItems: 'flex-start', width: '100%', marginBottom: 8, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: col.line, borderRadius: 14, backgroundColor: col.surface },
+    on: { borderColor: col.accent, backgroundColor: col.accentSoft },
+    b: { fontSize: 15, fontWeight: '600', lineHeight: 20, color: col.ink },
+    s: { marginTop: 2, fontSize: 13, lineHeight: 18, color: col.ink2 },
+    here: { marginTop: 6, fontSize: 12, fontWeight: '700', color: col.accentText },
+    h2: { marginTop: 16, marginBottom: 8, marginHorizontal: 2, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: col.ink2 },
+    draft: { backgroundColor: col.surface, borderWidth: 1, borderColor: col.line },
+    draftT: { color: col.accentText },
+  }));
   const { projectId } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -905,13 +918,14 @@ export function Assist() {
     } catch (err: any) { setError(err.message); }
   }
 
-  const backPath = fromOf(fromPage) || (messageId ? `/mobile/chats/${(state as any).db?.MESSAGES.find((m: any) => m.id === messageId)?.threadId || ''}/messages/${messageId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today');
+  const messageThreadId = messageId ? (state as any).db?.MESSAGES.find((m: any) => m.id === messageId)?.threadId : '';
+  const backPath = fromOf(fromPage) || (messageThreadId ? `/mobile/chats/${messageThreadId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today');
   const EmptyBox = ({ h, p }: { h: string; p?: string }) => (
     <View style={k.empty}><Text style={k.emptyH}>{h}</Text>{p ? <Text style={k.emptyP}>{p}</Text> : null}</View>
   );
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : 'Back'} title={title}
+      <Page sheet stackTitle back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title}
         sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
         {!!issueId && !brief && <EmptyBox h="This issue isn’t available" />}
         {!!drawingNo && !sheetDrawing && <EmptyBox h="This sheet isn’t available" />}
@@ -927,11 +941,13 @@ export function Assist() {
             {kind === 'ask' && !issueId && <Field label="Your question" value={question} onChangeText={setQuestion} multiline />}
             {kind === 'ask' && (
               <>
-                <Text style={k.h2}>Who receives this</Text>
+                <Text style={dest.h2}>Who receives this</Text>
                 {chats.map((t: any) => (
-                  <DayRow key={t.id} onPress={() => setSendTo(t.id)} pressed={chosen === t.id}>
-                    <RowB>{audience(t)}</RowB><RowS>{t.name}{chosen === t.id ? ' · sending here' : ''}</RowS>
-                  </DayRow>
+                  <Pressable key={t.id} style={[dest.card, chosen === t.id ? dest.on : null]} onPress={() => setSendTo(t.id)} accessibilityRole="button" accessibilityState={{ selected: chosen === t.id }}>
+                    <Text style={dest.b}>{audience(t)}</Text>
+                    <Text style={dest.s}>{t.name}</Text>
+                    {chosen === t.id ? <Text style={dest.here}>Sending here</Text> : null}
+                  </Pressable>
                 ))}
                 {!chats.length && <Soft>No conversation you can send this to.</Soft>}
                 {!issueId && chats.length > 0 && <Primary label="Send question" onPress={sendQuestion} />}
@@ -947,7 +963,9 @@ export function Assist() {
               <Check radio key={m.id} label={`${m.threadName}: ${(m.text || 'Photo').slice(0, 80)}`} on={!!picked[m.id]} onPress={() => setPicked({ [m.id]: true })} />
             )) : <Soft>Send a photo in a project chat first.</Soft>)}
             {error ? <Warn>{error}</Warn> : null}
-            <Primary label={issueId ? 'Prepare issue brief' : 'Prepare draft'} onPress={run} />
+            <Pressable style={[k.primary, dest.draft]} onPress={run} accessibilityRole="button">
+              <Text style={[k.primaryT, dest.draftT]}>{issueId ? 'Prepare issue brief' : 'Prepare draft'}</Text>
+            </Pressable>
           </View>
         )}
         {result && (

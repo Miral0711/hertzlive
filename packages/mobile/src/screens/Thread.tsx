@@ -6,15 +6,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import Icon from '../ui/Icon';
+import { Avatar } from '../ui/faces';
 import Photo, { photoSource } from '../ui/Photo';
 import { Screen, TopBar } from '../ui/frame';
 import { useField } from '../ui/FieldContext';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from '../platform/router';
 import { useStyles, useTheme } from '../platform/theme';
 import {
-  svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, render,
+  svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, phoneOf, render,
 } from '../store';
+import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import { AIProvider, toast } from '../../../frontend/src/shared/core';
 import { filingLabel } from '../../../frontend/src/shared/filing';
 import { siteHasSuggestion } from '../../../frontend/src/shared/chatExtras';
@@ -50,23 +52,22 @@ const MORE: any[] = [
   ['document', 'Document', 'file'],
   ['audio', 'Audio', 'mic'],
 ];
-const STEP: Record<string, string> = {
-  photo: 'Choose a photo. You can crop it, draw on it, and add a note before it is sent.',
-  drawing: 'Pick a drawing. This chat gets its name and revision.',
-  delivery: 'Say what arrived. This chat gets that line.',
-  sample: 'Add a picture of a finish or material, and say what it is.',
-  location: 'This sends the place below into the chat.',
-  bill: 'Write the amount you paid. A partner can approve it later.',
-  material: 'Say what the site needs. It is posted in this chat.',
-  attendance: 'This posts today’s attendance into this chat.',
-  file: 'Choose a file. This chat shows the file name.',
-  document: 'Choose a document. This chat keeps the file.',
-  audio: 'Choose an audio file.',
-  poll: 'Ask the chat a question with two or more answers.',
-  contact: 'Share someone from this chat, or type a name and phone.',
-  checkin: 'This tells the site chat that you have arrived.',
-  daylog: 'This writes what happened on site today. You can read it before anyone else sees it.',
+const clock = (ms: number) => {
+  const sec = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 };
+async function toDataUrl(uri: string) {
+  if (Platform.OS !== 'web' || !uri) return uri;
+  try {
+    const blob = await (await fetch(uri)).blob();
+    return await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result || ''));
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  } catch { return uri; }
+}
 function chipOf(m: any) {
   const f = state.filings?.[m.id];
   if (!f) return { status: '', label: 'File message' };
@@ -79,7 +80,7 @@ const KIND_LABEL: Record<string, string> = {
   material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in',
 };
 const allowed = (roles?: string[]) => !roles || roles.includes(state.role);
-const label = (what: string) => (({ photo: 'Add a note', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a note' } as any)[what] || 'Note');
+const label = (what: string) => (({ photo: 'Add a caption', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a caption' } as any)[what] || 'Note');
 
 function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }: any) {
   const shift = useRef(new Animated.Value(0)).current;
@@ -146,12 +147,20 @@ export default function Thread() {
   const [amount, setAmount] = useState('');
   const [shot, setShot] = useState('');
   const [fileName, setFileName] = useState('');
-  const [drawingNo, setDrawingNo] = useState('');
   const [error, setError] = useState('');
+  const [voiceMode, setVoiceMode] = useState<null | 'hold' | 'locked'>(null);
+  const [voiceDur, setVoiceDur] = useState('0:00');
+  const [voiceHint, setVoiceHint] = useState('');
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const voiceTimer = useRef<any>(null);
+  const voiceStarted = useRef(0);
+  const holding = useRef(false);
+  const holdX = useRef(0);
+  const cancelHold = useRef(false);
+  const voiceModeRef = useRef<null | 'hold' | 'locked'>(null);
   const [showWork, setShowWork] = useState(false);
   useEffect(() => { setShowWork(false); }, [threadId]);
   const [replyTo, setReplyTo] = useState<any>(null);
-  const [openDue, setOpenDue] = useState<any>(null);
   const [menu, setMenu] = useState<any>(null);
   const [forwardMsg, setForwardMsg] = useState<any>(null);
   const [editor, setEditor] = useState<any>(null);
@@ -160,6 +169,9 @@ export default function Thread() {
   const [pollMulti, setPollMulti] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [pickedId, setPickedId] = useState('');
+  const [contactQuery, setContactQuery] = useState('');
+  const [newContact, setNewContact] = useState(false);
   const [docUrl, setDocUrl] = useState('');
   const location = useLocation();
   const [params] = useSearchParams();
@@ -270,6 +282,23 @@ export default function Thread() {
     pickOn: { backgroundColor: c.accent, borderColor: c.accent },
     note: { color: c.ink2, fontWeight: '500', fontSize: 14, paddingVertical: 8, paddingHorizontal: 2 },
     voiceLine: { fontWeight: '700', color: c.ink, fontSize: 16 },
+    waBar: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+    waTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600', color: c.ink },
+    locRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 8 },
+    locPin: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
+    plain: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line, color: c.ink, fontSize: 16 },
+    optRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: c.ink3 },
+    add: { minHeight: 44, justifyContent: 'center' },
+    addText: { color: c.accentText, fontSize: 16, fontWeight: '600' },
+    switchRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    switchText: { fontSize: 16, fontWeight: '600', color: c.ink },
+    track: { width: 46, height: 28, borderRadius: 14, backgroundColor: c.line2, justifyContent: 'center', paddingHorizontal: 3 },
+    trackOn: { backgroundColor: c.accent },
+    knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
+    person: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 6 },
+    tick: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: c.line2, alignItems: 'center', justifyContent: 'center' },
+    tickOn: { backgroundColor: c.accent, borderColor: c.accent },
   }));
 
   useEffect(() => { if (threadId) markRead(threadId); }, [threadId, markRead]);
@@ -323,8 +352,9 @@ export default function Thread() {
       <Screen>
         <PhotoEdit
           src={editor.src}
-          noteLabel={ask || 'Add a note'}
+          noteLabel={ask || 'Add a caption'}
           noteRequired={Boolean(ask)}
+          initialNote={editor.note || ''}
           onCancel={() => setEditor(null)}
           onSend={sendEdited}
         />
@@ -349,18 +379,19 @@ export default function Thread() {
   }
 
   function openForm(item: any[]) {
-    setError(''); setNote(''); setAmount(''); setShot(''); setFileName('');     setDrawingNo('');
-    setPollQ(''); setPollOpts(['', '']); setPollMulti(false); setContactName(''); setContactPhone(''); setDocUrl('');
+    setError(''); setNote(''); setAmount(''); setShot(''); setFileName('');
+    setPollQ(''); setPollOpts(['', '']); setPollMulti(false); setContactName(''); setContactPhone('');
+    setPickedId(''); setContactQuery(''); setNewContact(false); setDocUrl('');
     setSheet({ what: item[0], label: item[1] });
   }
 
-  async function pickPhoto() {
+  async function pickPhoto(kind = 'photo') {
     try {
       const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
       const asset = res.canceled ? null : res.assets?.[0];
       if (!asset) return;
-      if (sheet && ['photo', 'sample', 'delivery'].includes(sheet.what)) {
-        setEditor({ what: sheet.what, src: asset.uri });
+      if (kind === 'photo' || kind === 'sample' || kind === 'delivery') {
+        setEditor({ what: kind, src: asset.uri, note: kind === 'delivery' ? note.trim() : '' });
         setSheet(null);
         return;
       }
@@ -368,6 +399,74 @@ export default function Thread() {
     } catch {
       setError('Could not open your photos.');
     }
+  }
+
+  async function pickDoc(kind: string) {
+    setSheet(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ type: kind === 'audio' ? 'audio/*' : '*/*', copyToCacheDirectory: true });
+      const asset = res.canceled ? null : res.assets?.[0];
+      if (!asset) return;
+      setError('');
+      setNote('');
+      setFileName(asset.name || '');
+      setDocUrl(asset.uri || '');
+      setSheet({ what: kind, label: kind === 'audio' ? 'Audio' : kind === 'document' ? 'Document' : 'File' });
+    } catch {
+      setError('Could not open files.');
+      setSheet(kind === 'file' ? 'more' : 'more');
+    }
+  }
+
+  function setMode(mode: null | 'hold' | 'locked') {
+    voiceModeRef.current = mode;
+    setVoiceMode(mode);
+  }
+
+  async function beginVoice(mode: 'hold' | 'locked') {
+    setVoiceHint('');
+    if (mode === 'locked') setSheet(null);
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) throw new Error('denied');
+      if (mode === 'hold' && !holding.current) {
+        setVoiceHint('Hold to record. Release to send.');
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      if (mode === 'hold' && !holding.current) {
+        setVoiceHint('Hold to record. Release to send.');
+        return;
+      }
+      recorder.record();
+      voiceStarted.current = Date.now();
+      setVoiceDur('0:00');
+      clearInterval(voiceTimer.current);
+      voiceTimer.current = setInterval(() => setVoiceDur(clock(Date.now() - voiceStarted.current)), 200);
+      setMode(mode);
+      setSheet(null);
+    } catch {
+      setMode(null);
+      setVoiceHint('The microphone did not open. Allow the microphone, then try again.');
+    }
+  }
+
+  async function finishVoice(shouldSend: boolean) {
+    clearInterval(voiceTimer.current);
+    const elapsed = Date.now() - voiceStarted.current;
+    const mode = voiceModeRef.current;
+    setMode(null);
+    try { await recorder.stop(); } catch { /* not recording */ }
+    await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+    if (!shouldSend || !recorder.uri || (mode === 'hold' && elapsed < 700)) {
+      if (shouldSend) setVoiceHint('Hold to record. Release to send.');
+      return;
+    }
+    const audio = await toDataUrl(recorder.uri);
+    if (!audio) return;
+    postMessage(thread.id, { voice: { dur: clock(elapsed), audio } });
+    markRead(thread.id);
   }
 
   async function pickFile() {
@@ -387,8 +486,12 @@ export default function Thread() {
 
   function pick(item: any[]) {
     const key = item[0];
-    if (key === 'voice') { navigate(`/mobile/chats/${thread.id}/voice`); return; }
-    if (key === 'camera') { navigate(`/mobile/camera?thread=${thread.id}`); return; }
+    if (key === 'voice') { beginVoice('locked'); return; }
+    if (key === 'camera') { setSheet(null); navigate(`/mobile/camera?thread=${thread.id}`); return; }
+    if (key === 'photo') { setSheet(null); pickPhoto('photo'); return; }
+    if (key === 'file' || key === 'document' || key === 'audio') { pickDoc(key); return; }
+    if (key === 'checkin') { doCheckin(); return; }
+    if (key === 'daylog') { openDayLog(); return; }
     openForm(item);
   }
 
@@ -437,10 +540,6 @@ export default function Thread() {
       if (!words) { setError('Say what arrived.'); return; }
       fields.text = `Delivery: ${words}`;
       if (shot) fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
-    } else if (what === 'drawing') {
-      const drawing = (projectOf(thread.projectId)?.drawings || []).find((d: any) => d.no === drawingNo);
-      if (!drawing) { setError('Pick a drawing.'); return; }
-      fields.text = `${drawing.name} · ${drawing.no} ${drawing.rev}`;
     } else if (what === 'location') {
       fields.text = words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}`;
     } else if (what === 'bill') {
@@ -463,9 +562,14 @@ export default function Thread() {
       fields.poll = { question: pollQ.trim(), multi: pollMulti, options: options.map((text) => ({ text, votes: [] })) };
       fields.text = pollQ.trim();
     } else if (what === 'contact') {
-      if (!contactName.trim()) { setError('Enter a name.'); return; }
-      fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
-      fields.text = contactName.trim();
+      if (pickedId) {
+        const person = user(pickedId);
+        fields.contact = { userId: pickedId, name: person.name || firstName(pickedId), phone: phoneOf(person) };
+        fields.text = fields.contact.name;
+      } else if (contactName.trim()) {
+        fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
+        fields.text = contactName.trim();
+      } else { setError('Choose a person.'); return; }
     } else if (what === 'document' || what === 'audio') {
       if (!fileName) { setError(what === 'audio' ? 'Choose an audio file.' : 'Choose a document.'); return; }
       if (what === 'audio') fields.audio = { dataUrl: docUrl, name: fileName };
@@ -482,7 +586,6 @@ export default function Thread() {
   const drawings: any[] = thread.projectId && can('drawing', 'r') ? (projectOf(thread.projectId)?.drawings || []) : [];
   const last = [...msgs].reverse().find((m) => !m.deleted);
   const showQuick = can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '');
-  const isMedia = sheet && typeof sheet === 'object' && ['photo', 'sample', 'delivery'].includes(sheet.what);
 
   const Btn = ({ style, textStyle, onPress, children, ...rest }: any) => (
     <Pressable style={style} onPress={onPress} accessibilityRole="button" {...rest}><Text style={textStyle}>{children}</Text></Pressable>
@@ -533,7 +636,7 @@ export default function Thread() {
         ) : (
         <>
         {thread.kind === 'internal' && <Text style={s.office}>{t('officeOnly')}</Text>}
-        {(pinned.length > 0 || svc.decisionsDue({ threadId: thread.id }).length > 0) && (
+        {pinned.length > 0 && (
           <View style={s.decisions}>
             {pinned.map((m, i) => (
               <View style={[s.pin, i === 0 && s.pinFirst]} key={m.id}>
@@ -543,18 +646,6 @@ export default function Thread() {
                 </Pressable>
                 {canPin && <Pressable style={s.unpin} onPress={() => toggleDecision(m)}><Text style={s.unpinText}>Unpin</Text></Pressable>}
               </View>
-            ))}
-            {svc.decisionsDue({ threadId: thread.id }).map((d: any, i) => (
-              <Pressable
-                key={d.id}
-                style={[s.pin, pinned.length === 0 && i === 0 && s.pinFirst]}
-                accessibilityRole="button"
-                onPress={() => setOpenDue(d)}
-              >
-                <Text style={[s.kicker, s.kickerOpen]}>Open</Text>
-                <Text style={s.pinTitle} numberOfLines={1}>{d.title}</Text>
-                <Text style={s.dueMeta}>due {fmtD(d.due)}</Text>
-              </Pressable>
             ))}
           </View>
         )}
@@ -627,14 +718,17 @@ export default function Thread() {
                           <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={s.unpinText}>Review site update</Text></Link>
                         )}
                         {m.text && !m.voice ? <Text style={[s.say, mine && s.onAccent]}>{m.text}</Text> : null}
-                        {staff() && m.text && !m.deleted && (
-                          <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>Help with this update</Text></Link>
+                        {staff() && !m.deleted && (m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup') && (
+                          <Link to={`/mobile/assist?kind=followup&message=${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>Suggest follow-up</Text></Link>
+                        )}
+                        {staff() && !m.deleted && m.photo && svc.assistKinds().includes('concept') && (
+                          <Link to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}><Text style={[s.chipText, mine && s.onAccent]}>Explore finishes</Text></Link>
                         )}
                         <View style={s.meta}>
                           {staff() && !m.deleted && (() => {
                             const chip = chipOf(m);
                             return (
-                              <Link to={`/mobile/chats/${thread.id}/messages/${m.id}/filing`} style={[s.chip, chip.status === 'check' && s.chipCheck, chip.status === 'ask' && s.chipAsk, mine && !chip.status && s.chipOn]}>
+                              <Link to={`/mobile/chats/${thread.id}/messages/${m.id}/filing?from=chat`} style={[s.chip, chip.status === 'check' && s.chipCheck, chip.status === 'ask' && s.chipAsk, mine && !chip.status && s.chipOn]}>
                                 <Text style={[s.chipText, mine && !chip.status && s.onAccent, chip.status === 'check' && { color: c.warn }, chip.status === 'ask' && { color: c.crit }]} numberOfLines={1}>{chip.label}</Text>
                               </Link>
                             );
@@ -692,51 +786,69 @@ export default function Thread() {
             <Pressable accessibilityLabel="Cancel reply" accessibilityRole="button" onPress={() => setReplyTo(null)}><Icon name="x" size={20} /></Pressable>
           </View>
         )}
+        {voiceHint ? <Text style={{ textAlign: 'center', color: c.ink2, fontSize: 13, fontWeight: '600', paddingTop: 6, paddingHorizontal: 16 }}>{voiceHint}</Text> : null}
         {can('thread', 'w') && (
           <View style={[s.composer, { paddingBottom: 8 + insets.bottom }]}>
-            <View style={s.pill}>
-              <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add a photo, drawing or note" onPress={() => { setError(''); setSheet('plus'); }}>
-                <Icon name="plus" />
+            {voiceMode === 'locked' ? (
+              <View style={[s.pill, { alignItems: 'center', paddingLeft: 4 }]}>
+                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Delete voice note" onPress={() => finishVoice(false)}>
+                  <Icon name="trash" />
+                </Pressable>
+                <Text style={{ marginLeft: 'auto', marginRight: 12, fontWeight: '700', color: c.ink }}>{voiceDur}</Text>
+              </View>
+            ) : voiceMode === 'hold' ? (
+              <View style={[s.pill, { alignItems: 'center', paddingHorizontal: 14 }]}>
+                <Text style={{ color: cancelHold.current ? c.crit : c.ink2, fontWeight: '600' }}>{cancelHold.current ? 'Release to cancel' : 'Slide to cancel'}</Text>
+                <Text style={{ marginLeft: 'auto', fontWeight: '700', color: c.ink }}>{voiceDur}</Text>
+              </View>
+            ) : (
+              <View style={s.pill}>
+                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add to this chat" onPress={() => { setError(''); setSheet('plus'); }}>
+                  <Icon name="plus" />
+                </Pressable>
+                <TextInput
+                  style={s.input} multiline placeholder={t('message')} placeholderTextColor={c.ink3}
+                  accessibilityLabel={`Message to ${audience(thread)}`}
+                  value={text} onChangeText={(v) => setDraft(thread.id, v)}
+                  onKeyPress={(e: any) => {
+                    if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
+                  }}
+                />
+                {!text.trim() && (
+                  <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Camera" onPress={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
+                    <Icon name="camera" />
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {voiceMode === 'locked' ? (
+              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel="Send voice note" onPress={() => finishVoice(true)}>
+                <Icon name="send" color={c.accentInk} />
               </Pressable>
-              <TextInput
-                style={s.input} multiline placeholder={t('message')} placeholderTextColor={c.ink3}
-                accessibilityLabel={`Message to ${audience(thread)}`}
-                value={text} onChangeText={(v) => setDraft(thread.id, v)}
-                onKeyPress={(e: any) => {
-                  if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
+            ) : text.trim() && !voiceMode ? (
+              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('send')} onPress={send}>
+                <Icon name="send" color={c.accentInk} />
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[s.round, s.roundAccent]}
+                accessibilityRole="button"
+                accessibilityLabel="Hold to record a voice note"
+                onPressIn={(e) => { holding.current = true; cancelHold.current = false; holdX.current = e.nativeEvent.pageX; beginVoice('hold'); }}
+                onTouchMove={(e) => { cancelHold.current = e.nativeEvent.pageX - holdX.current < -64; }}
+                onPressOut={() => {
+                  const cancel = cancelHold.current;
+                  holding.current = false;
+                  cancelHold.current = false;
+                  if (voiceModeRef.current === 'hold') finishVoice(!cancel);
                 }}
-              />
-              <Link to={`/mobile/chats/${thread.id}/voice`} style={s.round} accessibilityLabel="Record a voice note">
-                <Icon name="mic" />
-              </Link>
-            </View>
-            <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('send')} onPress={send}>
-              <Icon name="send" color={c.accentInk} />
-            </Pressable>
+              >
+                <Icon name="mic" color={c.accentInk} />
+              </Pressable>
+            )}
           </View>
         )}
         </>
-        )}
-        {openDue && (
-          <Pressable style={s.back} onPress={() => { if (openDue) svc.decideDecision(openDue.id); setOpenDue(null); render(); }} accessibilityRole="none">
-            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel={openDue.title}>
-              <View style={s.grab} />
-              <Text style={s.h2}>{openDue.title}</Text>
-              <Text style={s.help}>Still open · due {fmtD(openDue.due)}. Asked by {firstName(openDue.askedBy)}.</Text>
-              {can('thread', 'w') && (
-                <Pressable
-                  style={s.primary}
-                  onPress={() => {
-                    setDraft(thread.id, `Hi, could you help decide "${openDue.title}" so we can keep the project on schedule? Thank you.`);
-                    setOpenDue(null);
-                  }}
-                >
-                  <Text style={s.primaryText}>Ask in this chat</Text>
-                </Pressable>
-              )}
-              <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { if (openDue) svc.decideDecision(openDue.id); setOpenDue(null); render(); }}>Close</Btn>
-            </Pressable>
-          </Pressable>
         )}
         {sheet && (
           <Pressable style={s.back} onPress={() => setSheet(null)} accessibilityRole="none">
@@ -745,8 +857,15 @@ export default function Thread() {
               <ScrollView keyboardShouldPersistTaps="handled">
                 {sheet === 'plus' || sheet === 'more' ? (
                   <View>
-                    <Text style={s.h2}>{sheet === 'plus' ? 'Add to this chat' : 'More site updates'}</Text>
-                    <Text style={s.help}>Tap one. The next step tells you what gets sent.</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {sheet === 'more' ? (
+                        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => setSheet('plus')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                          <View style={{ transform: [{ rotate: '180deg' }] }}><Icon name="chev" /></View>
+                        </Pressable>
+                      ) : <View style={{ width: 44 }} />}
+                      <Text style={[s.h2, { flex: 1, marginBottom: 0 }]}>{sheet === 'plus' ? 'Add to this chat' : 'More'}</Text>
+                      <View style={{ width: 44 }} />
+                    </View>
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
                     <View style={s.tiles}>
                       {tiles.map((item: any[]) => (
@@ -762,31 +881,74 @@ export default function Thread() {
                         </Pressable>
                       )}
                     </View>
-                    {sheet === 'more' && <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet('plus')}>Back to common updates</Btn>}
-                    <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(null)}>Cancel</Btn>
                   </View>
                 ) : (
                   <View style={s.stack}>
-                    <Text style={s.h2}>{sheet.label}</Text>
-                    <Text style={s.help}>{STEP[sheet.what]}</Text>
-                    {isMedia && (
+                    {['location', 'poll', 'contact'].includes(sheet.what) ? (
+                      <View style={s.waBar}>
+                        <Pressable accessibilityLabel="Close" style={s.round} onPress={() => setSheet(MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
+                          <Icon name="x" />
+                        </Pressable>
+                        <Text style={s.waTitle}>{sheet.what === 'contact' ? 'Send contact' : sheet.label}</Text>
+                        {sheet.what === 'location' ? <View style={s.round} /> : (
+                          <Pressable
+                            accessibilityLabel="Send"
+                            disabled={sheet.what === 'poll'
+                              ? (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2)
+                              : (!pickedId && !contactName.trim())}
+                            onPress={sendAttach}
+                            style={[s.round, s.roundAccent, (
+                              sheet.what === 'poll'
+                                ? (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2)
+                                : (!pickedId && !contactName.trim())
+                            ) && { opacity: 0.35 }]}
+                          >
+                            <Icon name="send" color={c.accentInk} />
+                          </Pressable>
+                        )}
+                      </View>
+                    ) : <Text style={s.h2}>{sheet.label}</Text>}
+                    {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                       <>
-                        {shot ? <Image style={s.preview} source={{ uri: shot }} resizeMode="cover" /> : null}
-                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={pickPhoto}>{shot ? 'Choose a different photo' : (sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo')}</Btn>
-                        {sheet.what === 'sample' && !shot && (
+                        {sheet.what === 'delivery' && <Field lbl="What arrived?" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What arrived?" />}
+                        <Btn style={sheet.what === 'sample' ? s.primary : s.ghost} textStyle={sheet.what === 'sample' ? s.primaryText : s.ghostText} onPress={() => pickPhoto(sheet.what)}>{sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo'}</Btn>
+                        {sheet.what === 'sample' && (
                           <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { setEditor({ what: 'sample', src: (Image as any).resolveAssetSource(photoSource(28, 1)).uri }); setSheet(null); }}>Use a sample picture</Btn>
                         )}
+                        {sheet.what === 'sample' && <Field lbl="Or name it without a photo" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What is this sample?" placeholder="What is this sample?" />}
                       </>
                     )}
                     {sheet.what === 'drawing' && (
                       drawings.length ? drawings.map((d) => (
-                        <Pressable key={d.no} style={[s.drow, drawingNo === d.no && s.drowOn]} onPress={() => setDrawingNo(d.no)} accessibilityRole="button">
+                        <Pressable key={d.no} style={s.drow} onPress={() => { postMessage(thread.id, { kind: 'drawing', text: `${d.name} · ${d.no} ${d.rev}` }); setSheet(null); markRead(thread.id); }} accessibilityRole="button">
                           <View style={s.dcopy}><Text style={s.dB}>{d.name}</Text><Text style={s.dS}>{d.no} · {d.rev}</Text></View>
-                          <View style={[s.pick, drawingNo === d.no && s.pickOn]}>{drawingNo === d.no ? <Icon name="check" size={14} color={c.accentInk} /> : null}</View>
                         </Pressable>
                       )) : <Text style={s.note}>{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</Text>
                     )}
-                    {sheet.what === 'location' && <Text style={s.voiceLine}>{placeLine()}</Text>}
+                    {sheet.what === 'location' && (
+                      <>
+                        <Pressable style={s.locRow} accessibilityRole="button" onPress={() => {
+                          const words = note.trim();
+                          postMessage(thread.id, { kind: 'location', text: words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}` });
+                          setSheet(null);
+                          markRead(thread.id);
+                        }}>
+                          <View style={s.locPin}><Icon name="location" /></View>
+                          <View style={s.dcopy}>
+                            <Text style={s.dB}>Send your current location</Text>
+                            <Text style={s.dS}>{placeLine()}</Text>
+                          </View>
+                        </Pressable>
+                        <TextInput
+                          style={s.plain}
+                          value={note}
+                          onChangeText={setNote}
+                          accessibilityLabel="Add a message"
+                          placeholder="Add a message"
+                          placeholderTextColor={c.ink3}
+                        />
+                      </>
+                    )}
                     {sheet.what === 'file' && (
                       <>
                         <Btn style={s.ghost} textStyle={s.ghostText} onPress={pickFile}>{fileName || 'Choose a file'}</Btn>
@@ -794,50 +956,99 @@ export default function Thread() {
                       </>
                     )}
                     {(sheet.what === 'document' || sheet.what === 'audio') && (
-                      <Btn style={s.ghost} textStyle={s.ghostText} onPress={async () => {
-                        try {
-                          const res = await DocumentPicker.getDocumentAsync({ type: sheet.what === 'audio' ? 'audio/*' : '*/*', copyToCacheDirectory: true });
-                          const asset = res.canceled ? null : res.assets?.[0];
-                          setFileName(asset?.name || '');
-                          if (asset?.uri) setDocUrl(asset.uri);
-                        } catch { setError('Could not open files.'); }
-                      }}>{fileName || (sheet.what === 'audio' ? 'Choose audio' : 'Choose a document')}</Btn>
+                      <>
+                        <Text style={s.voiceLine}>{fileName}</Text>
+                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={() => pickDoc(sheet.what)}>Choose a different file</Btn>
+                        <Field lbl="Add a caption" multiline value={note} onChangeText={setNote} accessibilityLabel="Add a caption" placeholder="Add a caption" />
+                      </>
                     )}
                     {sheet.what === 'poll' && (
-                      <View style={s.stack}>
-                        <Field lbl="Question" value={pollQ} onChangeText={setPollQ} />
-                        {pollOpts.map((o, i) => <Field key={i} lbl={`Option ${i + 1}`} value={o} onChangeText={(v: string) => setPollOpts((list) => list.map((x, j) => (j === i ? v : x)))} />)}
-                        {pollOpts.length < 6 && <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setPollOpts((list) => [...list, ''])}>Add option</Btn>}
-                        <Pressable onPress={() => setPollMulti((v) => !v)}><Text style={s.note}>{pollMulti ? '☑' : '☐'} Allow multiple answers</Text></Pressable>
-                      </View>
+                      <>
+                        <TextInput style={s.plain} value={pollQ} onChangeText={setPollQ} accessibilityLabel="Question" placeholder="Ask a question" placeholderTextColor={c.ink3} />
+                        {pollOpts.map((o, i) => (
+                          <View key={i} style={s.optRow}>
+                            <View style={s.radio} />
+                            <TextInput
+                              style={[s.plain, { flex: 1 }]}
+                              value={o}
+                              onChangeText={(v: string) => setPollOpts((list) => list.map((x, j) => (j === i ? v : x)))}
+                              accessibilityLabel={`Option ${i + 1}`}
+                              placeholder="Add"
+                              placeholderTextColor={c.ink3}
+                            />
+                          </View>
+                        ))}
+                        {pollOpts.length < 6 && (
+                          <Pressable style={s.add} onPress={() => setPollOpts((list) => [...list, ''])}>
+                            <Text style={s.addText}>Add option</Text>
+                          </Pressable>
+                        )}
+                        <Pressable style={s.switchRow} accessibilityRole="switch" accessibilityState={{ checked: pollMulti }} onPress={() => setPollMulti((v) => !v)}>
+                          <Text style={s.switchText}>Allow multiple answers</Text>
+                          <View style={[s.track, pollMulti && s.trackOn, { alignItems: pollMulti ? 'flex-end' : 'flex-start' }]}>
+                            <View style={s.knob} />
+                          </View>
+                        </Pressable>
+                      </>
                     )}
                     {sheet.what === 'contact' && (
-                      <View style={s.stack}>
-                        {(thread.memberIds || []).filter((id: string) => id !== state.userId).map((id: string) => (
-                          <Btn key={id} style={s.ghost} textStyle={s.ghostText} onPress={() => { postMessage(thread.id, { contact: { userId: id, name: firstName(id) }, text: firstName(id) }); setSheet(null); }}>{`Share ${firstName(id)}`}</Btn>
-                        ))}
-                        <Field lbl="Name" value={contactName} onChangeText={setContactName} />
-                        <Field lbl="Phone" value={contactPhone} onChangeText={setContactPhone} />
-                      </View>
+                      <>
+                        <TextInput style={s.plain} value={contactQuery} onChangeText={setContactQuery} accessibilityLabel="Search contacts" placeholder="Search name or number" placeholderTextColor={c.ink3} />
+                        {(thread.memberIds || []).filter((id: string) => id !== state.userId).filter((id: string) => {
+                          const person = user(id);
+                          const q = contactQuery.trim().toLowerCase();
+                          return !q || `${person.name} ${phoneOf(person)}`.toLowerCase().includes(q);
+                        }).map((id: string) => {
+                          const person = user(id);
+                          const on = pickedId === id;
+                          return (
+                            <Pressable key={id} style={s.person} accessibilityRole="button" onPress={() => { setPickedId(id); setNewContact(false); setContactName(''); setContactPhone(''); }}>
+                              <Avatar person={person} />
+                              <View style={s.dcopy}>
+                                <Text style={s.dB}>{person.name || firstName(id)}</Text>
+                                <Text style={s.dS}>{phoneOf(person)}</Text>
+                              </View>
+                              <View style={[s.tick, on && s.tickOn]}>{on ? <Icon name="check" color={c.accentInk} size={14} /> : null}</View>
+                            </Pressable>
+                          );
+                        })}
+                        <Pressable style={s.add} onPress={() => { setNewContact((v) => !v); setPickedId(''); }}>
+                          <Text style={s.addText}>{newContact ? 'Choose someone in this chat' : 'New contact'}</Text>
+                        </Pressable>
+                        {newContact && (
+                          <>
+                            <TextInput style={s.plain} value={contactName} onChangeText={(v) => { setContactName(v); setPickedId(''); }} accessibilityLabel="Name" placeholder="Name" placeholderTextColor={c.ink3} />
+                            <TextInput style={s.plain} value={contactPhone} onChangeText={setContactPhone} accessibilityLabel="Phone" placeholder="Phone" keyboardType="phone-pad" placeholderTextColor={c.ink3} />
+                          </>
+                        )}
+                      </>
                     )}
                     {sheet.what === 'bill' && <Field lbl="Amount in ₹" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} accessibilityLabel="Amount" placeholder="0" />}
-                    {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio'].includes(sheet.what) && (
+                    {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio', 'sample', 'delivery', 'photo'].includes(sheet.what) && (
                       <Field
                         lbl={label(sheet.what)} multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]}
                         value={note} onChangeText={setNote} accessibilityLabel={label(sheet.what)}
                         placeholder={['photo', 'file', 'attendance'].includes(sheet.what) ? 'Optional' : ''}
                       />
                     )}
-                    {sheet.what === 'location' && <Field lbl="Add a note" multiline value={note} onChangeText={setNote} accessibilityLabel="Note" placeholder="Optional" />}
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
-                    {sheet.what === 'checkin' ? (
-                      <Btn style={s.primary} textStyle={s.primaryText} onPress={doCheckin}>Check in</Btn>
-                    ) : sheet.what === 'daylog' ? (
-                      <Btn style={s.primary} textStyle={s.primaryText} onPress={openDayLog}>Write today’s log</Btn>
-                    ) : (
-                      <Btn style={s.primary} textStyle={s.primaryText} onPress={sendAttach}>Send</Btn>
+                    {!['drawing', 'location', 'poll', 'contact'].includes(sheet.what) && (
+                      <Btn
+                        style={[s.primary, (
+                          ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
+                          || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
+                        ) && { opacity: 0.45 }]}
+                        textStyle={s.primaryText}
+                        disabled={
+                          ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
+                          || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
+                        }
+                        onPress={sendAttach}
+                      >Send</Btn>
                     )}
-                    <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</Btn>
+                    {!['location', 'poll', 'contact'].includes(sheet.what) && (
+                      <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</Btn>
+                    )}
                   </View>
                 )}
               </ScrollView>

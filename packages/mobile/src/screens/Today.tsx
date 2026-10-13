@@ -135,7 +135,7 @@ function DayCard({ item, act, first }: { item: any; act: (name: string, a?: any,
   const s = useStyles((c) => ({
     li: { color: c.ink, fontSize: 13, lineHeight: 18, marginVertical: 2 },
   }));
-  const D = (p: any) => <DayRow {...p} first={first} />;
+  const D = (p: any) => <DayRow {...p} first={first} choice />;
   if (item.kind === 'leave') {
     const { leave } = item;
     return (
@@ -225,11 +225,11 @@ function DayCard({ item, act, first }: { item: any; act: (name: string, a?: any,
   if (item.kind === 'enquiry') {
     const { enquiry } = item;
     const phone = (enquiry.phone || '').replace(/\D/g, '');
+    const source = enquiry.source === 'whatsapp' ? 'WhatsApp' : enquiry.source ? `${enquiry.source[0].toUpperCase()}${enquiry.source.slice(1)}` : '';
     return (
       <D
-        left={<><Small>New enquiry{enquiry.source ? ` · ${enquiry.source}` : ''}</Small>
-          <Strong>{enquiry.name} · {svc.serviceType(enquiry.typeId)}</Strong>
-          <Sub>{[enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</Sub></>}
+        left={<><Strong>{enquiry.name} · {svc.serviceType(enquiry.typeId)}</Strong>
+          <Sub lines={1}>{[source, enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</Sub></>}
         acts={<Acts>
           <ActBtn label="Accept" onPress={() => act('enquiry', enquiry.id, 'accepted')} />
           <ActBtn label="Not eligible" quiet onPress={() => act('enquiry', enquiry.id, 'not_eligible')} />
@@ -293,7 +293,7 @@ function DayCard({ item, act, first }: { item: any; act: (name: string, a?: any,
     const { invoice } = item;
     return (
       <D
-        left={<><Small>Payment overdue</Small><Strong>Invoice {invoice.no} · {inr(invoice.amount)}</Strong><Sub>{projectName(invoice.projectId)}</Sub></>}
+        left={<><Small>Payment overdue</Small><Strong>Invoice {invoice.no}</Strong><Sub>{inr(invoice.amount)} · {projectName(invoice.projectId)}</Sub></>}
         acts={<Acts><ActBtn label="Draft reminder" onPress={() => act('invoice', invoice)} /></Acts>}
       />
     );
@@ -370,7 +370,9 @@ export default function Today() {
   const ahead = nextSentence(todayMeetings);
   const away = [...new Set(svc.projects().flatMap((p: any) => svc.away(day, p.id)).filter((a: any) => a.userId).map((a: any) => user(a.userId)?.name).filter(Boolean))] as string[];
   const live = liveSites()[0];
-  const reportTo = live ? `/mobile/projects/${live.projectId}/assist?kind=daily&site=${live.id}` : '/mobile/assist?kind=daily';
+  const reportTo = live
+    ? `/mobile/projects/${live.projectId}/assist?kind=daily&site=${live.id}&from=${encodeURIComponent('/mobile/today')}`
+    : '/mobile/assist?kind=daily';
   const postTo = siteThreads.length === 1 ? `/mobile/camera?thread=${site.t.id}` : '/mobile/camera';
   const lastId = Object.entries(read || {}).sort((a, b) => (b[1] as string).localeCompare(a[1] as string))[0]?.[0];
   const lastThread = lastId ? svc.thread(lastId) : null;
@@ -408,6 +410,10 @@ export default function Today() {
     banner: { color: c.ink3, fontSize: 12, fontWeight: '500', textAlign: 'center', paddingTop: 4, paddingBottom: 8 },
     note: { color: c.ink2, fontSize: 14, fontWeight: '500', paddingVertical: 8 },
     toolNote: { color: c.ink2, fontSize: 13, fontWeight: '500', lineHeight: 18, paddingTop: 12, paddingBottom: 4 },
+    siteLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    siteWho: { color: c.ink, fontSize: 14, fontWeight: '600' },
+    siteText: { flex: 1, minWidth: 0, color: c.ink2, fontSize: 13 },
+    studioNote: { marginTop: 10, marginBottom: 4, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c.ground, color: c.ink2, fontSize: 13, lineHeight: 18 },
     clear: { marginVertical: 8, padding: 16, borderRadius: 16, backgroundColor: c.okSoft },
     clearH: { fontSize: 15, fontWeight: '600', color: c.ink, marginBottom: 4 },
     clearA: { color: c.accentText, fontSize: 13, fontWeight: '700' },
@@ -632,13 +638,13 @@ export default function Today() {
                 const text = (f.text || f.aiSummary || 'Update').trim();
                 return (
                   <DayRow key={f.id} first={i === 0} to={thread ? `/mobile/chats/${thread.id}` : `/mobile/projects/${f.site.projectId}`}
-                    left={<><Strong>{fmtT(f.at)} · {firstName(f.by)}</Strong><Sub>{text.slice(0, 90)}{text.length > 90 ? '…' : ''}</Sub></>} />
+                    left={<View style={s.siteLine}><Text style={s.siteWho} numberOfLines={1}>{fmtT(f.at)} · {firstName(f.by)}</Text><Text style={s.siteText} numberOfLines={1}>{text}</Text></View>} />
                 );
               })}
               {lastThread && (
                 <DayRow to={`/mobile/chats/${lastThread.id}`} left={<Strong accent>Continue {threadTitle(lastThread)}</Strong>} />
               )}
-              {notice && <Text style={s.toolNote}>{notice.text}</Text>}
+              {notice && <Text style={s.studioNote}>{notice.text}</Text>}
             </View>
           </Fold>
           {svc.assistKinds().includes('ask') && (
