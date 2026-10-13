@@ -200,6 +200,19 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
     pushHistory({ base: c2.toDataURL('image/jpeg', 0.92), ops: [] });
   };
 
+  const placeText = (value = '') => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const r = canvas.getBoundingClientRect();
+    setTextInput({
+      x: canvas.width * 0.12,
+      y: canvas.height * 0.42,
+      sx: Math.max(8, r.width * 0.12),
+      sy: Math.max(8, r.height * 0.42),
+      value,
+    });
+  };
+
   const chooseTool = (nextTool) => {
     commitPendingText();
     setDraft(null);
@@ -215,6 +228,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
       setCropPixels(null);
     }
     setTool(next);
+    if (next === 'text') placeText('');
   };
 
   const onDown = (e) => {
@@ -260,49 +274,32 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
     onSend(flatten(), words);
   }
 
+  const marking = !cropping && ['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool);
+
   return (
     <div className="pedit">
       <header className="pedit-top">
-        <button type="button" onClick={onCancel}>Cancel</button>
-        <b>Edit photo</b>
-        <span />
-      </header>
-      <div className="pedit-tools" role="toolbar" aria-label="Photo tools">
-        {TOOLS.map(([key, label, icon]) => (
-          <button key={key} type="button" aria-label={label} aria-pressed={tool === key} disabled={cropping && key !== 'crop'} className={tool === key ? 'on' : ''} onClick={() => chooseTool(key)}>
-            <Icon name={icon} />
-            <span>{label}</span>
+        <button type="button" aria-label={cropping ? 'Cancel crop' : 'Close'} onClick={cropping ? cancelCrop : onCancel}>
+          <Icon name="x" />
+        </button>
+        {cropping ? (
+          <button type="button" className="round send" aria-label="Apply crop" onClick={applyCrop} disabled={!cropPixels?.width}>
+            <Icon name="check" />
           </button>
-        ))}
-        <button type="button" aria-label="Undo" onClick={() => index > 0 && setIndex(index - 1)} disabled={cropping || index === 0}><Icon name="undo" /><span>Undo</span></button>
-        <button type="button" aria-label="Redo" onClick={() => history && index < history.length - 1 && setIndex(index + 1)} disabled={cropping || !history || index >= history.length - 1}><Icon name="redo" /><span>Redo</span></button>
-      </div>
-      {cropping && (
-        <div className="pedit-crop">
-          <button type="button" onClick={cancelCrop}>Cancel crop</button>
-          <button type="button" className="on" onClick={applyCrop} disabled={!cropPixels?.width}>Apply crop</button>
-        </div>
-      )}
-      {!cropping && ['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool) && (
-        <div className="pedit-ink">
-          {COLORS.map((c) => (
-            <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={color === c} className={color === c ? 'on' : ''} style={{ background: c }} onClick={() => setColor(c)} />
-          ))}
-          {SIZES.map((s) => (
-            <button key={s} type="button" className={`pedit-size ${size === s ? 'on' : ''}`} aria-label={`Size ${s}`} aria-pressed={size === s} onClick={() => setSize(s)}>
-              <i style={{ width: s / 1.4, height: s / 1.4 }} />
-            </button>
-          ))}
-        </div>
-      )}
-      {tool === 'text' && !cropping && (
-        <div className="pedit-labels">
-          {LABELS.map((label) => (
-            <button key={label} type="button" onClick={() => setTextInput((current) => (current ? { ...current, value: label } : current))}>{label}</button>
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="pedit-tools" role="toolbar" aria-label="Photo tools">
+            {TOOLS.map(([key, label, icon]) => (
+              <button key={key} type="button" aria-label={label} aria-pressed={tool === key} className={tool === key ? 'on' : ''} onClick={() => chooseTool(key)}>
+                <Icon name={icon} />
+              </button>
+            ))}
+            <button type="button" aria-label="Undo" onClick={() => index > 0 && setIndex(index - 1)} disabled={index === 0}><Icon name="undo" /></button>
+            <button type="button" aria-label="Redo" onClick={() => history && index < history.length - 1 && setIndex(index + 1)} disabled={!history || index >= history.length - 1}><Icon name="redo" /></button>
+          </div>
+        )}
+      </header>
       <div className="pedit-stage">
+        <div className="pedit-fit">
         {!cur ? <p>Loading photo…</p> : cropping && cropSrc ? (
           <ReactCrop
             crop={cropSel}
@@ -351,14 +348,36 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
             )}
           </div>
         )}
+        </div>
       </div>
-      {!cropping && (
-        <form className="pedit-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
-          <input value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} aria-label={noteLabel} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
-          <button type="submit" className="round send" aria-label="Send photo" disabled={!cur}><Icon name="send" /></button>
-        </form>
-      )}
-      {noteError ? <p className="pedit-error">{noteError}</p> : null}
+      <div className="pedit-dock">
+        {marking && (
+          <div className="pedit-ink">
+            {COLORS.map((c) => (
+              <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={color === c} className={color === c ? 'on' : ''} style={{ background: c }} onClick={() => setColor(c)} />
+            ))}
+            {SIZES.map((s) => (
+              <button key={s} type="button" className={`pedit-size ${size === s ? 'on' : ''}`} aria-label={`Size ${s}`} aria-pressed={size === s} onClick={() => setSize(s)}>
+                <i style={{ width: s / 1.4, height: s / 1.4 }} />
+              </button>
+            ))}
+          </div>
+        )}
+        {tool === 'text' && !cropping && (
+          <div className="pedit-labels">
+            {LABELS.map((label) => (
+              <button key={label} type="button" onClick={() => (textInput ? setTextInput({ ...textInput, value: label }) : placeText(label))}>{label}</button>
+            ))}
+          </div>
+        )}
+        {!cropping && (
+          <form className="pedit-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
+            <input value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} aria-label={noteLabel} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
+            <button type="submit" className="round send" aria-label="Send photo" disabled={!cur}><Icon name="send" /></button>
+          </form>
+        )}
+        {noteError ? <p className="pedit-error">{noteError}</p> : null}
+      </div>
     </div>
   );
 }

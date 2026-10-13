@@ -7,13 +7,14 @@ import { siteHasSuggestion } from '../shared/chatExtras';
 import Icon from './Icon';
 import { useField } from './FieldContext';
 import { Swatch } from './frame';
+import { Avatar } from './faces';
 import { ThreadHeader } from './Chats';
 import PhotoEdit from './PhotoEdit';
 import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, render,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, phoneOf, render,
 } from './model';
 
 const BASICS = [
@@ -169,6 +170,9 @@ export default function Thread() {
   const [pollMulti, setPollMulti] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [pickedId, setPickedId] = useState('');
+  const [contactQuery, setContactQuery] = useState('');
+  const [newContact, setNewContact] = useState(false);
   const [docUrl, setDocUrl] = useState('');
   const [voiceMode, setVoiceMode] = useState(null);
   const [voiceDur, setVoiceDur] = useState('0:00');
@@ -323,6 +327,9 @@ export default function Thread() {
     setPollMulti(false);
     setContactName('');
     setContactPhone('');
+    setPickedId('');
+    setContactQuery('');
+    setNewContact(false);
     setDocUrl('');
     setSheet({ what: item[0], label: item[1] });
   }
@@ -607,9 +614,14 @@ export default function Thread() {
       fields.poll = { question: pollQ.trim(), multi: pollMulti, options: options.map((text) => ({ text, votes: [] })) };
       fields.text = pollQ.trim();
     } else if (what === 'contact') {
-      if (!contactName.trim()) { setError('Enter a name.'); return; }
-      fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
-      fields.text = contactName.trim();
+      if (pickedId) {
+        const person = user(pickedId);
+        fields.contact = { userId: pickedId, name: person.name || firstName(pickedId), phone: phoneOf(person) };
+        fields.text = fields.contact.name;
+      } else if (contactName.trim()) {
+        fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
+        fields.text = contactName.trim();
+      } else { setError('Choose a person.'); return; }
     } else if (what === 'document' || what === 'audio') {
       if (!fileName) { setError(what === 'audio' ? 'Choose an audio file.' : 'Choose a document.'); return; }
       if (what === 'audio') fields.audio = { dataUrl: docUrl, name: fileName };
@@ -891,7 +903,26 @@ export default function Thread() {
               </>
             ) : (
               <form className="stack" onSubmit={sendAttach}>
-                <h2>{sheet.label}</h2>
+                {['location', 'poll', 'contact'].includes(sheet.what) ? (
+                  <div className="wa-bar">
+                    <button type="button" aria-label="Close" onClick={() => setSheet(MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
+                      <Icon name="x" />
+                    </button>
+                    <b>{sheet.what === 'contact' ? 'Send contact' : sheet.label}</b>
+                    {sheet.what === 'location' ? <span /> : (
+                      <button
+                        type="submit"
+                        className="round send"
+                        aria-label="Send"
+                        disabled={sheet.what === 'poll'
+                          ? (!pollQ.trim() || pollOpts.filter((o) => o.trim()).length < 2)
+                          : (!pickedId && !contactName.trim())}
+                      >
+                        <Icon name="send" />
+                      </button>
+                    )}
+                  </div>
+                ) : <h2>{sheet.label}</h2>}
                 {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                   <>
                     {sheet.what === 'delivery' && (
@@ -924,7 +955,20 @@ export default function Thread() {
                     </button>
                   )) : <p className="note">{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</p>
                 )}
-                {sheet.what === 'location' && <p className="voice-line">{placeLine()}</p>}
+                {sheet.what === 'location' && (
+                  <>
+                    <button type="button" className="wa-loc" onClick={() => {
+                      const words = note.trim();
+                      postMessage(thread.id, { kind: 'location', text: words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}` });
+                      setSheet(null);
+                      markRead(thread.id);
+                    }}>
+                      <span className="wa-pin"><Icon name="location" /></span>
+                      <span className="row-copy"><b>Send your current location</b><span>{placeLine()}</span></span>
+                    </button>
+                    <input className="wa-line" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a message" placeholder="Add a message" />
+                  </>
+                )}
                 {sheet.what === 'file' && (
                   <>
                     <label className="ghost file-pick">{fileName || 'Choose a file'}<input type="file" onChange={(e) => { setFileName(e.target.files?.[0]?.name || ''); e.target.value = ''; }} /></label>
@@ -953,21 +997,44 @@ export default function Thread() {
                 )}
                 {sheet.what === 'poll' && (
                   <>
-                    <label>Question<input value={pollQ} onChange={(e) => setPollQ(e.target.value)} /></label>
+                    <input className="wa-line" value={pollQ} onChange={(e) => setPollQ(e.target.value)} aria-label="Question" placeholder="Ask a question" />
                     {pollOpts.map((o, i) => (
-                      <label key={i}>Option {i + 1}<input value={o} onChange={(e) => setPollOpts((list) => list.map((x, j) => (j === i ? e.target.value : x)))} /></label>
+                      <div className="wa-opt" key={i}>
+                        <i aria-hidden="true" />
+                        <input value={o} aria-label={`Option ${i + 1}`} placeholder="Add" onChange={(e) => setPollOpts((list) => list.map((x, j) => (j === i ? e.target.value : x)))} />
+                      </div>
                     ))}
-                    {pollOpts.length < 6 && <button type="button" className="text-btn" onClick={() => setPollOpts((list) => [...list, ''])}>Add option</button>}
-                    <label><input type="checkbox" checked={pollMulti} onChange={(e) => setPollMulti(e.target.checked)} /> Allow multiple answers</label>
+                    {pollOpts.length < 6 && <button type="button" className="wa-add" onClick={() => setPollOpts((list) => [...list, ''])}>Add option</button>}
+                    <label className="wa-switch">
+                      Allow multiple answers
+                      <input type="checkbox" role="switch" checked={pollMulti} onChange={(e) => setPollMulti(e.target.checked)} />
+                    </label>
                   </>
                 )}
                 {sheet.what === 'contact' && (
                   <>
-                    {(thread.memberIds || []).filter((id) => id !== state.userId).map((id) => (
-                      <button type="button" key={id} className="ghost" onClick={() => { postMessage(thread.id, { contact: { userId: id, name: firstName(id) }, text: firstName(id) }); setSheet(null); }}>Share {firstName(id)}</button>
-                    ))}
-                    <label>Name<input value={contactName} onChange={(e) => setContactName(e.target.value)} /></label>
-                    <label>Phone<input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} /></label>
+                    <input className="wa-line" value={contactQuery} onChange={(e) => setContactQuery(e.target.value)} aria-label="Search contacts" placeholder="Search name or number" />
+                    {(thread.memberIds || []).filter((id) => id !== state.userId).filter((id) => {
+                      const person = user(id);
+                      const q = contactQuery.trim().toLowerCase();
+                      return !q || `${person.name} ${phoneOf(person)}`.toLowerCase().includes(q);
+                    }).map((id) => {
+                      const person = user(id);
+                      return (
+                        <button type="button" key={id} className={`wa-person ${pickedId === id ? 'on' : ''}`} onClick={() => { setPickedId(id); setNewContact(false); setContactName(''); setContactPhone(''); }}>
+                          <Avatar person={person} />
+                          <span className="row-copy"><b>{person.name || firstName(id)}</b><span>{phoneOf(person)}</span></span>
+                          <span className="wa-tick" aria-hidden="true">{pickedId === id ? <Icon name="check" /> : null}</span>
+                        </button>
+                      );
+                    })}
+                    <button type="button" className="wa-add" onClick={() => { setNewContact((v) => !v); setPickedId(''); }}>{newContact ? 'Choose someone in this chat' : 'New contact'}</button>
+                    {newContact && (
+                      <>
+                        <input className="wa-line" value={contactName} onChange={(e) => { setContactName(e.target.value); setPickedId(''); }} aria-label="Name" placeholder="Name" />
+                        <input className="wa-line" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} aria-label="Phone" placeholder="Phone" inputMode="tel" />
+                      </>
+                    )}
                   </>
                 )}
                 {sheet.what === 'bill' && (
@@ -980,25 +1047,20 @@ export default function Thread() {
                     <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : 'Add a caption'} placeholder={sheet.what === 'file' ? 'Add a caption' : 'Optional'} />
                   </label>
                 )}
-                {sheet.what === 'location' && (
-                  <label>Add a note
-                    <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Note" placeholder="Optional" />
-                  </label>
-                )}
                 {error ? <p className="warn-text">{error}</p> : null}
-                {sheet.what !== 'drawing' && (
+                {!['drawing', 'location', 'poll', 'contact'].includes(sheet.what) && (
                   <button
                     className="primary"
                     type="submit"
                     disabled={
                       ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
                       || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
-                      || (sheet.what === 'contact' && !contactName.trim())
-                      || (sheet.what === 'poll' && (!pollQ.trim() || pollOpts.filter((o) => o.trim()).length < 2))
                     }
-                  >{sheet.what === 'location' ? 'Send location' : 'Send'}</button>
+                  >Send</button>
                 )}
-                <button type="button" className="text-btn" onClick={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</button>
+                {!['location', 'poll', 'contact'].includes(sheet.what) && (
+                  <button type="button" className="text-btn" onClick={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</button>
+                )}
               </form>
             )}
           </div>

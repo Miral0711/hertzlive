@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import Icon from '../ui/Icon';
+import { Avatar } from '../ui/faces';
 import Photo, { photoSource } from '../ui/Photo';
 import { Screen, TopBar } from '../ui/frame';
 import { useField } from '../ui/FieldContext';
@@ -13,7 +14,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from '../p
 import { useStyles, useTheme } from '../platform/theme';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, render,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, phoneOf, render,
 } from '../store';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import { AIProvider, toast } from '../../../frontend/src/shared/core';
@@ -169,6 +170,9 @@ export default function Thread() {
   const [pollMulti, setPollMulti] = useState(false);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [pickedId, setPickedId] = useState('');
+  const [contactQuery, setContactQuery] = useState('');
+  const [newContact, setNewContact] = useState(false);
   const [docUrl, setDocUrl] = useState('');
   const location = useLocation();
   const [params] = useSearchParams();
@@ -279,6 +283,23 @@ export default function Thread() {
     pickOn: { backgroundColor: c.accent, borderColor: c.accent },
     note: { color: c.ink2, fontWeight: '500', fontSize: 14, paddingVertical: 8, paddingHorizontal: 2 },
     voiceLine: { fontWeight: '700', color: c.ink, fontSize: 16 },
+    waBar: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+    waTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600', color: c.ink },
+    locRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 64, paddingVertical: 8 },
+    locPin: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.accentSoft, alignItems: 'center', justifyContent: 'center' },
+    plain: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 2, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line, color: c.ink, fontSize: 16 },
+    optRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: c.ink3 },
+    add: { minHeight: 44, justifyContent: 'center' },
+    addText: { color: c.accentText, fontSize: 16, fontWeight: '600' },
+    switchRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    switchText: { fontSize: 16, fontWeight: '600', color: c.ink },
+    track: { width: 46, height: 28, borderRadius: 14, backgroundColor: c.line2, justifyContent: 'center', paddingHorizontal: 3 },
+    trackOn: { backgroundColor: c.accent },
+    knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
+    person: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 6 },
+    tick: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: c.line2, alignItems: 'center', justifyContent: 'center' },
+    tickOn: { backgroundColor: c.accent, borderColor: c.accent },
   }));
 
   useEffect(() => { if (threadId) markRead(threadId); }, [threadId, markRead]);
@@ -360,7 +381,8 @@ export default function Thread() {
 
   function openForm(item: any[]) {
     setError(''); setNote(''); setAmount(''); setShot(''); setFileName('');
-    setPollQ(''); setPollOpts(['', '']); setPollMulti(false); setContactName(''); setContactPhone(''); setDocUrl('');
+    setPollQ(''); setPollOpts(['', '']); setPollMulti(false); setContactName(''); setContactPhone('');
+    setPickedId(''); setContactQuery(''); setNewContact(false); setDocUrl('');
     setSheet({ what: item[0], label: item[1] });
   }
 
@@ -541,9 +563,14 @@ export default function Thread() {
       fields.poll = { question: pollQ.trim(), multi: pollMulti, options: options.map((text) => ({ text, votes: [] })) };
       fields.text = pollQ.trim();
     } else if (what === 'contact') {
-      if (!contactName.trim()) { setError('Enter a name.'); return; }
-      fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
-      fields.text = contactName.trim();
+      if (pickedId) {
+        const person = user(pickedId);
+        fields.contact = { userId: pickedId, name: person.name || firstName(pickedId), phone: phoneOf(person) };
+        fields.text = fields.contact.name;
+      } else if (contactName.trim()) {
+        fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
+        fields.text = contactName.trim();
+      } else { setError('Choose a person.'); return; }
     } else if (what === 'document' || what === 'audio') {
       if (!fileName) { setError(what === 'audio' ? 'Choose an audio file.' : 'Choose a document.'); return; }
       if (what === 'audio') fields.audio = { dataUrl: docUrl, name: fileName };
@@ -888,7 +915,30 @@ export default function Thread() {
                   </View>
                 ) : (
                   <View style={s.stack}>
-                    <Text style={s.h2}>{sheet.label}</Text>
+                    {['location', 'poll', 'contact'].includes(sheet.what) ? (
+                      <View style={s.waBar}>
+                        <Pressable accessibilityLabel="Close" style={s.round} onPress={() => setSheet(MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
+                          <Icon name="x" />
+                        </Pressable>
+                        <Text style={s.waTitle}>{sheet.what === 'contact' ? 'Send contact' : sheet.label}</Text>
+                        {sheet.what === 'location' ? <View style={s.round} /> : (
+                          <Pressable
+                            accessibilityLabel="Send"
+                            disabled={sheet.what === 'poll'
+                              ? (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2)
+                              : (!pickedId && !contactName.trim())}
+                            onPress={sendAttach}
+                            style={[s.round, s.roundAccent, (
+                              sheet.what === 'poll'
+                                ? (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2)
+                                : (!pickedId && !contactName.trim())
+                            ) && { opacity: 0.35 }]}
+                          >
+                            <Icon name="send" color={c.accentInk} />
+                          </Pressable>
+                        )}
+                      </View>
+                    ) : <Text style={s.h2}>{sheet.label}</Text>}
                     {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                       <>
                         {sheet.what === 'delivery' && <Field lbl="What arrived?" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What arrived?" />}
@@ -906,7 +956,30 @@ export default function Thread() {
                         </Pressable>
                       )) : <Text style={s.note}>{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</Text>
                     )}
-                    {sheet.what === 'location' && <Text style={s.voiceLine}>{placeLine()}</Text>}
+                    {sheet.what === 'location' && (
+                      <>
+                        <Pressable style={s.locRow} accessibilityRole="button" onPress={() => {
+                          const words = note.trim();
+                          postMessage(thread.id, { kind: 'location', text: words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}` });
+                          setSheet(null);
+                          markRead(thread.id);
+                        }}>
+                          <View style={s.locPin}><Icon name="location" /></View>
+                          <View style={s.dcopy}>
+                            <Text style={s.dB}>Send your current location</Text>
+                            <Text style={s.dS}>{placeLine()}</Text>
+                          </View>
+                        </Pressable>
+                        <TextInput
+                          style={s.plain}
+                          value={note}
+                          onChangeText={setNote}
+                          accessibilityLabel="Add a message"
+                          placeholder="Add a message"
+                          placeholderTextColor={c.ink3}
+                        />
+                      </>
+                    )}
                     {sheet.what === 'file' && (
                       <>
                         <Btn style={s.ghost} textStyle={s.ghostText} onPress={pickFile}>{fileName || 'Choose a file'}</Btn>
@@ -921,21 +994,65 @@ export default function Thread() {
                       </>
                     )}
                     {sheet.what === 'poll' && (
-                      <View style={s.stack}>
-                        <Field lbl="Question" value={pollQ} onChangeText={setPollQ} />
-                        {pollOpts.map((o, i) => <Field key={i} lbl={`Option ${i + 1}`} value={o} onChangeText={(v: string) => setPollOpts((list) => list.map((x, j) => (j === i ? v : x)))} />)}
-                        {pollOpts.length < 6 && <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setPollOpts((list) => [...list, ''])}>Add option</Btn>}
-                        <Pressable onPress={() => setPollMulti((v) => !v)}><Text style={s.note}>{pollMulti ? '☑' : '☐'} Allow multiple answers</Text></Pressable>
-                      </View>
+                      <>
+                        <TextInput style={s.plain} value={pollQ} onChangeText={setPollQ} accessibilityLabel="Question" placeholder="Ask a question" placeholderTextColor={c.ink3} />
+                        {pollOpts.map((o, i) => (
+                          <View key={i} style={s.optRow}>
+                            <View style={s.radio} />
+                            <TextInput
+                              style={[s.plain, { flex: 1 }]}
+                              value={o}
+                              onChangeText={(v: string) => setPollOpts((list) => list.map((x, j) => (j === i ? v : x)))}
+                              accessibilityLabel={`Option ${i + 1}`}
+                              placeholder="Add"
+                              placeholderTextColor={c.ink3}
+                            />
+                          </View>
+                        ))}
+                        {pollOpts.length < 6 && (
+                          <Pressable style={s.add} onPress={() => setPollOpts((list) => [...list, ''])}>
+                            <Text style={s.addText}>Add option</Text>
+                          </Pressable>
+                        )}
+                        <Pressable style={s.switchRow} accessibilityRole="switch" accessibilityState={{ checked: pollMulti }} onPress={() => setPollMulti((v) => !v)}>
+                          <Text style={s.switchText}>Allow multiple answers</Text>
+                          <View style={[s.track, pollMulti && s.trackOn, { alignItems: pollMulti ? 'flex-end' : 'flex-start' }]}>
+                            <View style={s.knob} />
+                          </View>
+                        </Pressable>
+                      </>
                     )}
                     {sheet.what === 'contact' && (
-                      <View style={s.stack}>
-                        {(thread.memberIds || []).filter((id: string) => id !== state.userId).map((id: string) => (
-                          <Btn key={id} style={s.ghost} textStyle={s.ghostText} onPress={() => { postMessage(thread.id, { contact: { userId: id, name: firstName(id) }, text: firstName(id) }); setSheet(null); }}>{`Share ${firstName(id)}`}</Btn>
-                        ))}
-                        <Field lbl="Name" value={contactName} onChangeText={setContactName} />
-                        <Field lbl="Phone" value={contactPhone} onChangeText={setContactPhone} />
-                      </View>
+                      <>
+                        <TextInput style={s.plain} value={contactQuery} onChangeText={setContactQuery} accessibilityLabel="Search contacts" placeholder="Search name or number" placeholderTextColor={c.ink3} />
+                        {(thread.memberIds || []).filter((id: string) => id !== state.userId).filter((id: string) => {
+                          const person = user(id);
+                          const q = contactQuery.trim().toLowerCase();
+                          return !q || `${person.name} ${phoneOf(person)}`.toLowerCase().includes(q);
+                        }).map((id: string) => {
+                          const person = user(id);
+                          const on = pickedId === id;
+                          return (
+                            <Pressable key={id} style={s.person} accessibilityRole="button" onPress={() => { setPickedId(id); setNewContact(false); setContactName(''); setContactPhone(''); }}>
+                              <Avatar person={person} />
+                              <View style={s.dcopy}>
+                                <Text style={s.dB}>{person.name || firstName(id)}</Text>
+                                <Text style={s.dS}>{phoneOf(person)}</Text>
+                              </View>
+                              <View style={[s.tick, on && s.tickOn]}>{on ? <Icon name="check" color={c.accentInk} size={14} /> : null}</View>
+                            </Pressable>
+                          );
+                        })}
+                        <Pressable style={s.add} onPress={() => { setNewContact((v) => !v); setPickedId(''); }}>
+                          <Text style={s.addText}>{newContact ? 'Choose someone in this chat' : 'New contact'}</Text>
+                        </Pressable>
+                        {newContact && (
+                          <>
+                            <TextInput style={s.plain} value={contactName} onChangeText={(v) => { setContactName(v); setPickedId(''); }} accessibilityLabel="Name" placeholder="Name" placeholderTextColor={c.ink3} />
+                            <TextInput style={s.plain} value={contactPhone} onChangeText={setContactPhone} accessibilityLabel="Phone" placeholder="Phone" keyboardType="phone-pad" placeholderTextColor={c.ink3} />
+                          </>
+                        )}
+                      </>
                     )}
                     {sheet.what === 'bill' && <Field lbl="Amount in ₹" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} accessibilityLabel="Amount" placeholder="0" />}
                     {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio', 'sample', 'delivery', 'photo'].includes(sheet.what) && (
@@ -945,27 +1062,24 @@ export default function Thread() {
                         placeholder={['photo', 'file', 'attendance'].includes(sheet.what) ? 'Optional' : ''}
                       />
                     )}
-                    {sheet.what === 'location' && <Field lbl="Add a note" multiline value={note} onChangeText={setNote} accessibilityLabel="Note" placeholder="Optional" />}
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
-                    {sheet.what !== 'drawing' && (
+                    {!['drawing', 'location', 'poll', 'contact'].includes(sheet.what) && (
                       <Btn
                         style={[s.primary, (
                           ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
                           || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
-                          || (sheet.what === 'contact' && !contactName.trim())
-                          || (sheet.what === 'poll' && (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2))
                         ) && { opacity: 0.45 }]}
                         textStyle={s.primaryText}
                         disabled={
                           ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
                           || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
-                          || (sheet.what === 'contact' && !contactName.trim())
-                          || (sheet.what === 'poll' && (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2))
                         }
                         onPress={sendAttach}
-                      >{sheet.what === 'location' ? 'Send location' : 'Send'}</Btn>
+                      >Send</Btn>
                     )}
-                    <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</Btn>
+                    {!['location', 'poll', 'contact'].includes(sheet.what) && (
+                      <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</Btn>
+                    )}
                   </View>
                 )}
               </ScrollView>
