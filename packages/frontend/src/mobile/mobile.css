@@ -164,10 +164,6 @@
 }
 .av img, .av svg { width: 100%; height: 100%; object-fit: cover; display: block; }
 button.av { border: 0; cursor: pointer; }
-.face-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0 0 16px; }
-.face-grid button { border: 2px solid transparent; border-radius: 50%; padding: 2px; background: transparent; }
-.face-grid button.on { border-color: var(--accent); }
-.face-grid .av { width: 64px; height: 64px; margin: 0 auto; }
 .av.sm { width: 36px; height: 36px; font-size: 12px; }
 .av.lg { width: 56px; height: 56px; font-size: 18px; }
 .av.client { background: var(--client); color: var(--accent-ink); }
@@ -1467,19 +1463,6 @@ a.site-card { text-decoration: none; color: inherit; }
 }
 .profile .who b { display: block; font-size: 18px; font-weight: 650; line-height: 1.25; }
 .profile .who span { display: block; margin-top: 1px; color: var(--ink-2); font-size: 14px; line-height: 1.35; }
-.profile .photo-pick {
-  display: block;
-  margin: 6px 0 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 650;
-  text-align: left;
-  cursor: pointer;
-}
 .profile a.day-row,
 .profile button.day-row,
 .profile a.day-row b,

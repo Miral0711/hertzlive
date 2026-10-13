@@ -6,7 +6,7 @@ import { Page, Note, backName } from './frame';
 import {
   state, svc, user, me, staff, PEOPLE, viewAs, phoneOf, firstName, fmtD, TODAY, persist, render, myThreads, postMessage, can,
 } from './model';
-import { resetDb, hh } from '../shared/core';
+import { hh } from '../shared/core';
 import { Avatar } from './faces';
 import { Select } from '../ui/ui';
 
@@ -474,11 +474,6 @@ export function StandIn() {
       {!can('leave', 'a') && <Note>A partner or HR names the cover and moves the open tasks.</Note>}
     </Page>
   );
-}
-
-export function startOver() {
-  resetDb();
-  render();
 }
 
 export { me };

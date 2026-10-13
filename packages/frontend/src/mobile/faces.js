@@ -1,6 +1,6 @@
 import { useStore } from '../shared/store';
 import { photoUrl } from '../ui/Ph';
-import { persist, projectOf, render, state, user } from './model';
+import { projectOf, state, user } from './model';
 
 const LOOKS = [
   { bg: '#d5e4ee', skin: '#f3c7a6', hair: '#2b2118', shirt: '#16587b', cut: 'short' },
@@ -26,12 +26,6 @@ export function faceIndex(person) {
   let h = 0;
   for (const ch of String(person.id)) h = (h * 33 + ch.charCodeAt(0)) >>> 0;
   return h % FACE_COUNT;
-}
-
-export function choosePortrait(userId, n) {
-  state.portraits = { ...(state.portraits || {}), [userId]: n };
-  persist();
-  render();
 }
 
 export function Face({ n = 0 }) {
