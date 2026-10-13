@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import Icon from '../ui/Icon';
 import { Page } from '../ui/frame';
 import { backName } from '../ui/frame';
 import { Avatar } from '../ui/faces';
 import { Link, openExternal, useParams, useSearchParams } from '../platform/router';
 import { useStyles } from '../platform/theme';
+import { photoSource } from '../ui/Photo';
 import {
   svc, can, projectOf, projectNeeds, fmtD, firstName, state, user, phoneOf, render, staff,
   phoneDrawings, rememberPhoneDrawing, useStore, core,
@@ -45,34 +46,88 @@ function Missing({ id }: { id?: string }) {
   return <Page sheet back={`/mobile/projects/${id || ''}`} title="Project"><Empty title="This project isn’t available" /></Page>;
 }
 
+function materialFace(status: string) {
+  if (status === 'approved') return { label: 'Approved', tone: 'ok' as const };
+  if (status === 'client_pending') return { label: 'Needs a decision', tone: 'open' as const };
+  if (status === 'rejected') return { label: 'Not this one', tone: 'late' as const };
+  if (status === 'internal_review') return { label: 'In review', tone: '' as const };
+  return { label: (status || 'Status not recorded').replace(/_/g, ' '), tone: '' as const };
+}
+
+function materialsLead(rows: any[]) {
+  const waiting = rows.filter((m) => m.status === 'client_pending').length;
+  if (!waiting) return 'Every shared sample has a decision.';
+  if (state.role === 'client') {
+    return waiting === 1 ? '1 sample needs your decision.' : `${waiting} samples need your decision.`;
+  }
+  return waiting === 1 ? '1 sample waiting on the client.' : `${waiting} samples waiting on the client.`;
+}
+
 export function Materials() {
   useStore();
   const { projectId } = useParams();
   const project = projectOf(projectId);
   const rows = project ? svc.materials({ projectId }) : [];
+  const s = useStyles((c) => ({
+    lead: { marginTop: 2, marginBottom: 12, marginHorizontal: 2, color: c.ink2, fontSize: 14, fontWeight: '600' },
+    card: { marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+    shot: { width: '100%', height: 148 },
+    copy: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, gap: 4 },
+    head: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+    name: { flex: 1, fontSize: 16, fontWeight: '600', lineHeight: 21, color: c.ink },
+    pill: { flexShrink: 0, marginTop: 1, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: c.surface2 },
+    pillT: { fontSize: 12, fontWeight: '600', color: c.ink2 },
+    vendor: { color: c.ink2, fontSize: 14 },
+    wait: { color: c.warn, fontSize: 13, fontWeight: '600' },
+    acts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    approve: { minHeight: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    approveT: { color: c.accentInk, fontSize: 13, fontWeight: '700' },
+    quiet: { minHeight: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.surface2, alignItems: 'center', justifyContent: 'center' },
+    quietT: { color: c.ink2, fontSize: 13, fontWeight: '650' },
+    compare: { minHeight: 48, marginTop: 2, borderWidth: 1, borderColor: c.line, borderRadius: 14, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center' },
+    compareT: { color: c.accentText, fontWeight: '700', fontSize: 16 },
+  }));
+  const tones = useStyles((c) => ({
+    okBg: { backgroundColor: c.okSoft },
+    okFg: { color: c.ok },
+    openBg: { backgroundColor: c.warnSoft },
+    openFg: { color: c.warn },
+    lateBg: { backgroundColor: c.critSoft },
+    lateFg: { color: c.crit },
+  }));
   if (!project) return <Missing id={projectId} />;
   if (!can('material', 'r')) {
     return <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials"><Empty title="Materials aren’t available for this login" /></Page>;
   }
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
-      <Hint>Samples and decisions shared with you.</Hint>
-      {rows.map((m: any) => (
-        <ViewCard key={m.id}>
-          <B>{m.name}</B>
-          <Sub>{m.vendor || 'Supplier not recorded'}</Sub>
-          <StatusEm ok={m.status === 'approved'}>{(m.status || 'Status not recorded').replace(/_/g, ' ')}</StatusEm>
-          {m.status === 'client_pending' && state.role === 'client' ? (
-            <ActRow>
-              <ActBtn label="Approve" onPress={() => { svc.approveMaterial(m.id, true); render(); }} />
-              <ActBtn label="Not this one" quiet onPress={() => { svc.approveMaterial(m.id, false); render(); }} />
-            </ActRow>
-          ) : null}
-          {m.status === 'client_pending' && staff() && project.clientId ? <Sub>Waiting on {firstName(project.clientId)}</Sub> : null}
-        </ViewCard>
-      ))}
+    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
+      {rows.length ? <Text style={s.lead}>{materialsLead(rows)}</Text> : <Hint>Samples and decisions shared with you.</Hint>}
+      {rows.map((m: any) => {
+        const face = materialFace(m.status);
+        const tone = face.tone === 'ok' ? tones.okBg : face.tone === 'open' ? tones.openBg : face.tone === 'late' ? tones.lateBg : null;
+        const toneT = face.tone === 'ok' ? tones.okFg : face.tone === 'open' ? tones.openFg : face.tone === 'late' ? tones.lateFg : null;
+        return (
+          <View key={m.id} style={s.card}>
+            <Image source={photoSource(m.hue ?? 28, m.seed ?? m.id)} style={s.shot} resizeMode="cover" />
+            <View style={s.copy}>
+              <View style={s.head}>
+                <Text style={s.name}>{m.name}</Text>
+                <View style={[s.pill, tone]}><Text style={[s.pillT, toneT]}>{face.label}</Text></View>
+              </View>
+              <Text style={s.vendor}>{m.vendor || 'Supplier not recorded'}</Text>
+              {m.status === 'client_pending' && staff() && project.clientId ? <Text style={s.wait}>Waiting on {firstName(project.clientId)}</Text> : null}
+              {m.status === 'client_pending' && state.role === 'client' ? (
+                <View style={s.acts}>
+                  <Pressable style={s.approve} onPress={() => { svc.approveMaterial(m.id, true); render(); }} accessibilityRole="button"><Text style={s.approveT}>Approve</Text></Pressable>
+                  <Pressable style={s.quiet} onPress={() => { svc.approveMaterial(m.id, false); render(); }} accessibilityRole="button"><Text style={s.quietT}>Not this one</Text></Pressable>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        );
+      })}
       {svc.assistKinds().includes('compare') && rows.length >= 2 ? (
-        <PrimaryRow to={`/mobile/projects/${projectId}/assist?kind=compare`}>Compare materials</PrimaryRow>
+        <Link to={`/mobile/projects/${projectId}/assist?kind=compare`} style={s.compare}><Text style={s.compareT}>Compare materials</Text></Link>
       ) : null}
       {!rows.length && <Empty title="No materials shared yet" />}
     </Page>
@@ -161,6 +216,28 @@ export function Changes() {
   const pending = project && state.role === 'client'
     ? ((state.db as any).CHANGES || []).filter((c: any) => c.projectId === projectId && c.status === 'awaiting_client')
     : [];
+  const s = useStyles((c) => ({
+    lead: { marginTop: 2, marginBottom: 12, marginHorizontal: 2, color: c.ink2, fontSize: 14, fontWeight: '600' },
+    card: { alignItems: 'flex-start', gap: 4, marginBottom: 10, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+    meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%' },
+    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: c.surface2 },
+    pillT: { fontSize: 12, fontWeight: '600', color: c.ink2 },
+    date: { color: c.ink3, fontSize: 13, fontWeight: '600' },
+    title: { fontSize: 16, fontWeight: '600', lineHeight: 21, color: c.ink },
+    detail: { color: c.ink2, fontSize: 14, lineHeight: 19 },
+    quiet: { color: c.ink3, fontSize: 13, fontWeight: '600' },
+    acts: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 },
+    btn: { minHeight: 36, marginTop: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    btnT: { color: c.accentInk, fontSize: 13, fontWeight: '700' },
+    quietBtn: { backgroundColor: c.surface2 },
+    quietBtnT: { color: c.ink },
+  }));
+  const tones = useStyles((c) => ({
+    ok: { backgroundColor: c.okSoft }, okT: { color: c.ok },
+    open: { backgroundColor: c.warnSoft }, openT: { color: c.warn },
+    late: { backgroundColor: c.critSoft }, lateT: { color: c.crit },
+    kind: { backgroundColor: c.accentSoft }, kindT: { color: c.accentText },
+  }));
   if (!project) return <Missing id={projectId} />;
   function decide(id: string, ok: boolean) {
     const change = ((state.db as any).CHANGES || []).find((c: any) => c.id === id);
@@ -172,21 +249,23 @@ export function Changes() {
     core.persist();
     render();
   }
+  const toneFor = (u: any) => (u.kind === 'drawing' ? 'kind' : /short/i.test(u.title) ? 'late' : u.kind === 'delivery' || u.kind === 'approval' ? 'ok' : '');
+  const labelFor = (kind: string) => (kind === 'delivery' ? 'Delivery' : kind === 'drawing' ? 'Drawing' : kind === 'approval' ? 'Approval' : kind === 'answer' ? 'Answer' : kind);
   return (
-    <Page sheet back={back} backLabel={backLabel} title="Important changes" sub={project.name} bare>
-      <Hint>Recorded changes with their original sources.</Hint>
+    <Page sheet board back={back} backLabel={backLabel} title="Important changes" sub={project.name}>
+      <Text style={s.lead}>Recorded changes with their original sources.</Text>
       {pending.map((c: any) => (
-        <ViewCard key={c.id}>
-          <Small>Your approval · {c.no}</Small>
-          <B>{c.title}</B>
-          <Sub>{c.reason}</Sub>
-          <ActRow>
-            <ActBtn label="Approve" onPress={() => decide(c.id, true)} />
-            <ActBtn label="Decline" quiet onPress={() => decide(c.id, false)} />
-          </ActRow>
-        </ViewCard>
+        <View key={c.id} style={s.card}>
+          <View style={s.meta}><View style={[s.pill, tones.open]}><Text style={[s.pillT, tones.openT]}>Your approval</Text></View><Text style={s.date}>{c.no}</Text></View>
+          <Text style={s.title}>{c.title}</Text>
+          <Text style={s.detail}>{c.reason}</Text>
+          <View style={s.acts}>
+            <Pressable style={s.btn} onPress={() => decide(c.id, true)} accessibilityRole="button"><Text style={s.btnT}>Approve</Text></Pressable>
+            <Pressable style={[s.btn, s.quietBtn]} onPress={() => decide(c.id, false)} accessibilityRole="button"><Text style={[s.btnT, s.quietBtnT]}>Decline</Text></Pressable>
+          </View>
+        </View>
       ))}
-      {rows.map((u: any, i: number) => {
+      {rows.map((u: any) => {
         const here = `/mobile/projects/${projectId}/changes${from ? `?from=${encodeURIComponent(from)}` : ''}`;
         const backQuery = `?from=${encodeURIComponent(here)}`;
         const siteChat = u.source?.type === 'delivery' && u.source.siteId
@@ -199,13 +278,19 @@ export function Changes() {
             : siteChat
               ? `/mobile/chats/${siteChat.id}${backQuery}`
               : '';
+        const tone = toneFor(u);
+        const pill = tone === 'ok' ? tones.ok : tone === 'late' ? tones.late : tone === 'kind' ? tones.kind : null;
+        const pillT = tone === 'ok' ? tones.okT : tone === 'late' ? tones.lateT : tone === 'kind' ? tones.kindT : null;
         return (
-          <DayRow key={u.id} to={to || undefined} first={i === 0 && !pending.length}>
-            <Small>{u.kind} · {fmtD(u.at)}</Small>
-            <B>{u.title}</B>
-            <Sub>{u.detail}</Sub>
-            {!to ? <Sub>No conversation recorded for this.</Sub> : null}
-          </DayRow>
+          <View key={u.id} style={s.card}>
+            <View style={s.meta}>
+              <View style={[s.pill, pill]}><Text style={[s.pillT, pillT]}>{labelFor(u.kind)}</Text></View>
+              <Text style={s.date}>{fmtD(u.at)}</Text>
+            </View>
+            <Text style={s.title}>{u.title}</Text>
+            <Text style={s.detail}>{u.detail}</Text>
+            {to ? <Link to={to} style={s.btn}><Text style={s.btnT}>Open source</Text></Link> : <Text style={s.quiet}>No conversation recorded for this.</Text>}
+          </View>
         );
       })}
       {!rows.length && !pending.length && <Empty title="No recorded changes" />}
@@ -225,6 +310,20 @@ export function Refs() {
   const [title, setTitle] = useState('');
   const [error, setError] = useState('');
   const rows = project ? svc.clientRefs(projectId) : [];
+  const s = useStyles((c) => ({
+    lead: { marginTop: 2, marginBottom: 12, marginHorizontal: 2, color: c.ink2, fontSize: 14, fontWeight: '600' },
+    card: { alignItems: 'flex-start', gap: 4, marginBottom: 10, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+    title: { fontSize: 16, fontWeight: '600', lineHeight: 21, color: c.ink },
+    detail: { color: c.ink2, fontSize: 14, lineHeight: 19 },
+    acts: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 },
+    btn: { minHeight: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    btnT: { color: c.accentInk, fontSize: 13, fontWeight: '700' },
+    quietBtn: { backgroundColor: c.surface2 },
+    quietBtnT: { color: c.ink },
+    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: c.okSoft },
+    pillT: { fontSize: 12, fontWeight: '600', color: c.ok },
+    form: { marginTop: 4, padding: 14, gap: 10, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+  }));
   if (!project) return <Missing id={projectId} />;
   function add() {
     try {
@@ -234,26 +333,22 @@ export function Refs() {
     } catch (err) { setError(errMsg(err)); }
   }
   return (
-    <Page sheet back={back} backLabel={backLabel} title="References" sub={project.name}>
-      <Hint>Client references and inspiration links.</Hint>
+    <Page sheet board back={back} backLabel={backLabel} title="References" sub={project.name}>
+      <Text style={s.lead}>Client references and inspiration links.</Text>
       {rows.map((r: any) => (
-        <Row
-          key={r.id}
-          right={(
-            <ActRow>
-              <ActBtn label="Open" accessibilityLabel={`Open ${r.title || r.url}`} onPress={() => openExternal(r.url)} />
-              {state.role !== 'client' && !r.promoted && can('moodboard', 'w') ? (
-                <ActBtn label="Moodboard" quiet onPress={() => { svc.promoteRef(r.id); render(); }} />
-              ) : r.promoted ? <Chip>On moodboard</Chip> : null}
-            </ActRow>
-          )}
-        >
-          <RowTitle>{r.title || r.url}</RowTitle>
-          <RowSub>{r.src}{r.room ? ` · ${r.room}` : ''}</RowSub>
-        </Row>
+        <View key={r.id} style={s.card}>
+          <Text style={s.title}>{r.title || r.url}</Text>
+          <Text style={s.detail}>{r.src}{r.room ? ` · ${r.room}` : ''}</Text>
+          <View style={s.acts}>
+            <Pressable style={s.btn} onPress={() => openExternal(r.url)} accessibilityRole="link" accessibilityLabel={`Open ${r.title || r.url}`}><Text style={s.btnT}>Open</Text></Pressable>
+            {state.role !== 'client' && !r.promoted && can('moodboard', 'w') ? (
+              <Pressable style={[s.btn, s.quietBtn]} onPress={() => { svc.promoteRef(r.id); render(); }} accessibilityRole="button"><Text style={[s.btnT, s.quietBtnT]}>Moodboard</Text></Pressable>
+            ) : r.promoted ? <View style={s.pill}><Text style={s.pillT}>On moodboard</Text></View> : null}
+          </View>
+        </View>
       ))}
       {can('ref', 'w') && (
-        <View style={{ gap: 10, marginTop: 12 }}>
+        <View style={s.form}>
           <LabeledInput label="Link" value={url} onChangeText={setUrl} placeholder="https://" />
           <LabeledInput label="Title" value={title} onChangeText={setTitle} />
           {error ? <WarnText>{error}</WarnText> : null}
@@ -314,31 +409,43 @@ export function DrawingIndex() {
   const [error, setError] = useState('');
   const rows: any[] = project ? svc.drawingIndex(projectId) : [];
   const stages = [...new Set(rows.map((r) => r.stage))];
+  const s = useStyles((c) => ({
+    lead: { marginTop: 2, marginBottom: 12, marginHorizontal: 2, color: c.ink2, fontSize: 14, fontWeight: '600' },
+    sect: { marginTop: 8, marginBottom: 8, marginHorizontal: 2, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: c.ink2 },
+    card: { alignItems: 'flex-start', gap: 4, marginBottom: 10, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 14, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+    no: { fontSize: 13, fontWeight: '700', color: c.ink2 },
+    title: { fontSize: 16, fontWeight: '600', lineHeight: 21, color: c.ink },
+    done: { color: c.ink3, textDecorationLine: 'line-through' },
+    pill: { marginTop: 2, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: c.okSoft },
+    pillT: { fontSize: 12, fontWeight: '600', color: c.ok },
+    btn: { minHeight: 36, marginTop: 8, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    btnT: { color: c.accentInk, fontSize: 13, fontWeight: '700' },
+    form: { marginTop: 4, padding: 14, borderWidth: 1, borderColor: c.line, borderRadius: 16, backgroundColor: c.surface },
+  }));
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Drawing index" sub={project.name} bare>
-      <Hint>Planned sheets per stage. Struck through once finalised.</Hint>
-      {stages.map((stage) => (
+    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel="Project" title="Drawing index" sub={project.name}>
+      <Text style={s.lead}>Planned sheets per stage. Struck through once finalised.</Text>
+      {stages.map((stage, si) => (
         <View key={stage as string}>
-          <Sect>{stage as string}</Sect>
+          <Text style={[s.sect, si === 0 ? { marginTop: 0 } : { marginTop: 18 }]}>{stage as string}</Text>
           {rows.filter((r) => r.stage === stage).map((r) => (
-            <Row
-              key={r.id}
-              right={!r.done && can('drawing', 'w') ? (
-                <ActBtn label="Finalise" quiet onPress={() => {
+            <View key={r.id} style={s.card}>
+              <Text style={s.no}>{r.no}</Text>
+              <Text style={[s.title, r.done ? s.done : null]}>{r.name}</Text>
+              {r.done ? <View style={s.pill}><Text style={s.pillT}>{r.how}</Text></View> : null}
+              {!r.done && can('drawing', 'w') ? (
+                <Pressable style={s.btn} accessibilityRole="button" onPress={() => {
                   if (!reason.trim()) { setError('Say why this is finalised.'); return; }
                   try { svc.finaliseDrawing(r.id, reason.trim()); setError(''); render(); } catch (err) { setError(errMsg(err)); }
-                }} />
+                }}><Text style={s.btnT}>Finalise</Text></Pressable>
               ) : null}
-            >
-              <RowTitle done={r.done}>{r.no} {r.name}</RowTitle>
-              {r.done ? <RowSub>{r.how}</RowSub> : null}
-            </Row>
+            </View>
           ))}
         </View>
       ))}
       {can('drawing', 'w') && (
-        <View style={{ marginTop: 12 }}>
+        <View style={s.form}>
           <LabeledInput label="Reason when you finalise" value={reason} onChangeText={setReason} a11y="Finalise reason" />
         </View>
       )}
