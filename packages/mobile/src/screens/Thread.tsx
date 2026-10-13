@@ -13,7 +13,7 @@ import { useField } from '../ui/FieldContext';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from '../platform/router';
 import { useStyles, useTheme } from '../platform/theme';
 import {
-  svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
+  svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
   postMessage, toggleReaction, toggleDecision, projectOf, siteFor, useStore, t, staff, user, phoneOf, render,
 } from '../store';
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
@@ -161,7 +161,6 @@ export default function Thread() {
   const [showWork, setShowWork] = useState(false);
   useEffect(() => { setShowWork(false); }, [threadId]);
   const [replyTo, setReplyTo] = useState<any>(null);
-  const [openDue, setOpenDue] = useState<any>(null);
   const [menu, setMenu] = useState<any>(null);
   const [forwardMsg, setForwardMsg] = useState<any>(null);
   const [editor, setEditor] = useState<any>(null);
@@ -637,7 +636,7 @@ export default function Thread() {
         ) : (
         <>
         {thread.kind === 'internal' && <Text style={s.office}>{t('officeOnly')}</Text>}
-        {(pinned.length > 0 || svc.decisionsDue({ threadId: thread.id }).length > 0) && (
+        {pinned.length > 0 && (
           <View style={s.decisions}>
             {pinned.map((m, i) => (
               <View style={[s.pin, i === 0 && s.pinFirst]} key={m.id}>
@@ -647,18 +646,6 @@ export default function Thread() {
                 </Pressable>
                 {canPin && <Pressable style={s.unpin} onPress={() => toggleDecision(m)}><Text style={s.unpinText}>Unpin</Text></Pressable>}
               </View>
-            ))}
-            {svc.decisionsDue({ threadId: thread.id }).map((d: any, i) => (
-              <Pressable
-                key={d.id}
-                style={[s.pin, pinned.length === 0 && i === 0 && s.pinFirst]}
-                accessibilityRole="button"
-                onPress={() => setOpenDue(d)}
-              >
-                <Text style={[s.kicker, s.kickerOpen]}>Open</Text>
-                <Text style={s.pinTitle} numberOfLines={1}>{d.title}</Text>
-                <Text style={s.dueMeta}>due {fmtD(d.due)}</Text>
-              </Pressable>
             ))}
           </View>
         )}
@@ -731,14 +718,17 @@ export default function Thread() {
                           <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={s.unpinText}>Review site update</Text></Link>
                         )}
                         {m.text && !m.voice ? <Text style={[s.say, mine && s.onAccent]}>{m.text}</Text> : null}
-                        {staff() && m.text && !m.deleted && (
-                          <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>Help with this update</Text></Link>
+                        {staff() && !m.deleted && (m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup') && (
+                          <Link to={`/mobile/assist?kind=followup&message=${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>Suggest follow-up</Text></Link>
+                        )}
+                        {staff() && !m.deleted && m.photo && svc.assistKinds().includes('concept') && (
+                          <Link to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}><Text style={[s.chipText, mine && s.onAccent]}>Explore finishes</Text></Link>
                         )}
                         <View style={s.meta}>
                           {staff() && !m.deleted && (() => {
                             const chip = chipOf(m);
                             return (
-                              <Link to={`/mobile/chats/${thread.id}/messages/${m.id}/filing`} style={[s.chip, chip.status === 'check' && s.chipCheck, chip.status === 'ask' && s.chipAsk, mine && !chip.status && s.chipOn]}>
+                              <Link to={`/mobile/chats/${thread.id}/messages/${m.id}/filing?from=chat`} style={[s.chip, chip.status === 'check' && s.chipCheck, chip.status === 'ask' && s.chipAsk, mine && !chip.status && s.chipOn]}>
                                 <Text style={[s.chipText, mine && !chip.status && s.onAccent, chip.status === 'check' && { color: c.warn }, chip.status === 'ask' && { color: c.crit }]} numberOfLines={1}>{chip.label}</Text>
                               </Link>
                             );
@@ -859,27 +849,6 @@ export default function Thread() {
           </View>
         )}
         </>
-        )}
-        {openDue && (
-          <Pressable style={s.back} onPress={() => { if (openDue) svc.decideDecision(openDue.id); setOpenDue(null); render(); }} accessibilityRole="none">
-            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel={openDue.title}>
-              <View style={s.grab} />
-              <Text style={s.h2}>{openDue.title}</Text>
-              <Text style={s.help}>Still open · due {fmtD(openDue.due)}. Asked by {firstName(openDue.askedBy)}.</Text>
-              {can('thread', 'w') && (
-                <Pressable
-                  style={s.primary}
-                  onPress={() => {
-                    setDraft(thread.id, `Hi, could you help decide "${openDue.title}" so we can keep the project on schedule? Thank you.`);
-                    setOpenDue(null);
-                  }}
-                >
-                  <Text style={s.primaryText}>Ask in this chat</Text>
-                </Pressable>
-              )}
-              <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { if (openDue) svc.decideDecision(openDue.id); setOpenDue(null); render(); }}>Close</Btn>
-            </Pressable>
-          </Pressable>
         )}
         {sheet && (
           <Pressable style={s.back} onPress={() => setSheet(null)} accessibilityRole="none">

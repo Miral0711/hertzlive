@@ -13,7 +13,7 @@ import PhotoEdit from './PhotoEdit';
 import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
-  svc, siblings, messagesOf, audience, firstName, fmtT, fmtD, dayLabel, preview, state, can, onPhone,
+  svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
   postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, phoneOf, render,
 } from './model';
 
@@ -145,7 +145,7 @@ function FileChip({ threadId, m }) {
   const status = f?.status === 'check' ? 'check' : f?.status === 'ask' ? 'ask' : '';
   const who = !f ? '' : f.by === 'user' ? 'Filed' : f.status === 'filed' ? 'AI filed' : f.status === 'check' ? 'AI check' : 'AI needs context';
   const label = !f ? 'File message' : `${who} · ${f.status === 'ask' ? 'Which project?' : (filingLabel(f) || 'Note')}`;
-  return <Link className={`file-chip ${status}`} to={`/mobile/chats/${threadId}/messages/${m.id}/filing`}>{label}</Link>;
+  return <Link className={`file-chip ${status}`} to={`/mobile/chats/${threadId}/messages/${m.id}/filing?from=chat`}>{label}</Link>;
 }
 
 export default function Thread() {
@@ -161,7 +161,6 @@ export default function Thread() {
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
   const [replyTo, setReplyTo] = useState(null);
-  const [openDue, setOpenDue] = useState(null);
   const [menu, setMenu] = useState(null);
   const [forwardMsg, setForwardMsg] = useState(null);
   const [editor, setEditor] = useState(null);
@@ -286,17 +285,10 @@ export default function Thread() {
   const msgs = messagesOf(thread.id);
   const related = siblings(thread);
   const pinned = msgs.filter((m) => m.decision && !m.deleted);
-  const due = svc.decisionsDue({ threadId: thread.id });
   const canPin = can('thread', 'w') && (state.role === 'partner' || state.role === 'site_manager');
   const lastLive = [...msgs].reverse().find((m) => !m.deleted);
   const showSuggest = staff() && can('thread', 'w') && lastLive && lastLive.by !== state.userId;
   const showQuick = can('thread', 'w') && lastLive && lastLive.by !== state.userId && /\?/.test(lastLive.text || '');
-
-  function closeDecision() {
-    if (openDue) svc.decideDecision(openDue.id);
-    setOpenDue(null);
-    render();
-  }
 
   function showInChat(id) {
     const el = document.getElementById(id);
@@ -655,7 +647,7 @@ export default function Thread() {
         </div>
       )}
       {thread.kind === 'internal' && <p className="office-note">{t('officeOnly')}</p>}
-      {(pinned.length > 0 || due.length > 0) && (
+      {pinned.length > 0 && (
         <div className="chat-decisions">
           {pinned.map((m) => (
             <div className="chat-pin" key={m.id}>
@@ -665,13 +657,6 @@ export default function Thread() {
               </button>
               {canPin && <button type="button" className="unpin" onClick={() => toggleDecision(m)}>Unpin</button>}
             </div>
-          ))}
-          {due.map((d) => (
-            <button type="button" className="chat-due" id={`decision-${d.id}`} key={d.id} onClick={() => setOpenDue(d)}>
-              <em>Open</em>
-              <b>{d.title}</b>
-              <span>due {fmtD(d.due)}</span>
-            </button>
           ))}
         </div>
       )}
@@ -739,10 +724,15 @@ export default function Thread() {
                     {!m.deleted && m.issueId && <Link className="extra" to={`/mobile/issues/${m.issueId}`}>Open linked issue</Link>}
                     {!m.deleted && siteHasSuggestion(svc.siteUpdateReview(m.id)) && <Link className="extra" to={`/mobile/chats/${thread.id}/messages/${m.id}`}>Review site update</Link>}
                     {m.text && !m.voice ? <p><span className="say">{m.text}</span></p> : null}
-                    {staff() && m.text && !m.deleted && (
+                    {staff() && !m.deleted && (((m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup')) || (m.photo && svc.assistKinds().includes('concept'))) && (
                       <details className="assist">
                         <summary>Help with this update</summary>
-                        <Link className="extra" to={`/mobile/chats/${thread.id}/messages/${m.id}`}>Open this update</Link>
+                        {(m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup') && (
+                          <Link className="extra" to={`/mobile/assist?kind=followup&message=${m.id}`}>Suggest follow-up</Link>
+                        )}
+                        {m.photo && svc.assistKinds().includes('concept') && (
+                          <Link className="extra" to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}>Explore finishes</Link>
+                        )}
                       </details>
                     )}
                     <div className="meta">
@@ -856,21 +846,6 @@ export default function Thread() {
           </button>
         )}
       </form>}
-      {openDue && (
-        <div className="sheet-back" onClick={closeDecision} role="presentation">
-          <div className="sheet" role="dialog" aria-label={openDue.title} onClick={(e) => e.stopPropagation()}>
-            <h2>{openDue.title}</h2>
-            <p className="help">Still open · due {fmtD(openDue.due)}. Asked by {firstName(openDue.askedBy)}.</p>
-            {can('thread', 'w') && (
-              <button type="button" className="primary" onClick={() => {
-                setDraft(thread.id, `Hi, could you help decide "${openDue.title}" so we can keep the project on schedule? Thank you.`);
-                setOpenDue(null);
-              }}>Ask in this chat</button>
-            )}
-            <button type="button" className="text-btn" onClick={closeDecision}>Close</button>
-          </div>
-        </div>
-      )}
       {sheet && (
         <div className="sheet-back" onClick={() => setSheet(null)} role="presentation">
           <div className="sheet" role="dialog" aria-label="Add to chat" onClick={(e) => e.stopPropagation()}>

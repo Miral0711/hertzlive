@@ -733,6 +733,7 @@ export function MessagePage() {
 export function Filing() {
   useStore();
   const { threadId, messageId } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const projects = svc.projects();
   const rooms = ['Kitchen', 'Living', 'Bathroom', 'Structure', 'Facade', 'Not set'];
@@ -743,14 +744,15 @@ export function Filing() {
   const [kind, setKind] = useState(current.kind || 'note');
   const [drawing, setDrawing] = useState(current.drawing || '');
   const [error, setError] = useState('');
+  const backTo = params.get('from') === 'chat' ? `/mobile/chats/${threadId}` : `/mobile/chats/${threadId}/messages/${messageId}`;
   return (
-    <Page back={`/mobile/chats/${threadId}/messages/${messageId}`} backLabel="Message" title="Where should this go?">
+    <Page back={backTo} backLabel={params.get('from') === 'chat' ? 'Chat' : 'Message'} title="Where should this go?">
       <form className="stack" onSubmit={(e) => {
         e.preventDefault();
         try {
           const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
           if (!saved) throw new Error('Filing could not be saved on this device.');
-          navigate(`/mobile/chats/${threadId}/messages/${messageId}`);
+          navigate(backTo);
         } catch (err) { setError(err.message); }
       }}>
         <label>Project
@@ -866,6 +868,14 @@ export function Assist() {
     client: 'Client update', concept: 'Finish palette', followup: 'Suggested follow-up',
   }[kind] || 'Draft';
 
+  const messageThreadId = messageId ? state.db.MESSAGES.find((m) => m.id === messageId)?.threadId : '';
+  const backTo = fromPage && fromPage.startsWith('/mobile/')
+    ? fromPage
+    : messageThreadId
+      ? `/mobile/chats/${messageThreadId}`
+      : projectId
+        ? `/mobile/projects/${projectId}`
+        : '/mobile/today';
   const chats = svc.threads().filter((t) => t.projectId === pid && ['client', 'internal', 'site'].includes(t.kind) && can('thread', 'w'));
   const chosen = chats.some((t) => t.id === sendTo) ? sendTo : (chats.find((t) => t.kind === 'internal') || chats.find((t) => t.kind === 'site') || chats[0])?.id || '';
 
@@ -948,7 +958,7 @@ export function Assist() {
   }
 
   return (
-    <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={fromPage && fromPage.startsWith('/mobile/') ? fromPage : messageId ? `/mobile/chats/${state.db.MESSAGES.find((m) => m.id === messageId)?.threadId || ''}/messages/${messageId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today'} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
+    <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={backTo} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
       {issueId && !brief && <div className="empty"><h3>This issue isn’t available</h3></div>}
       {drawingNo && !sheetDrawing && <div className="empty"><h3>This sheet isn’t available</h3></div>}
       {!allowed && <div className="empty"><h3>This draft isn’t available for you</h3><p>Switch person if you need this action.</p></div>}

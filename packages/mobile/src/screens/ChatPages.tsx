@@ -719,6 +719,7 @@ export function Filing() {
   useStore();
   const k = useKit();
   const { threadId, messageId } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const projects = svc.projects();
   const rooms = ['Kitchen', 'Living', 'Bathroom', 'Structure', 'Facade', 'Not set'];
@@ -729,8 +730,10 @@ export function Filing() {
   const [kind, setKind] = useState(current.kind || 'note');
   const [drawing, setDrawing] = useState(current.drawing || '');
   const [error, setError] = useState('');
+  const fromChat = params.get('from') === 'chat';
+  const backTo = fromChat ? `/mobile/chats/${threadId}` : `/mobile/chats/${threadId}/messages/${messageId}`;
   return (
-    <Page back={`/mobile/chats/${threadId}/messages/${messageId}`} backLabel="Message" title="Where should this go?">
+    <Page back={backTo} backLabel={fromChat ? 'Chat' : 'Message'} title="Where should this go?">
       <View style={k.stack}>
         <Select label="Project" value={projectId} onChange={setProjectId} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
         <Select label="Room" value={room} onChange={setRoom} options={rooms.map((r) => ({ value: r, label: r }))} />
@@ -741,7 +744,7 @@ export function Filing() {
           try {
             const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
             if (!saved) throw new Error('Filing could not be saved on this device.');
-            navigate(`/mobile/chats/${threadId}/messages/${messageId}`);
+            navigate(backTo);
           } catch (err: any) { setError(err.message); }
         }} />
       </View>
@@ -905,13 +908,14 @@ export function Assist() {
     } catch (err: any) { setError(err.message); }
   }
 
-  const backPath = fromOf(fromPage) || (messageId ? `/mobile/chats/${(state as any).db?.MESSAGES.find((m: any) => m.id === messageId)?.threadId || ''}/messages/${messageId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today');
+  const messageThreadId = messageId ? (state as any).db?.MESSAGES.find((m: any) => m.id === messageId)?.threadId : '';
+  const backPath = fromOf(fromPage) || (messageThreadId ? `/mobile/chats/${messageThreadId}` : projectId ? `/mobile/projects/${projectId}` : '/mobile/today');
   const EmptyBox = ({ h, p }: { h: string; p?: string }) => (
     <View style={k.empty}><Text style={k.emptyH}>{h}</Text>{p ? <Text style={k.emptyP}>{p}</Text> : null}</View>
   );
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : 'Back'} title={title}
+      <Page sheet={!!(issueId || drawingNo)} stackTitle={!!(issueId || drawingNo)} back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title}
         sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
         {!!issueId && !brief && <EmptyBox h="This issue isn’t available" />}
         {!!drawingNo && !sheetDrawing && <EmptyBox h="This sheet isn’t available" />}
