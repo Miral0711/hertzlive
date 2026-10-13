@@ -237,11 +237,11 @@ function DayCard({ item, act }) {
   if (item.kind === 'enquiry') {
     const { enquiry } = item;
     const phone = (enquiry.phone || '').replace(/\D/g, '');
+    const source = enquiry.source === 'whatsapp' ? 'WhatsApp' : enquiry.source ? `${enquiry.source[0].toUpperCase()}${enquiry.source.slice(1)}` : '';
     return (
-      <article className={row} id={item.key}>
-        <small>New enquiry{enquiry.source ? ` · ${enquiry.source}` : ''}</small>
+      <article className={`${row} day-enquiry`} id={item.key}>
         <b>{enquiry.name} · {svc.serviceType(enquiry.typeId)}</b>
-        <span>{[enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</span>
+        <span>{[source, enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</span>
         <Acts choice>
           <button type="button" onClick={() => act('enquiry', enquiry.id, 'accepted')}>Accept</button>
           <button type="button" className="quiet" onClick={() => act('enquiry', enquiry.id, 'not_eligible')}>Not eligible</button>

@@ -975,6 +975,13 @@ button.day-row {
   grid-row: 2;
   align-self: center;
 }
+.body.day-body .day-enquiry {
+  padding-top: 10px;
+  padding-bottom: 8px;
+}
+.body.day-body .day-enquiry > .day-primary { grid-row: 1; }
+.body.day-body .day-row.day-enquiry > span { -webkit-line-clamp: 1; }
+.body.day-body .day-enquiry > .day-more { margin-top: 0; }
 .body.day-body .day-row > .day-more {
   grid-column: 1 / -1;
   display: flex;
