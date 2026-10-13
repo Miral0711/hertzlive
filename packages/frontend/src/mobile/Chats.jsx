@@ -10,6 +10,7 @@ import {
 import { t } from './copy';
 import { Avatar, ThreadAvatar } from './faces';
 import { isProjectAudience, matchesChatFilter, recentChatRows } from '../shared/chatExtras';
+import { Select } from '../ui/ui';
 
 const CHAT_FILTERS = [
   ['all', 'All'],
@@ -255,10 +256,10 @@ function ChatAdd({ panel, onClose }) {
             </div>
             {groupType === 'project' && (
               <label>Project
-                <select value={projectId} aria-label="Project" onChange={(e) => { setProjectId(e.target.value); setPicked([]); }}>
+                <Select className="field-select" value={projectId} aria-label="Project" onChange={(e) => { setProjectId(e.target.value); setPicked([]); }}>
                   <option value="">Choose a project</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                </Select>
               </label>
             )}
             <p className="help">{groupType === 'project' ? 'People already on this project.' : 'People in the studio.'}</p>

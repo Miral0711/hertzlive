@@ -370,7 +370,9 @@ export default function Today() {
   const ahead = nextSentence(todayMeetings);
   const away = [...new Set(svc.projects().flatMap((p: any) => svc.away(day, p.id)).filter((a: any) => a.userId).map((a: any) => user(a.userId)?.name).filter(Boolean))] as string[];
   const live = liveSites()[0];
-  const reportTo = live ? `/mobile/projects/${live.projectId}/assist?kind=daily&site=${live.id}` : '/mobile/assist?kind=daily';
+  const reportTo = live
+    ? `/mobile/projects/${live.projectId}/assist?kind=daily&site=${live.id}&from=${encodeURIComponent('/mobile/today')}`
+    : '/mobile/assist?kind=daily';
   const postTo = siteThreads.length === 1 ? `/mobile/camera?thread=${site.t.id}` : '/mobile/camera';
   const lastId = Object.entries(read || {}).sort((a, b) => (b[1] as string).localeCompare(a[1] as string))[0]?.[0];
   const lastThread = lastId ? svc.thread(lastId) : null;

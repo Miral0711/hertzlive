@@ -1701,6 +1701,15 @@ a.ghost, .ghost {
   color: inherit;
   font: inherit;
 }
+.field-select { display: block !important; width: 100%; }
+.field-select > button {
+  min-height: 44px;
+  border-color: var(--line);
+  border-radius: var(--r-2);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
 .filters { display: flex; gap: 8px; overflow: auto; padding: 4px 0 12px; }
 .filters button {
   flex: none;

@@ -8,6 +8,7 @@ import {
 } from './model';
 import { resetDb, hh } from '../shared/core';
 import { Avatar } from './faces';
+import { Select } from '../ui/ui';
 
 const ORDER = ['partner', 'site_manager', 'designer', 'hr', 'contractor', 'client'];
 const LABEL = {
@@ -404,15 +405,15 @@ export function Book() {
         </div>
         {purpose === 'site' && sites.length > 1 && (
           <label>Which site
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Which site">
+            <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Which site">
               {sites.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
           </label>
         )}
         <label>With
-          <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="With">
+          <Select className="field-select" value={who} onChange={(e) => setWho(e.target.value)} aria-label="With">
             {people.map((u) => <option key={u.id} value={u.id}>{firstName(u.id)}</option>)}
-          </select>
+          </Select>
         </label>
         {!meet && (
           <label>What for

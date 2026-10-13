@@ -11,6 +11,7 @@ import {
 import { FILE_KINDS, filingLabel } from '../shared/filing';
 import { REACTIONS, siteHasSuggestion } from '../shared/chatExtras';
 import { Avatar, GroupPhotoInput, ThreadAvatar } from './faces';
+import { Select } from '../ui/ui';
 
 const SAMPLE_MEDIA = {
   site: [
@@ -331,13 +332,13 @@ export function WorkGroups() {
           {photo ? <button type="button" className="text-btn" onClick={() => setPhoto('')}>Remove photo</button> : null}
           <label>Work group name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kitchen island installation" /></label>
           <label>Task
-            <select aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
+            <Select className="field-select" aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
               <option value="">New task on this project</option>
               {tasks.map((item) => {
                 const open = svc.workGroupForTask(item.id);
                 return <option key={item.id} value={item.id}>{item.title}{open ? ' · already has a work group' : ''}</option>;
               })}
-            </select>
+            </Select>
           </label>
           {!taskId && <label>Task name<input aria-label="Task name" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Leave blank to use the work group name" /></label>}
           <button className="primary" type="submit">Continue</button>
@@ -756,19 +757,19 @@ export function Filing() {
         } catch (err) { setError(err.message); }
       }}>
         <label>Project
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
+          <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          </Select>
         </label>
         <label>Room
-          <select value={room} onChange={(e) => setRoom(e.target.value)} aria-label="Room">
+          <Select className="field-select" value={room} onChange={(e) => setRoom(e.target.value)} aria-label="Room">
             {rooms.map((r) => <option key={r}>{r}</option>)}
-          </select>
+          </Select>
         </label>
         <label>What is it
-          <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="What is it">
+          <Select className="field-select" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="What is it">
             {kinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
+          </Select>
         </label>
         <label>Drawing number<input value={drawing} onChange={(e) => setDrawing(e.target.value)} placeholder="HA-2401-A-101" aria-label="Drawing number" /></label>
         {error ? <p className="warn-text">{error}</p> : null}
@@ -968,16 +969,16 @@ export function Assist() {
           {drawingNo && sheetDrawing && <p className="note">{projectName(projectId)} · {drawingNo}. This question is about this sheet.</p>}
           {!['daily', 'followup', 'concept'].includes(kind) && !issueId && !drawingNo && (
             <label>Project
-              <select value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label="Project">
+              <Select className="field-select" value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label="Project">
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              </Select>
             </label>
           )}
           {kind === 'daily' && (
             <label>Site
-              <select value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Site">
+              <Select className="field-select" value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Site">
                 {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              </Select>
             </label>
           )}
           {kind === 'ask' && !issueId && (
@@ -1032,9 +1033,9 @@ export function Assist() {
       {result && kind === 'followup' && (
         <form className="stack" onSubmit={saveFollowup}>
           <label>Who
-            <select value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
+            <Select className="field-select" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
               {(result.proposal?.owners || []).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+            </Select>
           </label>
           <label>Needed by<input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Needed by" /></label>
           {saved ? <p className="note">{saved}</p> : <button className="primary" type="submit">Save follow-up</button>}
