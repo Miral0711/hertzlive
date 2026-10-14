@@ -14,7 +14,7 @@ import { ForwardPick, MessageActions, VoicePlay } from './ChatPages';
 import { t } from './copy';
 import {
   svc, siblings, messagesOf, audience, firstName, fmtT, dayLabel, preview, state, can, onPhone,
-  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, phoneOf, render,
+  postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, phoneOf,
 } from './model';
 
 const BASICS = [

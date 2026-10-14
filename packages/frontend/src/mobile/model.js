@@ -1,4 +1,4 @@
-import { state, svc, user, me, can, fmtT, fmtD, fmtDT, uid, persist, taskStageLabel } from '../shared/core';
+import { state, svc, user, me, can, fmtT, fmtD, fmtDT, uid, persist } from '../shared/core';
 import { render } from '../shared/store';
 import { NOTIFICATIONS } from '../shared/data2';
 import { FILE_KINDS, ROOM_WORDS } from '../shared/filing';
@@ -421,4 +421,5 @@ export function photoItems(projectId) {
     .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
 }
 
-export { me, can, user, fmtT, fmtD, fmtDT, state, svc, TODAY, persist, render, uid, taskStageLabel };
+export { me, can, user, fmtT, fmtD, fmtDT, state, svc, TODAY, persist, render, uid };
+export { taskStageLabel } from '../shared/core';

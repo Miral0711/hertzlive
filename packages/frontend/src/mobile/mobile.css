@@ -2808,6 +2808,61 @@ button.chat-due:active { background: var(--surface-2); }
   color: var(--accent-text);
   border: 1px solid var(--line);
 }
+.pick-lead {
+  margin: 2px 2px 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.4;
+}
+.pick-list { display: flex; flex-direction: column; gap: 8px; }
+.stack label.pick-row {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  font-weight: 500;
+  cursor: pointer;
+}
+.stack label.pick-row.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+.stack label.pick-row input {
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  margin: 1px 0 0;
+  padding: 0;
+  flex: none;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  accent-color: var(--accent);
+}
+.pick-copy { flex: 1; min-width: 0; }
+.pick-copy b {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.pick-copy small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 .notice-ideas {
   display: flex;
