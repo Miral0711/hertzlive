@@ -1002,9 +1002,20 @@ export function Assist() {
             <label key={m.id} className="check"><input type="checkbox" checked={!!picked[m.id]} onChange={(e) => setPicked({ ...picked, [m.id]: e.target.checked })} /> {m.name}</label>
           ))}
           {kind === 'client' && (
-            clientMessages.length ? clientMessages.map((m) => (
-              <label key={m.id} className="check"><input type="checkbox" checked={!!picked[m.id]} onChange={(e) => setPicked({ ...picked, [m.id]: e.target.checked })} /> {(m.text || m.transcript).slice(0, 120)}</label>
-            )) : <p className="note">No client conversation to draft from.</p>
+            clientMessages.length ? (
+              <div className="pick-list">
+                <p className="pick-lead">Choose messages already shared with this client.</p>
+                {clientMessages.map((m) => (
+                  <label key={m.id} className={`pick-row${picked[m.id] ? ' on' : ''}`}>
+                    <input type="checkbox" checked={!!picked[m.id]} onChange={(e) => setPicked({ ...picked, [m.id]: e.target.checked })} />
+                    <span className="pick-copy">
+                      <b>{m.text || m.transcript}</b>
+                      <small>{firstName(m.by)} · {fmtT(m.at)}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : <p className="note">No client conversation to draft from.</p>
           )}
           {kind === 'concept' && !messageId && (
             photos.length ? photos.slice(0, 8).map((m) => (
