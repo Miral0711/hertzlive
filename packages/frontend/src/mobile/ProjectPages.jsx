@@ -10,6 +10,7 @@ import {
   svc, can, projectOf, projectNeeds, fmtD, firstName, state, user, phoneOf, render, staff,
   phoneDrawings, rememberPhoneDrawing,
 } from './model';
+import { t } from '../shared/i18n';
 
 export function WorkRow({ item, onDone }) {
   const body = (
@@ -24,7 +25,7 @@ export function WorkRow({ item, onDone }) {
     return (
       <div className="day-row">
         {body}
-        <div className="day-acts"><button type="button" onClick={() => onDone(item.taskId)}>Done</button></div>
+        <div className="day-acts"><button type="button" onClick={() => onDone(item.taskId)}>{t('Done')}</button></div>
       </div>
     );
   }
@@ -39,20 +40,20 @@ export function finishTask(taskId) {
 }
 
 function Missing({ id }) {
-  return <Page sheet back={`/mobile/projects/${id || ''}`} title="Project"><div className="empty"><h3>This project isn’t available</h3></div></Page>;
+  return <Page sheet back={`/mobile/projects/${id || ''}`} title={t('Project')}><div className="empty"><h3>{t('This project isn’t available')}</h3></div></Page>;
 }
 
 function materialFace(status) {
-  if (status === 'approved') return { label: 'Approved', tone: 'ok' };
-  if (status === 'client_pending') return { label: 'Needs a decision', tone: 'open' };
-  if (status === 'rejected') return { label: 'Not this one', tone: 'late' };
-  if (status === 'internal_review') return { label: 'In review', tone: '' };
-  return { label: (status || 'Status not recorded').replace(/_/g, ' '), tone: '' };
+  if (status === 'approved') return { label: t('Approved'), tone: 'ok' };
+  if (status === 'client_pending') return { label: t('Needs a decision'), tone: 'open' };
+  if (status === 'rejected') return { label: t('Not this one'), tone: 'late' };
+  if (status === 'internal_review') return { label: t('In review'), tone: '' };
+  return { label: status ? status.replace(/_/g, ' ') : t('Status not recorded'), tone: '' };
 }
 
 function materialsLead(rows) {
   const waiting = rows.filter((m) => m.status === 'client_pending').length;
-  if (!waiting) return 'Every shared sample has a decision.';
+  if (!waiting) return t('Every shared sample has a decision.');
   if (state.role === 'client') {
     return waiting === 1 ? '1 sample needs your decision.' : `${waiting} samples need your decision.`;
   }
@@ -66,11 +67,11 @@ export function Materials() {
   const rows = project ? svc.materials({ projectId }) : [];
   if (!project) return <Missing id={projectId} />;
   if (!can('material', 'r')) {
-    return <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials"><div className="empty"><h3>Materials aren’t available for this login</h3></div></Page>;
+    return <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Materials')}><div className="empty"><h3>{t('Materials aren’t available for this login')}</h3></div></Page>;
   }
   return (
-    <Page className="mat-screen" sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
-      {rows.length ? <p className="mat-summary">{materialsLead(rows)}</p> : <Note>Samples and decisions shared with you.</Note>}
+    <Page className="mat-screen" sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Materials')} sub={project.name}>
+      {rows.length ? <p className="mat-summary">{materialsLead(rows)}</p> : <Note>{t('Samples and decisions shared with you.')}</Note>}
       {rows.map((m) => {
         const face = materialFace(m.status);
         return (
@@ -81,14 +82,14 @@ export function Materials() {
                 <b>{m.name}</b>
                 <span className={`pill${face.tone ? ` ${face.tone}` : ''}`}>{face.label}</span>
               </div>
-              <span className="mat-vendor">{m.vendor || 'Supplier not recorded'}</span>
+              <span className="mat-vendor">{m.vendor || t('Supplier not recorded')}</span>
               {m.status === 'client_pending' && staff() && project.clientId ? (
-                <span className="mat-wait">Waiting on {firstName(project.clientId)}</span>
+                <span className="mat-wait">{t('Waiting on {0}', firstName(project.clientId))}</span>
               ) : null}
               {m.status === 'client_pending' && state.role === 'client' ? (
                 <div className="mat-acts">
-                  <button type="button" onClick={() => { svc.approveMaterial(m.id, true); render(); }}>Approve</button>
-                  <button type="button" className="quiet" onClick={() => { svc.approveMaterial(m.id, false); render(); }}>Not this one</button>
+                  <button type="button" onClick={() => { svc.approveMaterial(m.id, true); render(); }}>{t('Approve')}</button>
+                  <button type="button" className="quiet" onClick={() => { svc.approveMaterial(m.id, false); render(); }}>{t('Not this one')}</button>
                 </div>
               ) : null}
             </div>
@@ -96,9 +97,9 @@ export function Materials() {
         );
       })}
       {svc.assistKinds().includes('compare') && rows.length >= 2 ? (
-        <Link className="mat-compare" to={`/mobile/projects/${projectId}/assist?kind=compare`}>Compare materials</Link>
+        <Link className="mat-compare" to={`/mobile/projects/${projectId}/assist?kind=compare`}>{t('Compare materials')}</Link>
       ) : null}
-      {!rows.length && <div className="empty"><h3>No materials shared yet</h3></div>}
+      {!rows.length && <div className="empty"><h3>{t('No materials shared yet')}</h3></div>}
     </Page>
   );
 }
@@ -110,8 +111,8 @@ export function Contacts() {
   const groups = project ? svc.peopleFolder(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page className="sheet-cards" sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name}>
-      <p className="sheet-lead">People in this project.</p>
+    <Page className="sheet-cards" sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('People')} sub={project.name}>
+      <p className="sheet-lead">{t('People in this project.')}</p>
       {groups.filter((g) => g.people.length).map((g) => (
         <section key={g.name}>
           <h2 className="sect">{g.name}</h2>
@@ -127,11 +128,11 @@ export function Contacts() {
                 <div className="person-copy">
                   <b>{u.name}</b>
                   {u.title ? <span>{u.title}</span> : null}
-                  {u.last ? <span className="person-when">Last active {fmtD(u.last)}</span> : null}
+                  {u.last ? <span className="person-when">{t('Last active {0}', fmtD(u.last))}</span> : null}
                   {known ? (
                     <div className="sheet-acts">
-                      {dm ? <Link className="sheet-btn" to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`}>Message</Link> : null}
-                      <a className="sheet-btn quiet" href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>Call</a>
+                      {dm ? <Link className="sheet-btn" to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`}>{t('Message')}</Link> : null}
+                      <a className="sheet-btn quiet" href={`tel:${phoneOf(person).replace(/\s/g, '')}`}>{t('Call')}</a>
                     </div>
                   ) : null}
                 </div>
@@ -140,7 +141,7 @@ export function Contacts() {
           })}
         </section>
       ))}
-      {!groups.some((g) => g.people.length) && <div className="empty"><h3>No people recorded</h3></div>}
+      {!groups.some((g) => g.people.length) && <div className="empty"><h3>{t('No people recorded')}</h3></div>}
     </Page>
   );
 }
@@ -152,10 +153,10 @@ export function Attention() {
   const work = project ? projectNeeds(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Needs attention" sub={project.name}>
-      <Note>Your actions and waiting items for this project. Shared with Today.</Note>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Needs attention')} sub={project.name}>
+      <Note>{t('Your actions and waiting items for this project. Shared with Today.')}</Note>
       {work.map((item) => <WorkRow key={item.key} item={item} onDone={finishTask} />)}
-      {!work.length && <div className="empty"><h3>Nothing needs you here</h3></div>}
+      {!work.length && <div className="empty"><h3>{t('Nothing needs you here')}</h3></div>}
     </Page>
   );
 }
@@ -166,7 +167,7 @@ export function Changes() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}`;
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Project';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Project');
   const project = projectOf(projectId);
   const rows = project ? svc.projectUpdates({ projectId }) : [];
   const pending = project && state.role === 'client'
@@ -184,16 +185,16 @@ export function Changes() {
     render();
   }
   return (
-    <Page className="sheet-cards" sheet back={back} backLabel={backLabel} title="Important changes" sub={project.name}>
-      <p className="sheet-lead">Recorded changes with their original sources.</p>
+    <Page className="sheet-cards" sheet back={back} backLabel={backLabel} title={t('Important changes')} sub={project.name}>
+      <p className="sheet-lead">{t('Recorded changes with their original sources.')}</p>
       {pending.map((c) => (
         <article className="sheet-card" key={c.id}>
-          <div className="sheet-meta"><span className="pill open">Your approval</span><span className="sheet-date">{c.no}</span></div>
+          <div className="sheet-meta"><span className="pill open">{t('Your approval')}</span><span className="sheet-date">{c.no}</span></div>
           <b>{c.title}</b>
           <span className="sheet-detail">{c.reason}</span>
           <div className="sheet-acts">
-            <button type="button" className="sheet-btn" onClick={() => decide(c.id, true)}>Approve</button>
-            <button type="button" className="sheet-btn quiet" onClick={() => decide(c.id, false)}>Decline</button>
+            <button type="button" className="sheet-btn" onClick={() => decide(c.id, true)}>{t('Approve')}</button>
+            <button type="button" className="sheet-btn quiet" onClick={() => decide(c.id, false)}>{t('Decline')}</button>
           </div>
         </article>
       ))}
@@ -211,7 +212,7 @@ export function Changes() {
               ? `/mobile/chats/${siteChat.id}${backQuery}`
               : '';
         const tone = u.kind === 'drawing' ? 'kind' : /short/i.test(u.title) ? 'late' : u.kind === 'delivery' || u.kind === 'approval' ? 'ok' : '';
-        const label = u.kind === 'delivery' ? 'Delivery' : u.kind === 'drawing' ? 'Drawing' : u.kind === 'approval' ? 'Approval' : u.kind === 'answer' ? 'Answer' : u.kind;
+        const label = u.kind === 'delivery' ? t('Delivery') : u.kind === 'drawing' ? t('Drawing') : u.kind === 'approval' ? t('Approval') : u.kind === 'answer' ? t('Answer') : u.kind;
         return (
           <article className="sheet-card" key={u.id}>
             <div className="sheet-meta">
@@ -220,11 +221,11 @@ export function Changes() {
             </div>
             <b>{u.title}</b>
             <span className="sheet-detail">{u.detail}</span>
-            {to ? <Link className="sheet-btn" to={to}>Open source</Link> : <span className="sheet-quiet">No conversation recorded for this.</span>}
+            {to ? <Link className="sheet-btn" to={to}>{t('Open source')}</Link> : <span className="sheet-quiet">{t('No conversation recorded for this.')}</span>}
           </article>
         );
       })}
-      {!rows.length && !pending.length && <div className="empty"><h3>No recorded changes</h3></div>}
+      {!rows.length && !pending.length && <div className="empty"><h3>{t('No recorded changes')}</h3></div>}
     </Page>
   );
 }
@@ -235,7 +236,7 @@ export function Refs() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}`;
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Project';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Project');
   const project = projectOf(projectId);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -248,32 +249,32 @@ export function Refs() {
       svc.addClientRef({ projectId, url, title });
       setUrl(''); setTitle(''); setError('');
       render();
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(t(err.message)); }
   }
   return (
-    <Page className="sheet-cards" sheet back={back} backLabel={backLabel} title="References" sub={project.name}>
-      <p className="sheet-lead">Client references and inspiration links.</p>
+    <Page className="sheet-cards" sheet back={back} backLabel={backLabel} title={t('References')} sub={project.name}>
+      <p className="sheet-lead">{t('Client references and inspiration links.')}</p>
       {rows.map((r) => (
         <article className="sheet-card" key={r.id}>
           <b>{r.title || r.url}</b>
           <span className="sheet-detail">{r.src}{r.room ? ` · ${r.room}` : ''}</span>
           <div className="sheet-acts">
-            <a className="sheet-btn" href={r.url} target="_blank" rel="noopener noreferrer">Open</a>
+            <a className="sheet-btn" href={r.url} target="_blank" rel="noopener noreferrer">{t('Open')}</a>
             {state.role !== 'client' && !r.promoted && can('moodboard', 'w') ? (
-              <button type="button" className="sheet-btn quiet" onClick={() => { svc.promoteRef(r.id); render(); }}>Moodboard</button>
-            ) : r.promoted ? <span className="pill ok">On moodboard</span> : null}
+              <button type="button" className="sheet-btn quiet" onClick={() => { svc.promoteRef(r.id); render(); }}>{t('Moodboard')}</button>
+            ) : r.promoted ? <span className="pill ok">{t('On moodboard')}</span> : null}
           </div>
         </article>
       ))}
       {can('ref', 'w') && (
         <form className="stack sheet-form" onSubmit={add}>
-          <label>Link<input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" aria-label="Link" /></label>
-          <label>Title<input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" /></label>
+          <label>{t('Link')}<input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" aria-label={t('Link')} /></label>
+          <label>{t('Title')}<input value={title} onChange={(e) => setTitle(e.target.value)} aria-label={t('Title')} /></label>
           {error ? <p className="warn-text">{error}</p> : null}
-          <button className="sheet-submit" type="submit">Add a link</button>
+          <button className="sheet-submit" type="submit">{t('Add a link')}</button>
         </form>
       )}
-      {!rows.length && <div className="empty"><h3>No references saved yet</h3></div>}
+      {!rows.length && <div className="empty"><h3>{t('No references saved yet')}</h3></div>}
     </Page>
   );
 }
@@ -287,7 +288,7 @@ export function Intake() {
   const rows = project ? svc.intake(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Client data checklist" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Client data checklist')} sub={project.name}>
       {rows.map((i) => (
         <div className="row" key={i.id}>
           <span className="row-copy">
@@ -296,21 +297,21 @@ export function Intake() {
           </span>
           <span className="chip-status">{i.status}</span>
           {i.status === 'missing' && can('intake', 'w') ? (
-            <button type="button" className="text-btn" onClick={() => { try { svc.askIntake(i.id); render(); } catch (err) { setError(err.message); } }}>Ask client</button>
+            <button type="button" className="text-btn" onClick={() => { try { svc.askIntake(i.id); render(); } catch (err) { setError(t(err.message)); } }}>{t('Ask client')}</button>
           ) : null}
           {state.role === 'client' && i.status !== 'received' ? (
-            <button type="button" className="text-btn" onClick={() => { svc.receiveIntake(i.id, 'Uploaded from phone'); render(); }}>Upload</button>
+            <button type="button" className="text-btn" onClick={() => { svc.receiveIntake(i.id, 'Uploaded from phone'); render(); }}>{t('Upload')}</button>
           ) : null}
         </div>
       ))}
       {error ? <p className="warn-text">{error}</p> : null}
       {can('intake', 'w') && (
-        <form className="stack" onSubmit={(e) => { e.preventDefault(); try { svc.addIntake(projectId, item); setItem(''); render(); } catch (err) { setError(err.message); } }}>
-          <label>New item<input value={item} onChange={(e) => setItem(e.target.value)} aria-label="Checklist item" /></label>
-          <button className="primary" type="submit">Add item</button>
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); try { svc.addIntake(projectId, item); setItem(''); render(); } catch (err) { setError(t(err.message)); } }}>
+          <label>{t('New item')}<input value={item} onChange={(e) => setItem(e.target.value)} aria-label={t('Checklist item')} /></label>
+          <button className="primary" type="submit">{t('Add item')}</button>
         </form>
       )}
-      {!rows.length && <div className="empty"><h3>No checklist items yet</h3></div>}
+      {!rows.length && <div className="empty"><h3>{t('No checklist items yet')}</h3></div>}
     </Page>
   );
 }
@@ -325,8 +326,8 @@ export function DrawingIndex() {
   const stages = [...new Set(rows.map((r) => r.stage))];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page className="sheet-cards" sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Drawing index" sub={project.name}>
-      <p className="sheet-lead">Planned sheets per stage. Struck through once finalised.</p>
+    <Page className="sheet-cards" sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Drawing index')} sub={project.name}>
+      <p className="sheet-lead">{t('Planned sheets per stage. Struck through once finalised.')}</p>
       {stages.map((stage) => (
         <section key={stage}>
           <h2 className="sect">{stage}</h2>
@@ -337,9 +338,9 @@ export function DrawingIndex() {
               {r.done ? <span className="pill ok">{r.how}</span> : null}
               {!r.done && can('drawing', 'w') ? (
                 <button type="button" className="sheet-btn" onClick={() => {
-                  if (!reason.trim()) { setError('Say why this is finalised.'); return; }
-                  try { svc.finaliseDrawing(r.id, reason.trim()); setError(''); render(); } catch (err) { setError(err.message); }
-                }}>Finalise</button>
+                  if (!reason.trim()) { setError(t('Say why this is finalised.')); return; }
+                  try { svc.finaliseDrawing(r.id, reason.trim()); setError(''); render(); } catch (err) { setError(t(err.message)); }
+                }}>{t('Finalise')}</button>
               ) : null}
             </article>
           ))}
@@ -347,11 +348,11 @@ export function DrawingIndex() {
       ))}
       {can('drawing', 'w') && (
         <form className="stack sheet-form" onSubmit={(e) => e.preventDefault()}>
-          <label>Reason when you finalise<input value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Finalise reason" /></label>
+          <label>{t('Reason when you finalise')}<input value={reason} onChange={(e) => setReason(e.target.value)} aria-label={t('Finalise reason')} /></label>
         </form>
       )}
       {error ? <p className="warn-text">{error}</p> : null}
-      {!rows.length && <div className="empty"><h3>No drawing index yet</h3></div>}
+      {!rows.length && <div className="empty"><h3>{t('No drawing index yet')}</h3></div>}
     </Page>
   );
 }
@@ -362,7 +363,7 @@ export function Drawing() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}/drawings`;
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Drawings';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Drawings');
   const no = decodeURIComponent(drawingNo || '');
   const project = projectOf(projectId);
   const drawing = (project?.drawings || []).find((d) => d.no === no);
@@ -376,19 +377,19 @@ export function Drawing() {
   if (!project || !drawing) return <Missing id={projectId} />;
   return (
     <Page sheet back={back} backLabel={backLabel} title={drawing.name} sub={project.name}>
-      <Note>Check the revision and purpose before anyone builds from it. This demo does not attach the original file.</Note>
+      <Note>{t('Check the revision and purpose before anyone builds from it. This demo does not attach the original file.')}</Note>
       <article className="view-card">
         <span className="rev">{drawing.rev}</span>
         <b>{drawing.no}</b>
-        <em className={drawing.status === 'Issued for construction' ? 'issued' : ''}>{drawing.status || 'Purpose not recorded'}</em>
-        <p>{drawing.date ? `Dated ${fmtD(drawing.date)}` : 'Date not recorded'}{drawing.by ? ` · ${firstName(drawing.by)}` : ''}</p>
+        <em className={drawing.status === 'Issued for construction' ? 'issued' : ''}>{drawing.status || t('Purpose not recorded')}</em>
+        <p>{drawing.date ? t('Dated {0}', fmtD(drawing.date)) : t('Date not recorded')}{drawing.by ? ` · ${firstName(drawing.by)}` : ''}</p>
         <button type="button" className="text-btn" onClick={() => { rememberPhoneDrawing(projectId, drawing.no, true); render(); }}>
-          {saved ? 'Saved on this phone' : 'Save on this phone'}
+          {saved ? t('Saved on this phone') : t('Save on this phone')}
         </button>
       </article>
       {related.length > 0 && (
         <section>
-          <h2 className="sect">Open on this sheet</h2>
+          <h2 className="sect">{t('Open on this sheet')}</h2>
           {related.map((issue) => (
             <Link key={issue.id} className="row" to={`/mobile/issues/${issue.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}${from ? `?from=${encodeURIComponent(from)}` : ''}`)}`}>
               <span className="row-copy"><b>{issue.title}</b><span>{issue.status}</span></span>
@@ -399,7 +400,7 @@ export function Drawing() {
       )}
       {svc.assistKinds().includes('ask') && (
         <Link className="day-row" to={`/mobile/projects/${projectId}/assist?kind=ask&drawing=${encodeURIComponent(drawing.no)}&q=${encodeURIComponent(`What is open on drawing ${drawing.no}?`)}&from=${encodeURIComponent(`/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}${from ? `?from=${encodeURIComponent(from)}` : ''}`)}`}>
-          <b>Ask about this sheet</b>
+          <b>{t('Ask about this sheet')}</b>
           <span>{drawing.no}</span>
         </Link>
       )}
@@ -417,24 +418,24 @@ export function Share() {
   const links = project ? svc.shareLinks(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Share a link" sub={project.name}>
-      <Note>An expiring web link. Anyone with the link can view until it expires.</Note>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Share a link')} sub={project.name}>
+      <Note>{t('An expiring web link. Anyone with the link can view until it expires.')}</Note>
       {can('share', 'w') && (
         <form className="stack" onSubmit={(e) => {
           e.preventDefault();
           try { setMade(svc.createShare({ projectId, label, days: 7 })); setError(''); render(); }
-          catch (err) { setError(err.message); }
+          catch (err) { setError(t(err.message)); }
         }}>
-          <label>What you are sharing<input value={label} onChange={(e) => setLabel(e.target.value)} aria-label="Share label" /></label>
-          <button className="primary" type="submit">Create a 7-day link</button>
+          <label>{t('What you are sharing')}<input value={label} onChange={(e) => setLabel(e.target.value)} aria-label={t('Share label')} /></label>
+          <button className="primary" type="submit">{t('Create a 7-day link')}</button>
         </form>
       )}
       {error ? <p className="warn-text">{error}</p> : null}
-      {made ? <p className="note">Link ready until {fmtD(made.expires)} · {svc.shareUrl(made)}</p> : null}
+      {made ? <p className="note">{t('Link ready until {0} · {1}', fmtD(made.expires), svc.shareUrl(made))}</p> : null}
       {links.map((l) => (
         <div className="row" key={l.id}>
-          <span className="row-copy"><b>{l.label}</b><span>{l.status} · until {fmtD(l.expires)} · {l.views} views</span></span>
-          {l.status === 'active' ? <button type="button" className="text-btn" onClick={() => { try { svc.revokeShare(l.id); render(); } catch (err) { setError(err.message); } }}>Revoke</button> : null}
+          <span className="row-copy"><b>{l.label}</b><span>{t('{0} · until {1} · {2} views', l.status, fmtD(l.expires), l.views)}</span></span>
+          {l.status === 'active' ? <button type="button" className="text-btn" onClick={() => { try { svc.revokeShare(l.id); render(); } catch (err) { setError(t(err.message)); } }}>{t('Revoke')}</button> : null}
         </div>
       ))}
     </Page>

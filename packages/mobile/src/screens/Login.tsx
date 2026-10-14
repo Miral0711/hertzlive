@@ -6,6 +6,7 @@ import { DEMO_ACCOUNTS } from '../../../frontend/src/auth/demoAccounts';
 import { hydrateSessionIntoState } from '../../../frontend/src/desktop/session';
 import { useNavigate, useLocation } from '../platform/router';
 import { useStyles } from '../platform/theme';
+import { t } from '../../../frontend/src/shared/i18n';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function Login() {
       hydrateSessionIntoState(session);
       navigate(nav?.from || '/mobile/chats', { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Unable to sign in.');
+      setError(t(err.message) || t('Unable to sign in.'));
     } finally {
       setPending(false);
     }
@@ -56,14 +57,14 @@ export default function Login() {
     <KeyboardAvoidingView style={s.stage} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <Text style={s.brand}>Hertz</Text>
-        <Text style={s.studio}>Studio</Text>
-        <Text style={s.tag}>Design, site and studio in one place.</Text>
+        <Text style={s.studio}>{t('Studio')}</Text>
+        <Text style={s.tag}>{t('Design, site and studio in one place.')}</Text>
         <View style={s.card}>
-          <Text style={s.h2}>Welcome back</Text>
-          <Text style={s.sub}>Sign in to continue to Hertz Studio.</Text>
+          <Text style={s.h2}>{t('Welcome back')}</Text>
+          <Text style={s.sub}>{t('Sign in to continue to Hertz Studio.')}</Text>
           {error ? <View style={s.alert} accessibilityRole="alert"><Text style={s.alertText}>{error}</Text></View> : null}
 
-          <Text style={s.label}>Account</Text>
+          <Text style={s.label}>{t('Account')}</Text>
           <Pressable style={s.field} onPress={() => setPicking((v) => !v)}>
             <Text style={s.fieldText}>{label}</Text>
           </Pressable>
@@ -77,15 +78,15 @@ export default function Login() {
             </View>
           )}
 
-          <Text style={s.label}>Password</Text>
+          <Text style={s.label}>{t('Password')}</Text>
           <TextInput
             style={[s.field, s.fieldText]} secureTextEntry value={password} onChangeText={setPassword}
             autoCapitalize="none" autoComplete="current-password" onSubmitEditing={submit}
           />
           <Pressable style={[s.btn, pending && { opacity: 0.6 }]} onPress={submit} disabled={pending}>
-            {pending ? <ActivityIndicator /> : <Text style={s.btnText}>Sign in</Text>}
+            {pending ? <ActivityIndicator /> : <Text style={s.btnText}>{t('Sign in')}</Text>}
           </Pressable>
-          <Text style={s.foot}>Prototype login · demo accounts, password "password"</Text>
+          <Text style={s.foot}>{t('Prototype login · demo accounts, password "password"')}</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -6,6 +6,7 @@ import { backName } from './frame';
 import { Avatar } from './faces';
 import { me, staff, state, svc, can } from './model';
 import { logout } from '../desktop/session';
+import { t, getLang } from '../shared/i18n';
 
 const ORIGIN = 'field-profile-from';
 
@@ -26,7 +27,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const from = params.get('from');
-  const lang = sessionStorage.getItem('field-lang') || 'English';
+  const lang = getLang();
   const look = { system: 'Phone', light: 'Light', dark: 'Dark' }[state.theme] || 'Phone';
   const stored = sessionStorage.getItem(ORIGIN);
   const back = from && from.startsWith('/mobile/') ? from : (stored && stored.startsWith('/mobile/') ? stored : '/mobile/chats');
@@ -40,11 +41,11 @@ export default function Profile() {
   return (
     <div className="screen">
       <header className="top thread-top proj-top">
-        <Link className="icon-btn" to={back} aria-label={`Back to ${backName(back)}`}>
+        <Link className="icon-btn" to={back} aria-label={t('Back to {0}', backName(back))}>
           <Icon name="back" />
         </Link>
         <div className="thread-heading">
-          <h1>Profile</h1>
+          <h1>{t('Profile')}</h1>
         </div>
       </header>
       <div className="body canvas proj profile hub">
@@ -56,28 +57,28 @@ export default function Profile() {
           </div>
         </div>
         <section>
-          <h2 className="sect">This phone</h2>
+          <h2 className="sect">{t('This phone')}</h2>
           {staff() && (
-            <Row to="/mobile/punches" title="This month" detail={`${svc.punches().late} late · ${svc.punches().hours}h`} value={`${svc.punches().days} days`} />
+            <Row to="/mobile/punches" title={t('This month')} detail={t('{0} late · {1}h', svc.punches().late, svc.punches().hours)} value={t('{0} days', svc.punches().days)} />
           )}
           {staff() && can('performance', 'r') && (
-            <Row to="/mobile/performance" title="My performance" detail="Score, goals and recognition for this quarter" />
+            <Row to="/mobile/performance" title={t('My performance')} detail={t('Score, goals and recognition for this quarter')} />
           )}
-          <Row to="/mobile/appearance" title="Appearance" detail={look === 'Phone' ? 'Follows this phone' : 'Chosen on this phone'} value={look} />
-          <Row to="/mobile/language" title="Language" detail="Menus only" value={lang} />
+          <Row to="/mobile/appearance" title={t('Appearance')} detail={look === 'Phone' ? t('Follows this phone') : t('Chosen on this phone')} value={t(look)} />
+          <Row to="/mobile/language" title={t('Language')} detail={t('Menus only')} value={lang} />
         </section>
 
         <section>
-          <h2 className="sect">Studio</h2>
-          <Row to="/mobile/people" title="People and contractors" detail="Phone numbers, one tap to call" />
-          <Row to="/mobile/holidays" title={staff() ? 'Holidays and my leave' : 'Holidays'} detail="Office closed days" />
-          {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? 'Book a meeting' : 'Book a room'} detail="Pick a day and time" />}
-          {state.role === 'partner' && <Row to="/mobile/notice" title="Notice to everyone" detail="One message, every project chat" />}
-          {staff() && can('review', 'r') && <Row to="/mobile/reviews" title="My reviews" detail="Monthly score, strengths and growth" />}
+          <h2 className="sect">{t('Studio')}</h2>
+          <Row to="/mobile/people" title={t('People and contractors')} detail={t('Phone numbers, one tap to call')} />
+          <Row to="/mobile/holidays" title={staff() ? t('Holidays and my leave') : t('Holidays')} detail={t('Office closed days')} />
+          {can('booking', 'w') && <Row to={bookTo} title={state.role === 'client' ? t('Book a meeting') : t('Book a room')} detail={t('Pick a day and time')} />}
+          {state.role === 'partner' && <Row to="/mobile/notice" title={t('Notice to everyone')} detail={t('One message, every project chat')} />}
+          {staff() && can('review', 'r') && <Row to="/mobile/reviews" title={t('My reviews')} detail={t('Monthly score, strengths and growth')} />}
         </section>
 
         <section>
-          <Row title="Sign out" detail="Return to the phone sign-in" onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
+          <Row title={t('Sign out')} detail={t('Return to the phone sign-in')} onClick={() => { logout(); navigate('/mobile/login', { replace: true }); }} />
         </section>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { AttachmentPreview } from './media';
 import {
   assistAllowed, assistTitles, saveDesktopAssist, forgetDesktopAssist,
 } from './assistCore';
+import { t } from '../../shared/i18n';
 
 export const AiNote = ({ children }) => <p className="my-2 text-xs italic text-ink-3">{children}</p>;
 const fieldset = 'my-4 max-h-[300px] overflow-auto rounded-r1 border border-line p-3';
@@ -15,7 +16,7 @@ function Unavailable({ title, children }) {
   return (
     <Modal title={title}>
       {children}
-      <ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions>
+      <ModalActions><Btn onClick={closeDialog}>{t('Close')}</Btn></ModalActions>
     </Modal>
   );
 }
@@ -23,14 +24,14 @@ function Unavailable({ title, children }) {
 function Sources({ result }) {
   return (result.sources || []).map((source, i) => {
     const safe = svc.assistSource(source);
-    if (!safe) return <li key={i} className="my-3">Source no longer available. Generate a fresh draft.</li>;
+    if (!safe) return <li key={i} className="my-3">{t('Source no longer available. Generate a fresh draft.')}</li>;
     return (
       <li key={i} className="my-3 [overflow-wrap:anywhere]">
         <b>{safe.label || source.label}</b>{' '}
         {safe.type === 'message' ? (
-          <Btn sm onClick={() => viewSource(safe.id)}>View source</Btn>
+          <Btn sm onClick={() => viewSource(safe.id)}>{t('View source')}</Btn>
         ) : (
-          <p className="whitespace-pre-wrap text-[13px]">{safe.text || 'Recorded source'}</p>
+          <p className="whitespace-pre-wrap text-[13px]">{safe.text || t('Recorded source')}</p>
         )}
       </li>
     );
@@ -94,11 +95,11 @@ async function submit(e, d) {
       } else return;
       forgetDesktopAssist(d);
       if (state.desk.dialog === d) state.desk.dialog = null;
-      toast(d.assist === 'followup' ? 'Follow-up confirmed. Source conversation stays linked.' : 'Reviewed draft sent to the named conversation.');
+      toast(d.assist === 'followup' ? t('Follow-up confirmed. Source conversation stays linked.') : t('Reviewed draft sent to the named conversation.'));
       return;
     }
   } catch (error) {
-    if (d.requestId === requestId) d.error = error.message || 'Could not complete this step. Your draft is kept.';
+    if (d.requestId === requestId) d.error = error.message || t('Could not complete this step. Your draft is kept.');
   } finally {
     if (d.requestId === requestId) {
       d.busy = false;
@@ -144,26 +145,26 @@ function Palette({ c }) {
   );
 }
 
-const statusText = (s) => (s === 'client_pending' ? 'Awaiting client' : String(s || 'Not recorded').replaceAll('_', ' '));
+const statusText = (s) => (s === 'client_pending' ? t('Awaiting client') : s ? String(s).replaceAll('_', ' ') : t('Not recorded'));
 
 export default function AssistDialog({ d }) {
   if (d.userId !== state.userId || d.role !== role() || !assistAllowed(d.assist)) {
-    return <Unavailable title="Helper unavailable" />;
+    return <Unavailable title={t('Helper unavailable')} />;
   }
   const o = d.options, f = d.fields, projectAsk = d.assist === 'ask' && !o.issueId;
   if (o.issueId && (!svc.project(o.projectId) || svc.siteIssueDetails(o.issueId)?.issue.projectId !== o.projectId)) {
-    return <Unavailable title="Issue unavailable" />;
+    return <Unavailable title={t('Issue unavailable')} />;
   }
-  const title = o.issueId ? 'Review issue brief' : assistTitles[d.assist];
+  const title = o.issueId ? t('Review issue brief') : t(assistTitles[d.assist]);
   const sourceLost = d.result?.sources?.some((source) => !svc.assistSource(source));
   const r = projectAsk && sourceLost ? null : d.result;
   if (sourceLost && !projectAsk) {
     return (
-      <Modal title="Sources unavailable" wide label={title}>
-        <p>Your draft is retained, but its contents cannot be displayed while a source is outside your access or removed. Choose available sources and generate a fresh draft.</p>
+      <Modal title={t('Sources unavailable')} wide label={title}>
+        <p>{t('Your draft is retained, but its contents cannot be displayed while a source is outside your access or removed. Choose available sources and generate a fresh draft.')}</p>
         <ModalActions>
-          <Btn onClick={closeDialog}>Keep draft and close</Btn>
-          <Btn onClick={() => revise(d)}>Change sources</Btn>
+          <Btn onClick={closeDialog}>{t('Keep draft and close')}</Btn>
+          <Btn onClick={() => revise(d)}>{t('Change sources')}</Btn>
         </ModalActions>
       </Modal>
     );
@@ -175,15 +176,15 @@ export default function AssistDialog({ d }) {
 
   let controls = null;
   if (!r) {
-    if (d.assist === 'daily') controls = textField('date', 'Report date', 'date');
-    if (d.assist === 'ask' && o.issueId) controls = <p>{svc.project(o.projectId)?.name} · selected issue only</p>;
+    if (d.assist === 'daily') controls = textField('date', t('Report date'), 'date');
+    if (d.assist === 'ask' && o.issueId) controls = <p>{t('{0} · selected issue only', svc.project(o.projectId)?.name)}</p>;
     if (d.assist === 'client') {
       const ts = svc.threads().filter((t) => t.projectId === o.projectId && t.kind === 'client');
       const tid = f.threadId || ts[0]?.id;
       const msgs = (tid ? svc.messages(tid) : []).filter((m) => !m.deleted && !m.pending && !m.assistDraft && (m.text || m.transcript));
       controls = (
         <>
-          <Field label="Recipient conversation">
+          <Field label={t('Recipient conversation')}>
             <Select
               data-assist-field="threadId"
               name="threadId"
@@ -193,9 +194,9 @@ export default function AssistDialog({ d }) {
               {ts.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
           </Field>
-          <p>Choose facts already shared in this client conversation. Private site and office messages are excluded.</p>
+          <p>{t('Choose facts already shared in this client conversation. Private site and office messages are excluded.')}</p>
           <fieldset key={tid} className={fieldset}>
-            <legend className="px-1">Include these source messages</legend>
+            <legend className="px-1">{t('Include these source messages')}</legend>
             {msgs.map((m) => (
               <label key={m.id} className="flex items-start gap-2.5 py-2.5 leading-normal">
                 <input
@@ -208,7 +209,7 @@ export default function AssistDialog({ d }) {
                 </span>
               </label>
             ))}
-            {!msgs.length && <p>No eligible client-visible facts available.</p>}
+            {!msgs.length && <p>{t('No eligible client-visible facts available.')}</p>}
           </fieldset>
         </>
       );
@@ -217,17 +218,17 @@ export default function AssistDialog({ d }) {
       const mats = svc.materials({ projectId: o.projectId });
       controls = (
         <fieldset className={fieldset}>
-          <legend className="px-1">Choose 2 or 3 materials from this project</legend>
+          <legend className="px-1">{t('Choose 2 or 3 materials from this project')}</legend>
           {mats.map((m) => (
             <label key={m.id} className="flex items-start gap-2.5 py-2.5 leading-normal">
               <input
                 type="checkbox" name="materialIds" value={m.id} data-assist-choice="materialIds"
                 defaultChecked={(f.materialIds || []).includes(m.id)} className="mt-1 h-[18px] w-[18px] flex-none accent-[var(--accent)]"
               />
-              <span>{m.name} · {m.vendor || 'Vendor not recorded'}</span>
+              <span>{m.name} · {m.vendor || t('Vendor not recorded')}</span>
             </label>
           ))}
-          {!mats.length && <p>No materials available for comparison.</p>}
+          {!mats.length && <p>{t('No materials available for comparison.')}</p>}
         </fieldset>
       );
     }
@@ -235,10 +236,10 @@ export default function AssistDialog({ d }) {
       const m = accessibleMessage(o.messageId);
       controls = m ? (
         <>
-          <blockquote className="my-2 border-l-[3px] border-accent bg-surface-2 px-3 py-2.5">{m.text || m.transcript || 'Photo update'}</blockquote>
+          <blockquote className="my-2 border-l-[3px] border-accent bg-surface-2 px-3 py-2.5">{m.text || m.transcript || t('Photo update')}</blockquote>
           {d.assist === 'concept' && <AttachmentPreview m={m} />}
         </>
-      ) : <p>Source unavailable.</p>;
+      ) : <p>{t('Source unavailable.')}</p>;
     }
   } else {
     const srcMsg = d.assist === 'concept' ? accessibleMessage(o.messageId) : null;
@@ -252,7 +253,7 @@ export default function AssistDialog({ d }) {
         )}
         {r.concepts && (
           <>
-            <p>Original photo context retained in Sources below. These are example colour palettes, not generated room images or verified construction options.</p>
+            <p>{t('Original photo context retained in Sources below. These are example colour palettes, not generated room images or verified construction options.')}</p>
             <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
               {r.concepts.map((c, i) => <Palette key={i} c={c} />)}
             </div>
@@ -260,62 +261,62 @@ export default function AssistDialog({ d }) {
         )}
         {['daily', 'client'].includes(d.assist) && (
           <>
-            <Field label="Review and edit before sending">
+            <Field label={t('Review and edit before sending')}>
               <Textarea name="text" data-assist-field="text" rows={10} maxLength={12000} defaultValue={f.text ?? r.text} />
             </Field>
-            <p><b>Recipient: {svc.thread(r.destinationThreadId)?.name || 'Unavailable'}</b></p>
+            <p><b>{t('Recipient:')}{' '}{svc.thread(r.destinationThreadId)?.name || t('Unavailable')}</b></p>
           </>
         )}
         {d.assist === 'followup' && (
           <>
-            {textField('title', 'Follow-up title', 'text', f.title ?? r.proposal.title)}
-            <Field label="Responsible person">
+            {textField('title', t('Follow-up title'), 'text', f.title ?? r.proposal.title)}
+            <Field label={t('Responsible person')}>
               <Select name="owner" data-assist-field="owner" defaultValue={f.owner || ''}>
-                <option value="">Choose a person</option>
+                <option value="">{t('Choose a person')}</option>
                 {r.proposal.owners.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </Select>
             </Field>
-            {textField('due', 'Needed by', 'date')}
+            {textField('due', t('Needed by'), 'date')}
           </>
         )}
         {d.assist !== 'followup' && !['daily', 'client'].includes(d.assist) && o.issueId && (
           <>
-            <Field label="Brief · edit before using">
+            <Field label={t('Brief · edit before using')}>
               <Textarea name="text" data-assist-field="text" rows={8} defaultValue={f.text ?? r.text} />
             </Field>
-            <p className="text-ink-3">Private draft on this browser. Nothing sent or approved.</p>
+            <p className="text-ink-3">{t('Private draft on this browser. Nothing sent or approved.')}</p>
           </>
         )}
         {!['daily', 'client', 'followup', 'compare', 'concept'].includes(d.assist) && !o.issueId && (
           <>
-            {projectAsk && <p className="text-ink-3">Answer to: {o.question}</p>}
+            {projectAsk && <p className="text-ink-3">{t('Answer to: {0}', o.question)}</p>}
             <p className="whitespace-pre-wrap leading-relaxed">{r.text}</p>
           </>
         )}
         <details className="mt-4 border-t border-line pt-3">
-          <summary className="cursor-pointer font-semibold">Sources · {r.sources.length}</summary>
+          <summary className="cursor-pointer font-semibold">{t('Sources · {0}', r.sources.length)}</summary>
           <ul className="list-none p-0"><Sources result={r} /></ul>
           {srcMsg && <AttachmentPreview m={srcMsg} />}
         </details>
-        {r.missing.length > 0 && <p><b>Check before using:</b> {r.missing.join(' · ')}</p>}
-        {r.conflicts.length > 0 && <p role="alert"><b>Check conflicting records:</b> {r.conflicts.join(' · ')}</p>}
+        {r.missing.length > 0 && <p><b>{t('Check before using:')}</b> {r.missing.join(' · ')}</p>}
+        {r.conflicts.length > 0 && <p role="alert"><b>{t('Check conflicting records:')}</b> {r.conflicts.join(' · ')}</p>}
       </>
     );
   }
 
   const primary = !r || projectAsk
-    ? { label: d.busy ? 'Preparing…' : projectAsk ? 'Find answer' : o.issueId ? 'Prepare issue brief' : 'Generate draft', off: d.busy }
+    ? { label: d.busy ? t('Preparing…') : projectAsk ? t('Find answer') : o.issueId ? t('Prepare issue brief') : t('Generate draft'), off: d.busy }
     : ['daily', 'client', 'followup'].includes(d.assist)
-      ? { label: d.busy ? 'Saving…' : d.assist === 'followup' ? 'Confirm follow-up' : 'Send reviewed draft', off: d.busy || sourceLost }
+      ? { label: d.busy ? t('Saving…') : d.assist === 'followup' ? t('Confirm follow-up') : t('Send reviewed draft'), off: d.busy || sourceLost }
       : null;
-  const errorText = d.error || (sourceLost ? 'The previous answer is no longer available. Ask again using records you can access.' : '');
+  const errorText = t(d.error || (sourceLost ? t('The previous answer is no longer available. Ask again using records you can access.') : ''));
 
   return (
     <Modal title={title} wide label={title}>
       <form onSubmit={(e) => submit(e, d)} onInput={(e) => onFormInput(e, d)}>
-        <AiNote>AI suggestion · demo. Uses recorded sources; nothing is sent or assigned automatically.</AiNote>
+        <AiNote>{t('AI suggestion · demo. Uses recorded sources; nothing is sent or assigned automatically.')}</AiNote>
         {projectAsk && (
-          <Field label="Your question">
+          <Field label={t('Your question')}>
             <Textarea name="question" data-assist-field="question" rows={2} maxLength={500} required defaultValue={f.question ?? o.question ?? ''} />
           </Field>
         )}
@@ -323,11 +324,11 @@ export default function AssistDialog({ d }) {
         <p role="status" className="min-h-[1em] text-xs text-ink-3">{d.saveError || ''}</p>
         {errorText && <p role="alert" className="rounded-r1 bg-warn-soft px-3 py-2 font-medium text-warn">{errorText}</p>}
         <ModalActions>
-          <Btn onClick={closeDialog}>{r ? 'Keep draft and close' : 'Close'}</Btn>
+          <Btn onClick={closeDialog}>{r ? t('Keep draft and close') : t('Close')}</Btn>
           {r && !projectAsk && (
             <>
-              {d.assist === 'daily' && <Btn onClick={() => window.print()}>Print / save PDF</Btn>}
-              <Btn onClick={() => revise(d)}>{o.issueId ? 'Prepare a new brief' : 'Change sources'}</Btn>
+              {d.assist === 'daily' && <Btn onClick={() => window.print()}>{t('Print / save PDF')}</Btn>}
+              <Btn onClick={() => revise(d)}>{o.issueId ? t('Prepare a new brief') : t('Change sources')}</Btn>
             </>
           )}
           {primary && <Btn kind="primary" type="submit" disabled={primary.off}>{primary.label}</Btn>}
@@ -342,9 +343,9 @@ export function AssistSourceDialog({ d }) {
   const allowed = d.draft.userId === state.userId && d.draft.role === role() && svc.siteIssueDetails(d.draft.options.issueId);
   const ok = allowed && m;
   return (
-    <Modal title={ok ? m.label : 'Source unavailable'}>
+    <Modal title={ok ? m.label : t('Source unavailable')}>
       {ok && <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>}
-      <ModalActions><Btn onClick={closeDialog}>Back to brief</Btn></ModalActions>
+      <ModalActions><Btn onClick={closeDialog}>{t('Back to brief')}</Btn></ModalActions>
     </Modal>
   );
 }

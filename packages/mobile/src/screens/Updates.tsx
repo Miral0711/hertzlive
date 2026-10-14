@@ -8,18 +8,18 @@ import { Link } from '../platform/router';
 import { useStyles } from '../platform/theme';
 import { updates, fmtD, me, projectName, useStore, t } from '../store';
 
-const KIND: Record<string, string> = {
-  decision: 'Decision',
-  issue: 'Issue',
-  answer: 'Office answer',
-  approval: 'Approval',
-  drawing: 'Drawing',
-  delivery: 'Delivery',
-  site: 'Site',
-  client: 'Client',
-  enquiry: 'Enquiry',
-  people: 'People',
-};
+const KIND = (): Record<string, string> => ({
+  decision: t('Decision'),
+  issue: t('Issue'),
+  answer: t('Office answer'),
+  approval: t('Approval'),
+  drawing: t('Drawing'),
+  delivery: t('Delivery'),
+  site: t('Site'),
+  client: t('Client'),
+  enquiry: t('Enquiry'),
+  people: t('People'),
+});
 
 export default function Updates() {
   useStore();
@@ -32,7 +32,7 @@ export default function Updates() {
   const shown = list.filter((item) => {
     if (kind !== 'all' && item.kind !== kind) return false;
     if (!q) return true;
-    return [item.title, item.detail, item.projectId ? projectName(item.projectId) : '', KIND[item.kind] || item.kind]
+    return [item.title, item.detail, item.projectId ? projectName(item.projectId) : '', KIND()[item.kind] || item.kind]
       .join(' ').toLowerCase().includes(q);
   });
   const groups: { key: string; title: string; items: any[] }[] = [];
@@ -41,7 +41,7 @@ export default function Updates() {
     const key = item.projectId || 'studio';
     if (!seen.has(key)) {
       seen.set(key, groups.length);
-      groups.push({ key, title: item.projectId ? projectName(item.projectId) : 'Studio', items: [] });
+      groups.push({ key, title: item.projectId ? projectName(item.projectId) : t('Studio'), items: [] });
     }
     groups[seen.get(key)!].items.push(item);
   });
@@ -73,23 +73,23 @@ export default function Updates() {
         <Text style={[s.h1, { flex: 1 }]} numberOfLines={2}>
           {t('updates')}
           {'\n'}
-          <Text style={s.h1sub}>What changed in your projects</Text>
+          <Text style={s.h1sub}>{t('What changed in your projects')}</Text>
         </Text>
-        <Link to="/mobile/profile?from=%2Fmobile%2Fupdates" accessibilityLabel="Profile"><Avatar person={person} size="sm" /></Link>
+        <Link to="/mobile/profile?from=%2Fmobile%2Fupdates" accessibilityLabel={t('Profile')}><Avatar person={person} size="sm" /></Link>
       </TopBar>
       <ScrollView style={s.body} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <Text style={s.note}>The record of what already changed. Work that needs you stays on Today.</Text>
+        <Text style={s.note}>{t('The record of what already changed. Work that needs you stays on Today.')}</Text>
         {list.length > 6 && (
           <View style={s.search}>
             <Icon name="search" size={18} />
-            <TextInput style={s.input} value={query} onChangeText={setQuery} autoCapitalize="none" placeholder="Search updates" accessibilityLabel="Search updates" />
+            <TextInput style={s.input} value={query} onChangeText={setQuery} autoCapitalize="none" placeholder={t('Search updates')} accessibilityLabel={t('Search updates')} />
           </View>
         )}
         {kinds.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.kinds} contentContainerStyle={s.kindsContent} accessibilityRole="tablist" accessibilityLabel="Update type">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.kinds} contentContainerStyle={s.kindsContent} accessibilityRole="tablist" accessibilityLabel={t('Update type')}>
             {['all', ...kinds].map((item) => (
               <Pressable key={item} style={[s.kind, kind === item && s.kindOn]} onPress={() => setKind(item)} accessibilityRole="tab" accessibilityState={{ selected: kind === item }}>
-                <Text style={[s.kindT, kind === item && s.kindTOn]}>{item === 'all' ? 'All' : KIND[item] || item}</Text>
+                <Text style={[s.kindT, kind === item && s.kindTOn]}>{item === 'all' ? t('All') : KIND()[item] || item}</Text>
               </Pressable>
             ))}
           </ScrollView>
@@ -101,7 +101,7 @@ export default function Updates() {
               <DayRow
                 key={item.id} first={i === 0} to={item.to || undefined}
                 left={<>
-                  <Small>{KIND[item.kind] || item.kind} · {fmtD(item.at)}</Small>
+                  <Small>{KIND()[item.kind] || item.kind} · {fmtD(item.at)}</Small>
                   <Strong>{item.title}</Strong>
                   {item.detail ? <Sub>{item.detail}</Sub> : null}
                 </>}
@@ -109,11 +109,11 @@ export default function Updates() {
             ))}
           </View>
         ))}
-        {list.length > 0 && !shown.length && <View style={s.empty}><Text style={s.emptyH}>No update matches</Text></View>}
+        {list.length > 0 && !shown.length && <View style={s.empty}><Text style={s.emptyH}>{t('No update matches')}</Text></View>}
         {!list.length && (
           <View style={s.empty}>
-            <Text style={s.emptyH}>Nothing has changed yet</Text>
-            <Text style={s.emptyP}>Office answers, drawing issues and decisions will land here.</Text>
+            <Text style={s.emptyH}>{t('Nothing has changed yet')}</Text>
+            <Text style={s.emptyP}>{t('Office answers, drawing issues and decisions will land here.')}</Text>
           </View>
         )}
       </ScrollView>

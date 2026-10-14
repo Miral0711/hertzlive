@@ -27,6 +27,7 @@ import {
 } from './store';
 import { usePhone } from '../phone';
 import { ThreadAvatar } from '../../mobile/faces';
+import { t } from '../../shared/i18n';
 
 // ---------- actions ----------
 export function openThreadFocus(id) {
@@ -41,7 +42,7 @@ function showList() {
 }
 export function openAttachment(msgId) {
   const m = state.db.MESSAGES.find((x) => x.id === msgId && !x.deleted && svc.thread(x.threadId));
-  if (!m || !messageAttachment(m)) return toast('That attachment is not available for your role.');
+  if (!m || !messageAttachment(m)) return toast(t('That attachment is not available for your role.'));
   return openDialog({ kind: 'message-attachment', msgId: m.id });
 }
 function pick(m, option) { svc.recordChatDecision(m, option); }
@@ -49,29 +50,29 @@ function billDecision(m, ok) { svc.decideBill(m, ok); }
 function approveMsg(m) { svc.approveChatMessage(m); }
 async function sendMessage(tid, raw, extra) {
   const text = raw.trim();
-  if (!text && !extra) return toast('Type a message first.');
+  if (!text && !extra) return toast(t('Type a message first.'));
   const reply = state.desk.replyTo?.threadId === tid ? { replyTo: state.desk.replyTo.id } : {};
   let id;
   try { id = svc.addMessage(tid, { ...(text ? { text } : {}), ...reply, ...extra }); } catch (_) {
-    return toast('Message was not sent. Your draft is kept; check access and try again.');
+    return toast(t('Message was not sent. Your draft is kept; check access and try again.'));
   }
   setChatDraft(tid, '');
   state.desk.replyTo = null;
   state.desk.hi = null;
   render();
   const filed = await svc.classifySent(id);
-  if (!filed) toast('Message sent. AI filing is unavailable; you can file it manually.');
+  if (!filed) toast(t('Message sent. AI filing is unavailable; you can file it manually.'));
   return render();
 }
 async function suggestReply(tid) {
-  toast('AI is drafting a reply. Edit it before you send.');
+  toast(t('AI is drafting a reply. Edit it before you send.'));
   const ms = svc.messages(tid);
   const sender = state.userId;
   let draft;
   try { draft = await AIProvider.draftReply(svc.thread(tid), ms[ms.length - 1]); } catch (_) {
-    return toast('AI reply unavailable. Your conversation and draft are unchanged.');
+    return toast(t('AI reply unavailable. Your conversation and draft are unchanged.'));
   }
-  if (chatDraft(tid)) return toast('Your draft was kept. Clear it before requesting an AI suggestion.');
+  if (chatDraft(tid)) return toast(t('Your draft was kept. Clear it before requesting an AI suggestion.'));
   setChatDraft(tid, draft, sender);
   pendingFocus.current = { composer: true };
   return render();
@@ -85,8 +86,8 @@ function chatStamp(iso, withTime) {
   if (Number.isNaN(d.getTime())) return '';
   const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((start(new Date()) - start(d)) / 864e5);
-  if (days <= 0) return withTime ? fmtT(iso) : 'Today';
-  if (days === 1) return 'Yesterday';
+  if (days <= 0) return withTime ? fmtT(iso) : t('Today');
+  if (days === 1) return t('Yesterday');
   if (days < 7) return d.toLocaleDateString('en-IN', { weekday: withTime ? 'short' : 'long' });
   return fmtD(iso);
 }
@@ -110,7 +111,7 @@ function listPreview(thread, last) {
   return { kind: 'text', text: body };
 }
 
-const CHAT_FILTERS = [['all', 'All'], ['unread', 'Unread'], ['projects', 'Projects'], ['people', 'People'], ['groups', 'Groups']];
+const CHAT_FILTERS = () => ([['all', t('All')], ['unread', t('Unread')], ['projects', t('Projects')], ['people', t('People')], ['groups', t('Groups')]]);
 
 function listTitle(t) {
   if (isProjectAudience(t)) return P(t.projectId)?.name || t.name;
@@ -138,7 +139,7 @@ function listUnread(thread, source) {
 export function ConversationList({ threads, filterable = false, footer = null }) {
   useDraftTick();
   const [q, setQ] = useState('');
-  const filter = filterable ? (CHAT_FILTERS.some(([k]) => k === state.desk.chatFilter) ? state.desk.chatFilter : 'all') : 'all';
+  const filter = filterable ? (CHAT_FILTERS().some(([k]) => k === state.desk.chatFilter) ? state.desk.chatFilter : 'all') : 'all';
   const needle = q.trim().toLowerCase();
   const listed = recentChatRows(threads, { atOf: listStamp });
   const rows = listed
@@ -146,12 +147,12 @@ export function ConversationList({ threads, filterable = false, footer = null })
     .filter((t) => filter !== 'unread' || listUnread(t, threads) > 0)
     .filter((t) => !needle || listTitle(t).toLowerCase().includes(needle) || t.name.toLowerCase().includes(needle) || svc.messages(t.id).some((m) => conversationPreview(m).toLowerCase().includes(needle)));
   const setFilter = (v) => { state.desk.chatFilter = v; render(); };
-  const empty = needle ? 'No conversations match your search.'
-    : filter === 'unread' ? 'No unread conversations.'
-      : filter === 'projects' ? 'No project conversations.'
-        : filter === 'people' ? 'No people conversations.'
-          : filter === 'groups' ? 'No group conversations.'
-            : 'No conversations available for your role.';
+  const empty = needle ? t('No conversations match your search.')
+    : filter === 'unread' ? t('No unread conversations.')
+      : filter === 'projects' ? t('No project conversations.')
+        : filter === 'people' ? t('No people conversations.')
+          : filter === 'groups' ? t('No group conversations.')
+            : t('No conversations available for your role.');
   return (
     <>
       {filterable && (
@@ -162,13 +163,13 @@ export function ConversationList({ threads, filterable = false, footer = null })
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search"
-              aria-label="Search conversations"
+              placeholder={t('Search')}
+              aria-label={t('Search conversations')}
               className="min-h-9 w-full rounded-full border-0 bg-surface-2 py-2 pl-9 pr-3 text-ink placeholder:text-ink-3 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent-soft"
             />
           </label>
-          <div role="group" aria-label="Filter conversations" className="mt-2 flex gap-2 overflow-x-auto">
-            {CHAT_FILTERS.map(([k, l]) => (
+          <div role="group" aria-label={t('Filter conversations')} className="mt-2 flex gap-2 overflow-x-auto">
+            {CHAT_FILTERS().map(([k, l]) => (
               <button
                 key={k}
                 type="button"
@@ -192,35 +193,35 @@ export function ConversationList({ threads, filterable = false, footer = null })
             className="flex w-full flex-col border-0 border-b border-line bg-transparent px-3 py-2 text-left hover:bg-surface-2"
           >
             <b className="truncate text-sm">{hit.title}</b>
-            <small className="truncate text-ink-3">In messages · {hit.sub}</small>
+            <small className="truncate text-ink-3">{t('In messages · {0}', hit.sub)}</small>
           </button>
         ))}
-        {rows.map((t) => {
-          const last = threadLast(t);
-          const unread = listUnread(t, threads);
-          const preview = listPreview(t, last);
-          const current = t.id === state.desk.thread && !state.desk.chatList;
+        {rows.map((row) => {
+          const last = threadLast(row);
+          const unread = listUnread(row, threads);
+          const preview = listPreview(row, last);
+          const current = row.id === state.desk.thread && !state.desk.chatList;
           return (
             <button
-              key={t.id}
+              key={row.id}
               type="button"
-              data-thread={t.id}
+              data-thread={row.id}
               aria-current={current ? 'true' : undefined}
-              onClick={() => openThreadFocus(t.id)}
+              onClick={() => openThreadFocus(row.id)}
               className={`group flex w-full items-center gap-3 border-0 px-3 text-left text-inherit active:bg-surface-3 ${current ? 'bg-surface-2' : 'bg-transparent hover:bg-surface-2'}`}
             >
-              <ChatPicture thread={t} />
+              <ChatPicture thread={row} />
               <span className="flex min-w-0 flex-1 items-center border-b border-line py-3 group-last:border-b-0">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2">
-                    <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{listTitle(t)}</b>
-                    <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at || t.lastMessageAt, true)}</time>
+                    <b className={`min-w-0 flex-1 truncate text-[16px] leading-5 text-ink ${unread > 0 ? 'font-semibold' : 'font-medium'}`}>{listTitle(row)}</b>
+                    <time className={`flex-none whitespace-nowrap text-[12px] ${unread > 0 ? 'font-medium text-accent-text' : 'text-ink-3'}`}>{chatStamp(last?.at || row.lastMessageAt, true)}</time>
                   </span>
                   <span className="mt-0.5 flex items-center gap-2">
                     <span className={`flex min-w-0 flex-1 items-center gap-1 text-[14px] leading-5 ${unread > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
                       {preview.kind === 'mine' && <Icon name="checkcheck" small className="text-ink-3" />}
                       <span className="truncate">
-                        {preview.kind === 'draft' && <span className="font-medium text-accent-text">Draft: </span>}
+                        {preview.kind === 'draft' && <span className="font-medium text-accent-text">{t('Draft')}: </span>}
                         {preview.text}
                       </span>
                     </span>
@@ -252,7 +253,7 @@ function Attachment({ m }) {
     return (
       <button
         type="button"
-        aria-label={`Open ${a.kind.toLowerCase()}`}
+        aria-label={t('Open {0}', a.kind.toLowerCase())}
         onClick={() => openAttachment(m.id)}
         className={`my-2 grid w-full max-w-[340px] cursor-zoom-in gap-1.5 overflow-hidden rounded-r2 border-0 bg-transparent p-0 ${count > 1 ? 'grid-cols-2' : ''}`}
       >
@@ -267,8 +268,8 @@ function Attachment({ m }) {
       <b>{a.title}</b>
       <small className="text-ink-2">{a.detail || ''}</small>
       <div className="flex flex-wrap gap-2">
-        <Btn sm className="!whitespace-normal !text-left" onClick={() => openAttachment(m.id)}>Open {a.kind}</Btn>
-        {a.newerId && <Btn sm className="!whitespace-normal !text-left" onClick={() => openAttachment(a.newerId)}>Open newer copy</Btn>}
+        <Btn sm className="!whitespace-normal !text-left" onClick={() => openAttachment(m.id)}>{t('Open {0}', a.kind)}</Btn>
+        {a.newerId && <Btn sm className="!whitespace-normal !text-left" onClick={() => openAttachment(a.newerId)}>{t('Open newer copy')}</Btn>}
       </div>
     </div>
   );
@@ -292,12 +293,12 @@ function Message({ m, showName, firstInRun, lastInRun, later = [], threadMessage
       )}
       {(m.pinned || m.notice) && live && (
         <div className="mb-0.5 text-[11px] font-medium text-ink-3">
-          {m.pinned ? 'Pinned' : ''}{m.pinned && m.notice ? ' · ' : ''}{m.notice ? 'Notice to everyone' : ''}
+          {m.pinned ? t('Pinned') : ''}{m.pinned && m.notice ? ' · ' : ''}{m.notice ? t('Notice to everyone') : ''}
         </div>
       )}
-      {m.deleted && <div className="text-ink-3"><i>This message was deleted</i></div>}
-      {m.decision && live && <div className="mb-0.5 text-[12px] font-semibold text-accent">Decision</div>}
-      {m.forwarded && live && <div className="mb-0.5 text-[12px] italic text-ink-3">Forwarded</div>}
+      {m.deleted && <div className="text-ink-3"><i>{t('This message was deleted')}</i></div>}
+      {m.decision && live && <div className="mb-0.5 text-[12px] font-semibold text-accent">{t('Decision')}</div>}
+      {m.forwarded && live && <div className="mb-0.5 text-[12px] italic text-ink-3">{t('Forwarded')}</div>}
       {m.replyTo && live && (
         <div className="relative mb-1 overflow-hidden rounded-md border-l-[3px] border-accent-text bg-[color-mix(in_srgb,var(--surface)_70%,transparent)] px-2 py-1 pl-2.5 text-[13px]">
           <b className="text-accent-text">{quoted ? name(quoted.by) : ''}</b>
@@ -305,19 +306,19 @@ function Message({ m, showName, firstInRun, lastInRun, later = [], threadMessage
         </div>
       )}
       {m.kind && live && !m.photo && !m.voice && (
-        <div className="mb-0.5 text-[12px] font-semibold text-accent">{({ drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill', material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in' })[m.kind] || m.kind}</div>
+        <div className="mb-0.5 text-[12px] font-semibold text-accent">{({ drawing: t('Drawing'), delivery: t('Delivery'), sample: t('Sample'), location: t('Location'), bill: t('Bill'), material: t('Material'), file: t('File'), attendance: t('Attendance'), checkin: t('Checked in') })[m.kind] || m.kind}</div>
       )}
       {m.bill && live && (
         <Opts>
           <span className="flex flex-wrap items-center gap-1.5">
             <b>₹{m.bill.amount.toLocaleString('en-IN')}</b>
             <Pill kind={m.bill.status === 'approved' ? '' : 'warn'}>
-              {m.bill.status === 'approved' ? 'approved' : m.bill.status === 'query' ? 'bill asked' : 'reimbursement asked'}
+              {m.bill.status === 'approved' ? t('approved') : m.bill.status === 'query' ? t('bill asked') : t('reimbursement asked')}
             </Pill>
             {m.bill.status === 'asked' && m.by !== state.userId && role() === 'partner' && (
               <>
-                <Btn sm kind="primary" onClick={() => billDecision(m, true)}>Approve</Btn>
-                <Btn sm onClick={() => billDecision(m, false)}>Ask for bill</Btn>
+                <Btn sm kind="primary" onClick={() => billDecision(m, true)}>{t('Approve')}</Btn>
+                <Btn sm onClick={() => billDecision(m, false)}>{t('Ask for bill')}</Btn>
               </>
             )}
           </span>
@@ -364,24 +365,24 @@ function Message({ m, showName, firstInRun, lastInRun, later = [], threadMessage
       )}
       {m.call && live && (
         <Opts>
-          <span><b>Video call</b> · {m.call.provider || 'Google Meet'}<br />
+          <span><b>{t('Video call')}</b> · {m.call.provider || t('Google Meet')}<br />
             {callUrl ? <a href={callUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text underline">{m.call.url}</a> : m.call.url}
           </span>
         </Opts>
       )}
-      {m.assistDraft && live && <small className="block italic text-ink-3">Reviewed AI draft · demo</small>}
+      {m.assistDraft && live && <small className="block italic text-ink-3">{t('Reviewed AI draft · demo')}</small>}
       {m.text && live && <div>{m.text}</div>}
-      {m.voice && live && <div className="text-ink-3">Voice note · {String(m.voice.dur || '')}</div>}
-      {m.transcript && live && <div className="text-ink-3">Voice: {m.transcript}</div>}
-      {m.imported && <div className="text-ink-3"><small>imported from WhatsApp</small></div>}
+      {m.voice && live && <div className="text-ink-3">{t('Voice note · {0}', String(m.voice.dur || ''))}</div>}
+      {m.transcript && live && <div className="text-ink-3">{t('Voice: {0}', m.transcript)}</div>}
+      {m.imported && <div className="text-ink-3"><small>{t('imported from WhatsApp')}</small></div>}
       {live && m.options?.length > 0 && (
         <Opts>{m.options.map((o) => <Btn key={o} sm onClick={() => pick(m, o)}>{o}</Btn>)}</Opts>
       )}
       {m.approval && live && (
         <Opts>
-          {m.approval.done ? <Pill kind="ok">approved</Pill>
+          {m.approval.done ? <Pill kind="ok">{t('approved')}</Pill>
             : role() === 'client' ? <Btn sm kind="primary" onClick={() => approveMsg(m)}>{m.approval.label}</Btn>
-              : <Pill kind="warn">{m.approval.label} · waiting</Pill>}
+              : <Pill kind="warn">{t('{0} · waiting', m.approval.label)}</Pill>}
         </Opts>
       )}
       <SiteMessageAction m={m} />
@@ -389,15 +390,15 @@ function Message({ m, showName, firstInRun, lastInRun, later = [], threadMessage
       {reacts.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {reacts.map(([emoji, ids]) => (
-            <button key={emoji} type="button" className={`rounded-full border-0 px-2 py-0.5 text-sm ${ids.includes(state.userId) ? 'bg-accent-soft' : 'bg-surface-2'}`} onClick={() => svc.reactToMessage(m, emoji)} aria-label={`React ${emoji}`}>{emoji} {ids.length}</button>
+            <button key={emoji} type="button" className={`rounded-full border-0 px-2 py-0.5 text-sm ${ids.includes(state.userId) ? 'bg-accent-soft' : 'bg-surface-2'}`} onClick={() => svc.reactToMessage(m, emoji)} aria-label={t('React {0}', emoji)}>{emoji} {ids.length}</button>
           ))}
         </div>
       )}
       <div className="mt-0.5 flex flex-wrap items-center justify-end gap-1">
         {staff() && <span className="mr-auto max-w-[70%]"><FilingChip m={m} /></span>}
-        <time className="text-[11px] leading-none text-ink-3">{m.edited ? 'Edited · ' : ''}{fmtT(m.at)}</time>
+        <time className="text-[11px] leading-none text-ink-3">{m.edited ? t('Edited · ') : ''}{fmtT(m.at)}</time>
         {receipt && <Icon name={receipt === 'sent' ? 'check' : 'checkcheck'} small className={receipt === 'seen' ? 'text-accent-text' : 'text-ink-3'} />}
-        <button type="button" aria-label="Message options" className="inline-grid h-5 w-5 place-items-center border-0 bg-transparent p-0 text-ink-3" onClick={() => openDialog({ kind: 'message-actions', msgId: m.id })}>
+        <button type="button" aria-label={t('Message options')} className="inline-grid h-5 w-5 place-items-center border-0 bg-transparent p-0 text-ink-3" onClick={() => openDialog({ kind: 'message-actions', msgId: m.id })}>
           <span className="inline-block rotate-90"><Icon name="chev" small /></span>
         </button>
       </div>
@@ -451,8 +452,8 @@ function PendingFileBar({ pending, onCancel, onSend }) {
       <span className="min-w-0 flex-1 truncate text-sm">
         {pending.file.name} <small className="text-ink-3">{fmtBytes(pending.file.size)}</small>
       </span>
-      <Btn sm onClick={onCancel}>Cancel</Btn>
-      <Btn sm kind="primary" onClick={onSend}>Send</Btn>
+      <Btn sm onClick={onCancel}>{t('Cancel')}</Btn>
+      <Btn sm kind="primary" onClick={onSend}>{t('Send')}</Btn>
     </div>
   );
 }
@@ -464,7 +465,7 @@ function Composer({ thread, last }) {
   const [pending, setPending] = useState(null);
   const rev = draftRev();
   useEffect(() => { setText(chatDraft(thread.id)); }, [thread.id, rev]);
-  const status = state.desk.draftStorageError || state.storageError || '';
+  const status = t(state.desk.draftStorageError || state.storageError || '');
 
   const onPickFile = (kind, file) => {
     if (kind === 'document') return setPending({ type: 'document', file });
@@ -483,7 +484,7 @@ function Composer({ thread, last }) {
       const dataUrl = await fileToDataUrl(file);
       if (type === 'document') sendMessage(thread.id, '', { file: { name: file.name, dataUrl, mime: file.type, size: file.size } });
       else sendMessage(thread.id, '', { audio: { dataUrl, name: file.name } });
-    } catch (_) { toast('Could not read that file. Please try again.'); }
+    } catch (_) { toast(t('Could not read that file. Please try again.')); }
     setPending(null);
   };
 
@@ -496,7 +497,7 @@ function Composer({ thread, last }) {
             <button key={label} type="button" className="h-7 min-h-0 shrink-0 rounded-full border border-line bg-surface px-2.5 text-[13px] font-semibold leading-none text-accent-text" onClick={() => sendMessage(thread.id, label, { replyTo: last.id })}>{label}</button>
           ))}
           {staff() && last && last.by !== state.userId && (
-            <button type="button" className="ml-auto h-7 min-h-0 shrink-0 border-0 bg-transparent px-1 text-[13px] font-semibold text-accent-text only:ml-0" onClick={() => suggestReply(thread.id)}>Suggest reply</button>
+            <button type="button" className="ml-auto h-7 min-h-0 shrink-0 border-0 bg-transparent px-1 text-[13px] font-semibold text-accent-text only:ml-0" onClick={() => suggestReply(thread.id)}>{t('Suggest reply')}</button>
           )}
         </div>
       ) : null}
@@ -546,7 +547,7 @@ function Composer({ thread, last }) {
         <SiteCompose
           thread={thread}
           what={pending.what}
-          label={({ photo: 'Photo', drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill / expense', material: 'Material request', attendance: 'Attendance', file: 'File', checkin: 'Check in', daylog: "Today's log" })[pending.what] || pending.what}
+          label={t(({ photo: 'Photo', drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill / expense', material: 'Material request', attendance: 'Attendance', file: 'File', checkin: 'Check in', daylog: "Today's log" })[pending.what] || pending.what)}
           onCancel={() => setPending(null)}
           onPhoto={() => {
             const input = document.createElement('input');
@@ -561,7 +562,7 @@ function Composer({ thread, last }) {
           onSend={(fields) => { sendMessage(thread.id, '', fields); setPending(null); }}
           onCheckin={() => {
             const siteId = thread.siteId || svc.mySiteIds()[0];
-            if (!siteId) return toast('No site to use here.');
+            if (!siteId) return toast(t('No site to use here.'));
             svc.siteCheckin(siteId);
             const siteThread = svc.threads().find((th) => th.kind === 'site' && th.siteId === siteId);
             const dest = siteThread?.id || thread.id;
@@ -571,7 +572,7 @@ function Composer({ thread, last }) {
           }}
           onDayLog={() => {
             const siteId = thread.siteId || svc.mySiteIds()[0];
-            if (!siteId) return toast('No site to use here.');
+            if (!siteId) return toast(t('No site to use here.'));
             setPending(null);
             openDesktopAssist('daily', { siteId });
           }}
@@ -580,7 +581,7 @@ function Composer({ thread, last }) {
       {state.desk.replyTo?.threadId === thread.id && (
         <div className="mb-1 flex items-center gap-2 px-2 text-sm">
           <span className="min-w-0 flex-1 truncate"><b className="text-accent-text">{name(state.db.MESSAGES.find((m) => m.id === state.desk.replyTo.id)?.by)}</b> {conversationPreview(state.db.MESSAGES.find((m) => m.id === state.desk.replyTo.id))}</span>
-          <button type="button" aria-label="Cancel reply" className="border-0 bg-transparent text-ink-3" onClick={() => { state.desk.replyTo = null; render(); }}><Icon name="x" small /></button>
+          <button type="button" aria-label={t('Cancel reply')} className="border-0 bg-transparent text-ink-3" onClick={() => { state.desk.replyTo = null; render(); }}><Icon name="x" small /></button>
         </div>
       )}
       <form
@@ -594,18 +595,18 @@ function Composer({ thread, last }) {
             name="text"
             value={text}
             onChange={(e) => { setText(e.target.value); setChatDraft(thread.id, e.target.value, state.userId, true); }}
-            placeholder="Message"
-            aria-label="Message"
+            placeholder={t('Message')}
+            aria-label={t('Message')}
             autoComplete="off"
             className="min-h-10 w-full min-w-0 border-0 bg-transparent px-1 text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
           />
           {phone && (
-            <button type="button" aria-label="Camera" onClick={() => onPickAction('camera')} className="inline-grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-transparent text-ink-3">
+            <button type="button" aria-label={t('Camera')} onClick={() => onPickAction('camera')} className="inline-grid h-10 w-10 flex-none place-items-center rounded-full border-0 bg-transparent text-ink-3">
               <Icon name="camera" />
             </button>
           )}
         </div>
-        <button type="submit" aria-label="Send" className="inline-grid h-11 w-11 flex-none place-items-center rounded-full border-0 bg-accent text-accent-ink">
+        <button type="submit" aria-label={t('Send')} className="inline-grid h-11 w-11 flex-none place-items-center rounded-full border-0 bg-accent text-accent-ink">
           <Icon name="send" small />
         </button>
       </form>
@@ -622,14 +623,14 @@ function contextProject() {
 }
 // A short "who/what this is" line, not four separate tabs — project name folded in where a
 // thread's own kind (client/site/internal) doesn't already say which project it's for.
-const KIND_LABEL = { client: 'Client group', site: 'Site team', internal: 'Office', dm: 'Direct message', group: 'Group' };
-const contextLine = (t) => {
-  if (t.groupType === 'work') {
-    const proj = t.projectId ? P(t.projectId)?.name : null;
-    return proj ? `${proj} · Work group` : 'Work group';
+const KIND_LABEL = () => ({ client: t('Client group'), site: t('Site team'), internal: t('Office'), dm: t('Direct message'), group: t('Group') });
+const contextLine = (thread) => {
+  if (thread.groupType === 'work') {
+    const proj = thread.projectId ? P(thread.projectId)?.name : null;
+    return proj ? t('{0} · Work group', proj) : t('Work group');
   }
-  const label = KIND_LABEL[t.kind] || 'Members of this conversation';
-  const proj = t.projectId ? P(t.projectId)?.name : null;
+  const label = KIND_LABEL()[thread.kind] || t('Members of this conversation');
+  const proj = thread.projectId ? P(thread.projectId)?.name : null;
   return proj ? `${label} · ${proj}` : label;
 };
 function WorkGroupList({ thread }) {
@@ -639,9 +640,9 @@ function WorkGroupList({ thread }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto bg-ground px-3 py-3">
       {svc.canManageWork(thread) && (
-        <Btn kind="primary" onClick={() => openDialog({ kind: 'work-group', threadId: thread.id })}>New work group</Btn>
+        <Btn kind="primary" onClick={() => openDialog({ kind: 'work-group', threadId: thread.id })}>{t('New work group')}</Btn>
       )}
-      {groups.length > 0 && <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-accent-text">Work groups</p>}
+      {groups.length > 0 && <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-accent-text">{t('Work groups')}</p>}
       {groups.map((group) => {
         const linked = tasks.find((item) => item.id === group.taskId);
         return (
@@ -649,25 +650,25 @@ function WorkGroupList({ thread }) {
             <ChatPicture thread={group} className="h-10 w-10" />
             <span className="min-w-0">
               <b className="block truncate text-ink">{group.name}</b>
-              <span className="block truncate text-[13px] text-ink-3">{linked && linked.title.trim().toLowerCase() !== group.name.trim().toLowerCase() ? `For the task “${linked.title}”` : `Private chat${linked ? ` · ${taskStageLabel(linked)}` : ''}`}</span>
+              <span className="block truncate text-[13px] text-ink-3">{linked && linked.title.trim().toLowerCase() !== group.name.trim().toLowerCase() ? t('For the task “{0}”', linked.title) : t('Private chat{0}', linked ? ` · ${taskStageLabel(linked)}` : '')}</span>
             </span>
           </button>
         );
       })}
-      <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-accent-text">Tasks</p>
-      <p className="m-0 text-[13px] text-ink-3">Project jobs that do not have a private chat yet.</p>
+      <p className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-accent-text">{t('Tasks')}</p>
+      <p className="m-0 text-[13px] text-ink-3">{t('Project jobs that do not have a private chat yet.')}</p>
       {openTasks.map((item) => {
         const taken = Boolean(svc.workGroupRecord(item.id));
         return (
           <button key={item.id} type="button" disabled={taken} className="flex w-full min-h-11 items-center border-0 border-b border-line bg-transparent py-2 text-left disabled:opacity-50" onClick={() => !taken && openDialog({ kind: 'work-group', threadId: thread.id, taskId: item.id })}>
             <span className="min-w-0">
               <b className="block truncate text-ink">{item.title}</b>
-              <span className="block truncate text-[13px] text-ink-3">{taken ? 'Already has a work group' : taskStageLabel(item)}</span>
+              <span className="block truncate text-[13px] text-ink-3">{taken ? t('Already has a work group') : taskStageLabel(item)}</span>
             </span>
           </button>
         );
       })}
-      {!openTasks.length && <p className="m-0 text-sm text-ink-3">Every task here already has a work group.</p>}
+      {!openTasks.length && <p className="m-0 text-sm text-ink-3">{t('Every task here already has a work group.')}</p>}
     </div>
   );
 }
@@ -701,8 +702,8 @@ export function ChatView({ workspace = false }) {
     return (
       <aside id="conversation" ref={paneRef} className="grid h-full min-h-0 place-items-center border-l border-line bg-surface p-6 text-center max-[980px]:hidden">
         <div>
-          <p className="m-0 text-lg font-semibold text-ink">Your conversations</p>
-          <p className="m-0 mt-1.5 text-ink-3">Select a conversation to view messages, updates and replies.</p>
+          <p className="m-0 text-lg font-semibold text-ink">{t('Your conversations')}</p>
+          <p className="m-0 mt-1.5 text-ink-3">{t('Select a conversation to view messages, updates and replies.')}</p>
         </div>
       </aside>
     );
@@ -711,10 +712,10 @@ export function ChatView({ workspace = false }) {
     return (
       <aside id="conversation" ref={paneRef} className="flex min-h-0 min-w-0 flex-col border-l border-line bg-surface">
         <div className="flex items-center gap-2 border-b border-line p-3.5">
-          <b className="flex-1">Chat</b>
-          <Btn sm onClick={toggleChatPane}>Hide chat</Btn>
+          <b className="flex-1">{t('Chat')}</b>
+          <Btn sm onClick={toggleChatPane}>{t('Hide chat')}</Btn>
         </div>
-        <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">No conversations yet.</p>
+        <p className="m-4 rounded-r2 bg-surface-2 p-6 text-center text-ink-3">{t('No conversations yet.')}</p>
       </aside>
     );
   }
@@ -734,13 +735,13 @@ export function ChatView({ workspace = false }) {
     <aside
       id="conversation"
       ref={paneRef}
-      aria-label="Conversations"
+      aria-label={t('Conversations')}
       className={`flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-line bg-surface ${workspace ? 'h-full max-[980px]:border-l-0' : ''} ${phone && workspace ? 'min-h-0 flex-1' : ''}`}
     >
       <div className={`flex items-center gap-0.5 px-1 py-1 ${phone ? 'bg-nav text-nav-ink pt-[max(0.25rem,env(safe-area-inset-top))]' : 'min-h-14 border-b border-line bg-surface px-2 text-ink'}`}>
         {!desk.chatList && (
           <BarButton
-            label="Back to conversations"
+            label={t('Back to conversations')}
             icon="back"
             onClick={showList}
             className={!phone && workspace ? 'hidden max-[980px]:inline-grid' : ''}
@@ -748,7 +749,7 @@ export function ChatView({ workspace = false }) {
         )}
         {desk.chatList ? (
           <div ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 px-2 focus:outline-none">
-            <b className="block truncate text-[16px] font-semibold leading-tight">{project && !desk.allChats ? project.name : 'Chats'}</b>
+            <b className="block truncate text-[16px] font-semibold leading-tight">{project && !desk.allChats ? project.name : t('Chats')}</b>
           </div>
         ) : (
           <button
@@ -766,8 +767,8 @@ export function ChatView({ workspace = false }) {
         )}
         {!desk.chatList && (
           <>
-            <BarButton label="Video call" icon="video" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
-            <BarButton label="Voice call" icon="call" onClick={() => {
+            <BarButton label={t('Video call')} icon="video" onClick={() => openDialog({ kind: 'video-call', threadId: cur.id })} />
+            <BarButton label={t('Voice call')} icon="call" onClick={() => {
               const otherId = cur.kind === 'dm' ? cur.memberIds.find((id) => id !== state.userId) : null;
               const other = otherId ? user(otherId) : null;
               if (other) { window.location.href = `tel:${phoneOf(other).replace(/\s/g, '')}`; return; }
@@ -777,9 +778,9 @@ export function ChatView({ workspace = false }) {
               plain
               align="right"
               panelClassName="!w-56"
-              trigger={<><Icon name="more" /><span className="sr-only">Conversation actions</span></>}
+              trigger={<><Icon name="more" /><span className="sr-only">{t('Conversation actions')}</span></>}
             >
-              <DropdownItem icon="photos" onClick={() => openDialog({ kind: 'chat-info', threadId: cur.id })}>Media, links and docs</DropdownItem>
+              <DropdownItem icon="photos" onClick={() => openDialog({ kind: 'chat-info', threadId: cur.id })}>{t('Media, links and docs')}</DropdownItem>
               {sib.map((x) => (
                 <DropdownItem key={x.id} onClick={() => openThreadFocus(x.id)} className={x.id === cur.id ? '!bg-accent-soft !text-accent-text' : ''}>
                   {x.name}
@@ -788,10 +789,10 @@ export function ChatView({ workspace = false }) {
             </Dropdown>
           </>
         )}
-        {!workspace && <BarButton label="Close chats" icon="x" onClick={toggleChatPane} />}
+        {!workspace && <BarButton label={t('Close chats')} icon="x" onClick={toggleChatPane} />}
       </div>
       {!desk.chatList && projectChats.length > 1 && (
-        <div className="flex gap-1 border-b border-line bg-surface px-2.5 py-1.5" role="tablist" aria-label="Conversations in this project">
+        <div className="flex gap-1 border-b border-line bg-surface px-2.5 py-1.5" role="tablist" aria-label={t('Conversations in this project')}>
           {projectChats.map((x) => (
             <button
               key={x.id}
@@ -801,7 +802,7 @@ export function ChatView({ workspace = false }) {
               onClick={() => { setWorkFor(null); openThreadFocus(x.id); }}
               className={`min-h-[30px] flex-1 rounded-full border-0 px-2 text-[13px] font-semibold ${!showWork && x.id === cur.id ? 'bg-accent text-accent-ink' : 'bg-transparent text-ink-2'}`}
             >
-              {KIND_LABEL[x.kind] || 'Group'}
+              {KIND_LABEL()[x.kind] || t('Group')}
             </button>
           ))}
           <button
@@ -811,14 +812,14 @@ export function ChatView({ workspace = false }) {
             onClick={() => setWorkFor(cur.id)}
             className={`min-h-[30px] flex-1 whitespace-nowrap rounded-full border-0 px-2 text-[13px] font-semibold ${showWork ? 'bg-accent text-accent-ink' : 'bg-transparent text-ink-2'}`}
           >
-            Work groups
+            {t('Work groups')}
           </button>
         </div>
       )}
       {desk.chatList && project && (
         <div className="flex gap-2 border-b border-line px-4 py-3">
-          <Btn sm kind={!desk.allChats ? 'primary' : 'default'} onClick={() => { desk.allChats = false; render(); }}>This project</Btn>
-          <Btn sm kind={desk.allChats ? 'primary' : 'default'} onClick={() => { desk.allChats = true; render(); }}>All chats</Btn>
+          <Btn sm kind={!desk.allChats ? 'primary' : 'default'} onClick={() => { desk.allChats = false; render(); }}>{t('This project')}</Btn>
+          <Btn sm kind={desk.allChats ? 'primary' : 'default'} onClick={() => { desk.allChats = true; render(); }}>{t('All chats')}</Btn>
         </div>
       )}
       {desk.chatList ? (
@@ -830,10 +831,10 @@ export function ChatView({ workspace = false }) {
               {pinned.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 border-t border-line px-3 py-1.5 first:border-t-0">
                   <button type="button" className="flex min-h-0 min-w-0 flex-1 items-baseline gap-2 border-0 bg-transparent p-0 text-left" onClick={() => { state.desk.hi = m.id; render(); }}>
-                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-accent-text">Pinned</span>
-                    <b className="min-w-0 flex-1 truncate text-sm">{m.text || 'Decision'}</b>
+                    <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-accent-text">{t('Pinned')}</span>
+                    <b className="min-w-0 flex-1 truncate text-sm">{m.text || t('Decision')}</b>
                   </button>
-                  {canPin && <button type="button" className="min-h-0 shrink-0 border-0 bg-transparent p-0 text-[13px] font-semibold text-accent-text" onClick={() => svc.toggleDecision(m)}>Unpin</button>}
+                  {canPin && <button type="button" className="min-h-0 shrink-0 border-0 bg-transparent p-0 text-[13px] font-semibold text-accent-text" onClick={() => svc.toggleDecision(m)}>{t('Unpin')}</button>}
                 </div>
               ))}
               {svc.decisionsDue({ threadId: cur.id }).map((d) => (
@@ -843,9 +844,9 @@ export function ChatView({ workspace = false }) {
                   className="flex w-full min-h-0 items-baseline gap-2 border-0 border-t border-line bg-transparent px-3 py-1.5 text-left first:border-t-0"
                   onClick={() => openDialog({ kind: 'project-decision', id: d.id, fromChat: true })}
                 >
-                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-warn">Open</span>
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-wide text-warn">{t('Open')}</span>
                   <b className="min-w-0 flex-1 truncate text-sm">{d.title}</b>
-                  <span className="shrink-0 text-xs text-ink-3">due {fmtD(d.due)}</span>
+                  <span className="shrink-0 text-xs text-ink-3">{t('due {0}', fmtD(d.due))}</span>
                 </button>
               ))}
             </div>
@@ -853,7 +854,7 @@ export function ChatView({ workspace = false }) {
           {showWork ? <WorkGroupList thread={cur} /> : (
             <>
               {cur.kind === 'internal' && (
-                <p className="mx-auto mt-2 max-w-sm rounded-lg bg-warn-soft px-3 py-1.5 text-center text-xs font-medium text-warn">Office only. The client never sees this.</p>
+                <p className="mx-auto mt-2 max-w-sm rounded-lg bg-warn-soft px-3 py-1.5 text-center text-xs font-medium text-warn">{t('Office only. The client never sees this.')}</p>
               )}
               <Messages threadId={cur.id} ms={ms} grouped={cur.kind !== 'dm'} />
               <Composer key={cur.id + state.userId} thread={cur} last={last} />
@@ -894,7 +895,7 @@ function Drawer({ children }) {
   return (
     <dialog
       ref={ref}
-      aria-label="Conversations"
+      aria-label={t('Conversations')}
       onClose={hide}
       onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}
       // backdrop:bg-black/30 is the same intentional dialog-scrim exception as Modal.jsx.

@@ -17,27 +17,27 @@ import {
   postMessage, toggleReaction, toggleDecision, projectOf, siteFor, staff, user, phoneOf,
 } from './model';
 
-const BASICS = [
-  ['photo', 'Photo', 'photos'],
-  ['camera', 'Camera', 'camera'],
-  ['voice', 'Voice note', 'mic'],
-  ['drawing', 'Drawing', 'drawing'],
-  ['delivery', 'Delivery', 'delivery'],
-  ['sample', 'Sample', 'sample'],
-];
-const MORE = [
-  ['location', 'Location', 'location'],
-  ['bill', 'Bill / expense', 'bill'],
-  ['material', 'Material request', 'delivery', ['site_manager', 'contractor', 'partner', 'designer']],
-  ['attendance', 'Attendance', 'people', ['site_manager', 'contractor']],
-  ['file', 'File', 'file'],
-  ['checkin', 'Check in', 'today', ['site_manager', 'contractor']],
-  ['daylog', "Today's log", 'today', ['site_manager', 'partner', 'designer']],
-  ['poll', 'Poll', 'checkcheck'],
-  ['contact', 'Contact', 'people'],
-  ['document', 'Document', 'file'],
-  ['audio', 'Audio', 'mic'],
-];
+const BASICS = () => ([
+  ['photo', t('Photo'), 'photos'],
+  ['camera', t('Camera'), 'camera'],
+  ['voice', t('Voice note'), 'mic'],
+  ['drawing', t('Drawing'), 'drawing'],
+  ['delivery', t('Delivery'), 'delivery'],
+  ['sample', t('Sample'), 'sample'],
+]);
+const MORE = () => ([
+  ['location', t('Location'), 'location'],
+  ['bill', t('Bill / expense'), 'bill'],
+  ['material', t('Material request'), 'delivery', ['site_manager', 'contractor', 'partner', 'designer']],
+  ['attendance', t('Attendance'), 'people', ['site_manager', 'contractor']],
+  ['file', t('File'), 'file'],
+  ['checkin', t('Check in'), 'today', ['site_manager', 'contractor']],
+  ['daylog', t('Today\'s log'), 'today', ['site_manager', 'partner', 'designer']],
+  ['poll', t('Poll'), 'checkcheck'],
+  ['contact', t('Contact'), 'people'],
+  ['document', t('Document'), 'file'],
+  ['audio', t('Audio'), 'mic'],
+]);
 function allowed(roles) {
   return !roles || roles.includes(state.role);
 }
@@ -128,7 +128,7 @@ function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }) 
         <button
           type="button"
           className="bubble-more"
-          aria-label="Message options"
+          aria-label={t('Message options')}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onOpen(); }}
         >
@@ -143,8 +143,8 @@ function FileChip({ threadId, m }) {
   if (m.deleted || m.notice) return null;
   const f = state.filings?.[m.id];
   const status = f?.status === 'check' ? 'check' : f?.status === 'ask' ? 'ask' : '';
-  const who = !f ? '' : f.by === 'user' ? 'Filed' : f.status === 'filed' ? 'AI filed' : f.status === 'check' ? 'AI check' : 'AI needs context';
-  const label = !f ? 'File message' : `${who} · ${f.status === 'ask' ? 'Which project?' : (filingLabel(f) || 'Note')}`;
+  const who = !f ? '' : f.by === 'user' ? t('Filed') : f.status === 'filed' ? t('AI filed') : f.status === 'check' ? t('AI check') : t('AI needs context');
+  const label = !f ? t('File message') : `${who} · ${f.status === 'ask' ? t('Which project?') : (filingLabel(f) || t('Note'))}`;
   return <Link className={`file-chip ${status}`} to={`/mobile/chats/${threadId}/messages/${m.id}/filing?from=chat`}>{label}</Link>;
 }
 
@@ -260,19 +260,19 @@ export default function Thread() {
   if (!thread || !onPhone(thread.projectId)) {
     return (
       <div className="screen">
-        <header className="top"><h1>Chat</h1></header>
-        <div className="empty"><h3>This chat isn’t available</h3><Link to="/mobile/chats">Back to chats</Link></div>
+        <header className="top"><h1>{t('Chat')}</h1></header>
+        <div className="empty"><h3>{t('This chat isn’t available')}</h3><Link to="/mobile/chats">{t('Back to chats')}</Link></div>
       </div>
     );
   }
 
   if (editor) {
-    const ask = { sample: 'What is this sample?', delivery: 'What arrived?' }[editor.what];
+    const ask = { sample: t('What is this sample?'), delivery: t('What arrived?') }[editor.what];
     return (
       <div className="screen">
         <PhotoEdit
           src={editor.src}
-          noteLabel={ask || 'Add a caption'}
+          noteLabel={ask || t('Add a caption')}
           noteRequired={Boolean(ask)}
           initialNote={editor.note || ''}
           onCancel={() => setEditor(null)}
@@ -360,7 +360,7 @@ export default function Thread() {
       reader.onload = () => setDocUrl(String(reader.result || ''));
       reader.readAsDataURL(file);
     }
-    setSheet({ what, label: { file: 'File', document: 'Document', audio: 'Audio' }[what] || 'File' });
+    setSheet({ what, label: t({ file: 'File', document: 'Document', audio: 'Audio' }[what] || 'File') });
   }
 
   function openPicker(kind) {
@@ -403,7 +403,7 @@ export default function Thread() {
     const rec = recRef.current;
     if (!shouldSend || !rec || rec.state !== 'recording') {
       discardVoice();
-      if (shouldSend) setVoiceHint('Hold to record. Release to send.');
+      if (shouldSend) setVoiceHint(t('Hold to record. Release to send.'));
       return;
     }
     sendOnStop.current = true;
@@ -423,7 +423,7 @@ export default function Thread() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (token !== voiceToken.current || (mode === 'hold' && !holdRef.current)) {
         stream.getTracks().forEach((track) => track.stop());
-        if (mode === 'hold' && !holdRef.current) setVoiceHint('Hold to record. Release to send.');
+        if (mode === 'hold' && !holdRef.current) setVoiceHint(t('Hold to record. Release to send.'));
         return;
       }
       streamRef.current = stream;
@@ -456,7 +456,7 @@ export default function Thread() {
       setVoiceMode(mode);
     } catch {
       setVoiceMode(null);
-      setVoiceHint('The microphone did not open. Allow the microphone, then try again.');
+      setVoiceHint(t('The microphone did not open. Allow the microphone, then try again.'));
     }
   }
 
@@ -490,7 +490,7 @@ export default function Thread() {
     }
     if (held < 700 || !recRef.current || recRef.current.state !== 'recording') {
       discardVoice();
-      setVoiceHint('Hold to record. Release to send.');
+      setVoiceHint(t('Hold to record. Release to send.'));
       return;
     }
     finishVoice(true);
@@ -535,7 +535,7 @@ export default function Thread() {
   function doCheckin() {
     const siteId = thread.siteId || svc.mySiteIds()[0];
     if (!siteId) {
-      setError('No site to use here.');
+      setError(t('No site to use here.'));
       return;
     }
     svc.siteCheckin(siteId);
@@ -550,7 +550,7 @@ export default function Thread() {
   function openDayLog() {
     const siteId = thread.siteId || svc.mySiteIds()[0];
     if (!siteId) {
-      setError('No site to use here.');
+      setError(t('No site to use here.'));
       return;
     }
     navigate(`/mobile/projects/${svc.site(siteId)?.projectId || thread.projectId}/assist?kind=daily&site=${siteId}`);
@@ -573,36 +573,36 @@ export default function Thread() {
     const words = note.trim();
     const fields = { kind: what, text: words };
     if (what === 'photo') {
-      if (!shot) { setError('Choose a photo first.'); return; }
+      if (!shot) { setError(t('Choose a photo first.')); return; }
       fields.text = words || 'Photo';
       fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
     } else if (what === 'sample') {
-      if (!words) { setError('Say what this sample is.'); return; }
+      if (!words) { setError(t('Say what this sample is.')); return; }
       fields.text = `Sample: ${words}`;
       if (shot) fields.photo = shot.startsWith('data:') ? { dataUrl: shot, hue: 28, seed: 4 } : { hue: 28, seed: 4 };
     } else if (what === 'delivery') {
-      if (!words) { setError('Say what arrived.'); return; }
+      if (!words) { setError(t('Say what arrived.')); return; }
       fields.text = `Delivery: ${words}`;
       if (shot.startsWith('data:')) fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
     } else if (what === 'location') {
       fields.text = words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}`;
     } else if (what === 'bill') {
       const value = Number(amount);
-      if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount greater than zero.'); return; }
-      if (!words) { setError('Say what the money was for.'); return; }
+      if (!Number.isFinite(value) || value <= 0) { setError(t('Enter an amount greater than zero.')); return; }
+      if (!words) { setError(t('Say what the money was for.')); return; }
       fields.bill = { amount: value, status: 'asked', paidBy: 'cash', projectId: thread.projectId };
       fields.text = `${words} · ₹${value.toLocaleString('en-IN')}`;
     } else if (what === 'material') {
-      if (!words) { setError('Say what you need.'); return; }
+      if (!words) { setError(t('Say what you need.')); return; }
       fields.text = `Material needed: ${words}`;
     } else if (what === 'file') {
-      if (!fileName) { setError('Choose a file first.'); return; }
+      if (!fileName) { setError(t('Choose a file first.')); return; }
       fields.text = words ? `File: ${fileName}. ${words}` : `File: ${fileName}`;
     } else if (what === 'attendance') {
       fields.text = words ? `Attendance recorded for today. ${words}` : 'Attendance recorded for today';
     } else if (what === 'poll') {
       const options = pollOpts.map((o) => o.trim()).filter(Boolean);
-      if (!pollQ.trim() || options.length < 2) { setError('Add a question and at least two options.'); return; }
+      if (!pollQ.trim() || options.length < 2) { setError(t('Add a question and at least two options.')); return; }
       fields.poll = { question: pollQ.trim(), multi: pollMulti, options: options.map((text) => ({ text, votes: [] })) };
       fields.text = pollQ.trim();
     } else if (what === 'contact') {
@@ -613,36 +613,36 @@ export default function Thread() {
       } else if (contactName.trim()) {
         fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
         fields.text = contactName.trim();
-      } else { setError('Choose a person.'); return; }
+      } else { setError(t('Choose a person.')); return; }
     } else if (what === 'document' || what === 'audio') {
-      if (!fileName) { setError(what === 'audio' ? 'Choose an audio file.' : 'Choose a document.'); return; }
+      if (!fileName) { setError(what === 'audio' ? t('Choose an audio file.') : t('Choose a document.')); return; }
       if (what === 'audio') fields.audio = { dataUrl: docUrl, name: fileName };
       else fields.file = { name: fileName, dataUrl: docUrl };
       fields.text = words ? `${fileName}. ${words}` : fileName;
       delete fields.kind;
     } else {
-      if (!words) { setError('Write a note first.'); return; }
+      if (!words) { setError(t('Write a note first.')); return; }
     }
     postMessage(thread.id, fields);
     setSheet(null);
     markRead(thread.id);
   }
 
-  const tiles = sheet === 'plus' ? BASICS : sheet === 'more' ? MORE.filter((item) => allowed(item[3])) : [];
+  const tiles = sheet === 'plus' ? BASICS() : sheet === 'more' ? MORE().filter((item) => allowed(item[3])) : [];
   const drawings = thread.projectId && can('drawing', 'r') ? (projectOf(thread.projectId)?.drawings || []) : [];
 
   return (
     <div className="screen">
       <ThreadHeader thread={thread} backTo={backTo} />
       {(related.length > 0 || (thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work')) && (
-        <div className="switcher" role="tablist" aria-label="Conversations in this project">
+        <div className="switcher" role="tablist" aria-label={t('Conversations in this project')}>
           {related.map((t) => (
             <Link key={t.id} role="tab" aria-selected={t.id === thread.id} className={t.id === thread.id ? 'on' : ''} to={`/mobile/chats/${t.id}${from ? `?from=${encodeURIComponent(from)}` : ''}`}>
               {audience(t)}
             </Link>
           ))}
           {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
-            <Link role="tab" aria-selected={false} to={`/mobile/chats/${thread.id}/work`}>Work groups</Link>
+            <Link role="tab" aria-selected={false} to={`/mobile/chats/${thread.id}/work`}>{t('Work groups')}</Link>
           )}
         </div>
       )}
@@ -652,10 +652,10 @@ export default function Thread() {
           {pinned.map((m) => (
             <div className="chat-pin" key={m.id}>
               <button type="button" className="jump" onClick={() => showInChat(m.id)}>
-                <em>Pinned</em>
-                <b>{m.text || 'Decision'}</b>
+                <em>{t('Pinned')}</em>
+                <b>{m.text || t('Decision')}</b>
               </button>
-              {canPin && <button type="button" className="unpin" onClick={() => toggleDecision(m)}>Unpin</button>}
+              {canPin && <button type="button" className="unpin" onClick={() => toggleDecision(m)}>{t('Unpin')}</button>}
             </div>
           ))}
         </div>
@@ -685,10 +685,10 @@ export default function Thread() {
                 onReply={() => setReplyTo(m)}
               >
                 {!mine && !same && <span className="who">{user(m.by).name || firstName(m.by)}</span>}
-                {m.decision && !m.deleted && <span className="tag">Decision</span>}
-                {m.deleted ? <p className="gone">This message was deleted</p> : (
+                {m.decision && !m.deleted && <span className="tag">{t('Decision')}</span>}
+                {m.deleted ? <p className="gone">{t('This message was deleted')}</p> : (
                   <>
-                    {m.forwarded && <span className="fwd">Forwarded</span>}
+                    {m.forwarded && <span className="fwd">{t('Forwarded')}</span>}
                     {m.replyTo && (() => {
                       const quoted = msgs.find((x) => x.id === m.replyTo);
                       return <span className="quote"><b>{quoted ? firstName(quoted.by) : ''}</b><span>{preview(quoted)}</span></span>;
@@ -696,7 +696,7 @@ export default function Thread() {
                     {m.voice && <VoicePlay src={typeof m.voice === 'object' ? m.voice.audio : ''} dur={typeof m.voice === 'string' ? m.voice : (m.voice.dur || '')} />}
                     {m.photo?.dataUrl && <img className="shot" src={m.photo.dataUrl} alt="" />}
                     {m.photo && !m.photo.dataUrl && <Swatch hue={m.photo.hue} seed={m.photo.seed} />}
-                    {(m.kind && !m.photo) && !m.voice && <span className="chip">{({ drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill', material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in' })[m.kind] || m.kind}</span>}
+                    {(m.kind && !m.photo) && !m.voice && <span className="chip">{({ drawing: t('Drawing'), delivery: t('Delivery'), sample: t('Sample'), location: t('Location'), bill: t('Bill'), material: t('Material'), file: t('File'), attendance: t('Attendance'), checkin: t('Checked in') })[m.kind] || m.kind}</span>}
                     {m.media?.kind === 'video' && m.media.url && <video src={m.media.url} controls className="shot" />}
                     {m.media?.dataUrl && m.media.kind !== 'video' && <img className="shot" src={m.media.dataUrl} alt="" />}
                     {m.audio?.dataUrl && <audio src={m.audio.dataUrl} controls />}
@@ -710,35 +710,35 @@ export default function Thread() {
                       </div>
                     )}
                     {m.link && <p><b>{m.link.title}</b><br />{m.link.src}</p>}
-                    {m.call && <p><b>Video call</b> · {m.call.provider}<br /><a href={m.call.url} target="_blank" rel="noopener noreferrer">{m.call.url}</a></p>}
-                    {m.file?.dataUrl && <p><a href={m.file.dataUrl} download={m.file.name}>Download {m.file.name}</a></p>}
-                    {m.imported && <small>imported from WhatsApp</small>}
+                    {m.call && <p><b>{t('Video call')}</b> · {m.call.provider}<br /><a href={m.call.url} target="_blank" rel="noopener noreferrer">{m.call.url}</a></p>}
+                    {m.file?.dataUrl && <p><a href={m.file.dataUrl} download={m.file.name}>{t('Download {0}', m.file.name)}</a></p>}
+                    {m.imported && <small>{t('imported from WhatsApp')}</small>}
                     {m.options?.length > 0 && m.options.map((o) => <button type="button" key={o} onClick={() => svc.recordChatDecision(m, o)}>{o}</button>)}
-                    {m.approval && (m.approval.done ? <span className="chip">approved</span> : state.role === 'client' ? <button type="button" onClick={() => svc.approveChatMessage(m)}>{m.approval.label}</button> : <span className="chip">{m.approval.label} · waiting</span>)}
+                    {m.approval && (m.approval.done ? <span className="chip">{t('approved')}</span> : state.role === 'client' ? <button type="button" onClick={() => svc.approveChatMessage(m)}>{m.approval.label}</button> : <span className="chip">{t('{0} · waiting', m.approval.label)}</span>)}
                     {m.bill && state.role === 'partner' && m.bill.status === 'asked' && m.by !== state.userId && (
                       <p>
-                        <button type="button" onClick={() => svc.decideBill(m, true)}>Approve</button>
-                        <button type="button" onClick={() => svc.decideBill(m, false)}>Ask for bill</button>
+                        <button type="button" onClick={() => svc.decideBill(m, true)}>{t('Approve')}</button>
+                        <button type="button" onClick={() => svc.decideBill(m, false)}>{t('Ask for bill')}</button>
                       </p>
                     )}
-                    {!m.deleted && m.issueId && <Link className="extra" to={`/mobile/issues/${m.issueId}`}>Open linked issue</Link>}
-                    {!m.deleted && siteHasSuggestion(svc.siteUpdateReview(m.id)) && <Link className="extra" to={`/mobile/chats/${thread.id}/messages/${m.id}`}>Review site update</Link>}
+                    {!m.deleted && m.issueId && <Link className="extra" to={`/mobile/issues/${m.issueId}`}>{t('Open linked issue')}</Link>}
+                    {!m.deleted && siteHasSuggestion(svc.siteUpdateReview(m.id)) && <Link className="extra" to={`/mobile/chats/${thread.id}/messages/${m.id}`}>{t('Review site update')}</Link>}
                     {m.text && !m.voice ? <p><span className="say">{m.text}</span></p> : null}
                     {staff() && !m.deleted && (((m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup')) || (m.photo && svc.assistKinds().includes('concept'))) && (
                       <details className="assist">
-                        <summary>Help with this update</summary>
+                        <summary>{t('Help with this update')}</summary>
                         {(m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup') && (
-                          <Link className="extra" to={`/mobile/assist?kind=followup&message=${m.id}`}>Suggest follow-up</Link>
+                          <Link className="extra" to={`/mobile/assist?kind=followup&message=${m.id}`}>{t('Suggest follow-up')}</Link>
                         )}
                         {m.photo && svc.assistKinds().includes('concept') && (
-                          <Link className="extra" to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}>Explore finishes</Link>
+                          <Link className="extra" to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}>{t('Explore finishes')}</Link>
                         )}
                       </details>
                     )}
                     <div className="meta">
                       {staff() && <FileChip threadId={thread.id} m={m} />}
-                      <time title={receipt === 'seen' ? 'Seen' : receipt === 'delivered' ? 'Delivered' : receipt === 'sent' ? 'Sent' : undefined}>
-                        {m.edited ? 'Edited · ' : ''}{fmtT(m.at)}
+                      <time title={receipt === 'seen' ? t('Seen') : receipt === 'delivered' ? t('Delivered') : receipt === 'sent' ? t('Sent') : undefined}>
+                        {m.edited ? t('Edited · ') : ''}{fmtT(m.at)}
                         {receipt && (
                           <Icon
                             name={receipt === 'sent' ? 'check' : 'checkcheck'}
@@ -753,7 +753,7 @@ export default function Thread() {
                 {reacts.length > 0 && (
                   <div className="reacts">
                     {reacts.map(([emoji, ids]) => (
-                      <button type="button" key={emoji} className={ids.includes(state.userId) ? 'on' : ''} onClick={() => toggleReaction(m, emoji)} aria-label={`React ${emoji}`}>
+                      <button type="button" key={emoji} className={ids.includes(state.userId) ? 'on' : ''} onClick={() => toggleReaction(m, emoji)} aria-label={t('React {0}', emoji)}>
                         {emoji} {ids.length}
                       </button>
                     ))}
@@ -764,7 +764,7 @@ export default function Thread() {
             </Fragment>
           );
         })}
-        {!msgs.length && <div className="empty"><h3>{thread.groupType === 'work' ? 'No messages yet' : 'Say hello'}</h3>{thread.groupType !== 'work' && <p>Photos and voice notes stay with this project.</p>}</div>}
+        {!msgs.length && <div className="empty"><h3>{thread.groupType === 'work' ? t('No messages yet') : t('Say hello')}</h3>{thread.groupType !== 'work' && <p>{t('Photos and voice notes stay with this project.')}</p>}</div>}
       </div>
       {(showSuggest || showQuick) && (
         <div className="quick">
@@ -773,43 +773,43 @@ export default function Thread() {
           ))}
           {showSuggest && (
             <button type="button" className="suggest" onClick={async () => {
-              if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
+              if ((drafts[thread.id] || '').trim()) { toast(t('Your draft was kept. Clear it before requesting an AI suggestion.')); return; }
               try { setDraft(thread.id, await AIProvider.draftReply(thread, lastLive)); }
-              catch (_) { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
-            }}>Suggest reply</button>
+              catch (_) { toast(t('AI reply unavailable. Your conversation and draft are unchanged.')); }
+            }}>{t('Suggest reply')}</button>
           )}
         </div>
       )}
       {replyTo && (
         <div className="replybar">
           <span><b>{firstName(replyTo.by)}</b>{preview(replyTo)}</span>
-          <button type="button" aria-label="Cancel reply" onClick={() => setReplyTo(null)}><Icon name="x" /></button>
+          <button type="button" aria-label={t('Cancel reply')} onClick={() => setReplyTo(null)}><Icon name="x" /></button>
         </div>
       )}
       {voiceHint ? <p className="voice-hint">{voiceHint}</p> : null}
       {can('thread', 'w') && <form className={`composer ${voiceMode === 'hold' ? 'holding' : ''}`} onSubmit={send}>
         {voiceMode === 'locked' ? (
           <div className="pill rec-hold">
-            <button type="button" className="round" aria-label="Delete voice note" onClick={discardVoice}>
+            <button type="button" className="round" aria-label={t('Delete voice note')} onClick={discardVoice}>
               <Icon name="trash" />
             </button>
             <span className="rec-time"><i />{voiceDur}</span>
           </div>
         ) : voiceMode === 'hold' ? (
           <div className="pill rec-hold">
-            <span className={slideCancel ? 'rec-cancel' : ''}>{slideCancel ? 'Release to cancel' : 'Slide to cancel'}</span>
+            <span className={slideCancel ? 'rec-cancel' : ''}>{slideCancel ? t('Release to cancel') : t('Slide to cancel')}</span>
             <span className="rec-time"><i />{voiceDur}</span>
           </div>
         ) : (
           <div className="pill">
-            <button type="button" className="round" aria-label="Add to this chat" onClick={() => { setError(''); setSheet('plus'); }}>
+            <button type="button" className="round" aria-label={t('Add to this chat')} onClick={() => { setError(''); setSheet('plus'); }}>
               <Icon name="plus" />
             </button>
             <textarea
               ref={box}
               rows={1}
               placeholder={t('message')}
-              aria-label={`Message to ${audience(thread)}`}
+              aria-label={t('Message to {0}', audience(thread))}
               value={text}
               onChange={(e) => setDraft(thread.id, e.target.value)}
               onKeyDown={(e) => {
@@ -817,14 +817,14 @@ export default function Thread() {
               }}
             />
             {!text.trim() && (
-              <button type="button" className="round cam" aria-label="Camera" onClick={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
+              <button type="button" className="round cam" aria-label={t('Camera')} onClick={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
                 <Icon name="camera" />
               </button>
             )}
           </div>
         )}
         {voiceMode === 'locked' ? (
-          <button type="button" className="round send" aria-label="Send voice note" onClick={() => finishVoice(true)}>
+          <button type="button" className="round send" aria-label={t('Send voice note')} onClick={() => finishVoice(true)}>
             <Icon name="send" />
           </button>
         ) : text.trim() && !voiceMode ? (
@@ -835,7 +835,7 @@ export default function Thread() {
           <button
             type="button"
             className="round send mic"
-            aria-label="Hold to record a voice note"
+            aria-label={t('Hold to record a voice note')}
             onPointerDown={micDown}
             onPointerMove={micMove}
             onPointerUp={micUp}
@@ -848,16 +848,16 @@ export default function Thread() {
       </form>}
       {sheet && (
         <div className="sheet-back" onClick={() => setSheet(null)} role="presentation">
-          <div className="sheet" role="dialog" aria-label="Add to chat" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet" role="dialog" aria-label={t('Add to chat')} onClick={(e) => e.stopPropagation()}>
             {sheet === 'plus' || sheet === 'more' ? (
               <>
                 <div className="sheet-title">
                   {sheet === 'more' ? (
-                    <button type="button" className="sheet-back-link" aria-label="Back" onClick={() => setSheet('plus')}>
+                    <button type="button" className="sheet-back-link" aria-label={t('Back')} onClick={() => setSheet('plus')}>
                       <Icon name="chev" />
                     </button>
                   ) : <span />}
-                  <h2>{sheet === 'plus' ? 'Add to this chat' : 'More'}</h2>
+                  <h2>{sheet === 'plus' ? t('Add to this chat') : t('More')}</h2>
                   <span />
                 </div>
                 {error ? <p className="warn-text">{error}</p> : null}
@@ -880,15 +880,15 @@ export default function Thread() {
               <form className="stack" onSubmit={sendAttach}>
                 {['location', 'poll', 'contact'].includes(sheet.what) ? (
                   <div className="wa-bar">
-                    <button type="button" aria-label="Close" onClick={() => setSheet(MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
+                    <button type="button" aria-label={t('Close')} onClick={() => setSheet(MORE().some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
                       <Icon name="x" />
                     </button>
-                    <b>{sheet.what === 'contact' ? 'Send contact' : sheet.label}</b>
+                    <b>{sheet.what === 'contact' ? t('Send contact') : sheet.label}</b>
                     {sheet.what === 'location' ? <span /> : (
                       <button
                         type="submit"
                         className="round send"
-                        aria-label="Send"
+                        aria-label={t('Send')}
                         disabled={sheet.what === 'poll'
                           ? (!pollQ.trim() || pollOpts.filter((o) => o.trim()).length < 2)
                           : (!pickedId && !contactName.trim())}
@@ -901,20 +901,20 @@ export default function Thread() {
                 {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                   <>
                     {sheet.what === 'delivery' && (
-                      <label>What arrived?
-                        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="What arrived?" />
+                      <label>{t('What arrived?')}
+                        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={t('What arrived?')} />
                       </label>
                     )}
                     <label className={sheet.what === 'sample' ? 'primary file-pick' : 'ghost file-pick'}>
-                      {sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo'}
+                      {sheet.what === 'delivery' ? t('Add a photo') : t('Choose a photo')}
                       <input type="file" accept="image/*" data-kind={sheet.what} onChange={readPhoto} />
                     </label>
                     {sheet.what === 'sample' && (
-                      <button type="button" className="text-btn" onClick={() => { setEditor({ what: 'sample', src: '/images/p01.jpg' }); setSheet(null); }}>Use a sample picture</button>
+                      <button type="button" className="text-btn" onClick={() => { setEditor({ what: 'sample', src: '/images/p01.jpg' }); setSheet(null); }}>{t('Use a sample picture')}</button>
                     )}
                     {sheet.what === 'sample' && (
-                      <label>Or name it without a photo
-                        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="What is this sample?" placeholder="What is this sample?" />
+                      <label>{t('Or name it without a photo')}
+                        <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={t('What is this sample?')} placeholder={t('What is this sample?')} />
                       </label>
                     )}
                   </>
@@ -928,7 +928,7 @@ export default function Thread() {
                     }}>
                       <span className="row-copy"><b>{d.name}</b><span>{d.no} · {d.rev}</span></span>
                     </button>
-                  )) : <p className="note">{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</p>
+                  )) : <p className="note">{can('drawing', 'r') ? t('No drawings on this project yet.') : t('Drawings aren’t available for this login.')}</p>
                 )}
                 {sheet.what === 'location' && (
                   <>
@@ -939,22 +939,22 @@ export default function Thread() {
                       markRead(thread.id);
                     }}>
                       <span className="wa-pin"><Icon name="location" /></span>
-                      <span className="row-copy"><b>Send your current location</b><span>{placeLine()}</span></span>
+                      <span className="row-copy"><b>{t('Send your current location')}</b><span>{placeLine()}</span></span>
                     </button>
-                    <input className="wa-line" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a message" placeholder="Add a message" />
+                    <input className="wa-line" value={note} onChange={(e) => setNote(e.target.value)} aria-label={t('Add a message')} placeholder={t('Add a message')} />
                   </>
                 )}
                 {sheet.what === 'file' && (
                   <>
-                    <label className="ghost file-pick">{fileName || 'Choose a file'}<input type="file" onChange={(e) => { setFileName(e.target.files?.[0]?.name || ''); e.target.value = ''; }} /></label>
-                    {fileName ? <p className="note">Only the name is sent. The file stays on this phone.</p> : null}
+                    <label className="ghost file-pick">{fileName || t('Choose a file')}<input type="file" onChange={(e) => { setFileName(e.target.files?.[0]?.name || ''); e.target.value = ''; }} /></label>
+                    {fileName ? <p className="note">{t('Only the name is sent. The file stays on this phone.')}</p> : null}
                   </>
                 )}
                 {(sheet.what === 'document' || sheet.what === 'audio') && (
                   <>
                     <p className="voice-line">{fileName}</p>
                     {sheet.what === 'audio' && docUrl ? <audio src={docUrl} controls /> : null}
-                    <label className="ghost file-pick">Choose a different file
+                    <label className="ghost file-pick">{t('Choose a different file')}
                       <input type="file" accept={sheet.what === 'audio' ? 'audio/*' : undefined} onChange={(e) => {
                         const file = e.target.files?.[0];
                         e.target.value = '';
@@ -965,30 +965,30 @@ export default function Thread() {
                         reader.readAsDataURL(file);
                       }} />
                     </label>
-                    <label>Add a caption
-                      <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label="Add a caption" placeholder="Add a caption" />
+                    <label>{t('Add a caption')}
+                      <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={t('Add a caption')} placeholder={t('Add a caption')} />
                     </label>
                   </>
                 )}
                 {sheet.what === 'poll' && (
                   <>
-                    <input className="wa-line" value={pollQ} onChange={(e) => setPollQ(e.target.value)} aria-label="Question" placeholder="Ask a question" />
+                    <input className="wa-line" value={pollQ} onChange={(e) => setPollQ(e.target.value)} aria-label={t('Question')} placeholder={t('Ask a question')} />
                     {pollOpts.map((o, i) => (
                       <div className="wa-opt" key={i}>
                         <i aria-hidden="true" />
-                        <input value={o} aria-label={`Option ${i + 1}`} placeholder="Add" onChange={(e) => setPollOpts((list) => list.map((x, j) => (j === i ? e.target.value : x)))} />
+                        <input value={o} aria-label={t('Option {0}', i + 1)} placeholder={t('Add')} onChange={(e) => setPollOpts((list) => list.map((x, j) => (j === i ? e.target.value : x)))} />
                       </div>
                     ))}
-                    {pollOpts.length < 6 && <button type="button" className="wa-add" onClick={() => setPollOpts((list) => [...list, ''])}>Add option</button>}
+                    {pollOpts.length < 6 && <button type="button" className="wa-add" onClick={() => setPollOpts((list) => [...list, ''])}>{t('Add option')}</button>}
                     <label className="wa-switch">
-                      Allow multiple answers
+                      {t('Allow multiple answers')}
                       <input type="checkbox" role="switch" checked={pollMulti} onChange={(e) => setPollMulti(e.target.checked)} />
                     </label>
                   </>
                 )}
                 {sheet.what === 'contact' && (
                   <>
-                    <input className="wa-line" value={contactQuery} onChange={(e) => setContactQuery(e.target.value)} aria-label="Search contacts" placeholder="Search name or number" />
+                    <input className="wa-line" value={contactQuery} onChange={(e) => setContactQuery(e.target.value)} aria-label={t('Search contacts')} placeholder={t('Search name or number')} />
                     {(thread.memberIds || []).filter((id) => id !== state.userId).filter((id) => {
                       const person = user(id);
                       const q = contactQuery.trim().toLowerCase();
@@ -1003,23 +1003,23 @@ export default function Thread() {
                         </button>
                       );
                     })}
-                    <button type="button" className="wa-add" onClick={() => { setNewContact((v) => !v); setPickedId(''); }}>{newContact ? 'Choose someone in this chat' : 'New contact'}</button>
+                    <button type="button" className="wa-add" onClick={() => { setNewContact((v) => !v); setPickedId(''); }}>{newContact ? t('Choose someone in this chat') : t('New contact')}</button>
                     {newContact && (
                       <>
-                        <input className="wa-line" value={contactName} onChange={(e) => { setContactName(e.target.value); setPickedId(''); }} aria-label="Name" placeholder="Name" />
-                        <input className="wa-line" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} aria-label="Phone" placeholder="Phone" inputMode="tel" />
+                        <input className="wa-line" value={contactName} onChange={(e) => { setContactName(e.target.value); setPickedId(''); }} aria-label={t('Name')} placeholder={t('Name')} />
+                        <input className="wa-line" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} aria-label={t('Phone')} placeholder={t('Phone')} inputMode="tel" />
                       </>
                     )}
                   </>
                 )}
                 {sheet.what === 'bill' && (
-                  <label>Amount in ₹
-                    <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Amount" placeholder="0" />
+                  <label>{t('Amount in ₹')}
+                    <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label={t('Amount')} placeholder="0" />
                   </label>
                 )}
                 {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio', 'sample', 'delivery', 'photo'].includes(sheet.what) && (
-                  <label>{sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : sheet.what === 'file' ? 'Add a caption' : 'Note'}
-                    <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={sheet.what === 'bill' ? 'What was it for?' : sheet.what === 'material' ? 'What do you need?' : 'Add a caption'} placeholder={sheet.what === 'file' ? 'Add a caption' : 'Optional'} />
+                  <label>{sheet.what === 'bill' ? t('What was it for?') : sheet.what === 'material' ? t('What do you need?') : sheet.what === 'file' ? t('Add a caption') : t('Note')}
+                    <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} aria-label={sheet.what === 'bill' ? t('What was it for?') : sheet.what === 'material' ? t('What do you need?') : t('Add a caption')} placeholder={sheet.what === 'file' ? t('Add a caption') : t('Optional')} />
                   </label>
                 )}
                 {error ? <p className="warn-text">{error}</p> : null}
@@ -1031,10 +1031,10 @@ export default function Thread() {
                       ((sheet.what === 'delivery' || sheet.what === 'sample' || sheet.what === 'material') && !note.trim())
                       || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
                     }
-                  >Send</button>
+                  >{t('Send')}</button>
                 )}
                 {!['location', 'poll', 'contact'].includes(sheet.what) && (
-                  <button type="button" className="text-btn" onClick={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</button>
+                  <button type="button" className="text-btn" onClick={() => setSheet(sheet.what && MORE().some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>{t('Back')}</button>
                 )}
               </form>
             )}
@@ -1045,10 +1045,10 @@ export default function Thread() {
       <input ref={fileInput} className="file-off" type="file" tabIndex={-1} aria-hidden="true" onChange={readFile} />
       {menu && (
         <div className="sheet-back" onClick={() => setMenu(null)} role="presentation">
-            <div className="sheet" role="dialog" aria-label="More options" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet" role="dialog" aria-label={t('More options')} onClick={(e) => e.stopPropagation()}>
             <p className="note">{preview(menu)}</p>
             <MessageActions thread={thread} message={menu} onReply={() => { setReplyTo(menu); setMenu(null); }} onDeleted={() => setMenu(null)} onForward={() => { setForwardMsg(menu); setMenu(null); }} />
-            <button type="button" className="text-btn" onClick={() => setMenu(null)}>Close</button>
+            <button type="button" className="text-btn" onClick={() => setMenu(null)}>{t('Close')}</button>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@
 import { state, svc, toast, render, accessibleMessage } from '../../shared/core.js';
 import { role } from '../helpers';
 import { resetHooks, closeHooks } from '../session';
+import { t } from '../../shared/i18n';
 
 export const assistTitles = {
   daily: 'Draft daily report',
@@ -34,10 +35,10 @@ export const forgetDesktopAssist = (d) => {
 };
 
 export function openDesktopAssist(kind, options = {}) {
-  if (!assistAllowed(kind)) return toast('This helper is unavailable for your role.');
+  if (!assistAllowed(kind)) return toast(t('This helper is unavailable for your role.'));
   if ((options.projectId && !svc.project(options.projectId)) || (options.siteId && !svc.site(options.siteId))
-    || (options.messageId && !accessibleMessage(options.messageId))) return toast('Source unavailable.');
-  if (options.issueId && svc.siteIssueDetails(options.issueId)?.issue.projectId !== options.projectId) return toast('Issue unavailable in this project.');
+    || (options.messageId && !accessibleMessage(options.messageId))) return toast(t('Source unavailable.'));
+  if (options.issueId && svc.siteIssueDetails(options.issueId)?.issue.projectId !== options.projectId) return toast(t('Issue unavailable in this project.'));
   const key = assistDraftKey(kind, options);
   let saved = memory.get(key);
   if (!saved) { try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { /* ignore */ } }
@@ -61,6 +62,6 @@ closeHooks['assist-source'] = (closing) => closing.draft;
 resetHooks.push(() => memory.clear());
 
 export function fileToMoodboard(msgId) {
-  if (!svc.fileToMoodboard(msgId)) return toast(state.storageError || 'Could not save to moodboard. Try again.');
-  return toast('Added to moodboard.');
+  if (!svc.fileToMoodboard(msgId)) return toast(state.storageError || t('Could not save to moodboard. Try again.'));
+  return toast(t('Added to moodboard.'));
 }

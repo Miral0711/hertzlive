@@ -20,8 +20,8 @@ const nowHours = () => {
 const placeOf = (b) => {
   const room = (state.db.ROOMS || []).find((r) => r.id === b.roomId)?.name;
   if (room) return room;
-  if (b.kind === 'travel') return 'Out of the office';
-  return { client: 'Client meeting', review: 'Studio review', focus: 'Focus time' }[b.kind] || 'Studio';
+  if (b.kind === 'travel') return t('Out of the office');
+  return { client: t('Client meeting'), review: t('Studio review'), focus: t('Focus time') }[b.kind] || t('Studio');
 };
 
 function nextSentence(meetings) {
@@ -29,7 +29,7 @@ function nextSentence(meetings) {
   const current = meetings.find((b) => now >= b.start && now < b.end);
   if (current) return `Now · ${current.title} · ${placeOf(current)}`;
   const upcoming = meetings.find((b) => b.start > now);
-  if (!upcoming) return meetings.length ? 'Nothing else on your calendar today' : '';
+  if (!upcoming) return meetings.length ? t('Nothing else on your calendar today') : '';
   const mins = Math.max(1, Math.round((upcoming.start - now) * 60));
   const when = mins < 90 ? `in ${mins} min` : `at ${hh(upcoming.start)}`;
   return `Next · ${upcoming.title} ${when} · ${placeOf(upcoming)}`;
@@ -80,7 +80,7 @@ function buildToday(day) {
   if (role === 'designer' || role === 'partner') {
     openIssues.filter((issue) => issue.assignee === state.userId).forEach((issue) => {
       const detail = svc.siteIssueDetails(issue.id);
-      if (detail?.canAnswer && detail.needsAnswer) actions.push({ key: `work-${issue.id}`, kind: 'sitework', issue, label: 'Site needs an answer' });
+      if (detail?.canAnswer && detail.needsAnswer) actions.push({ key: `work-${issue.id}`, kind: 'sitework', issue, label: t('Site needs an answer') });
       else actions.push({ key: `issue-${issue.id}`, kind: 'issue', issue });
     });
   }
@@ -88,8 +88,8 @@ function buildToday(day) {
     openIssues.filter((issue) => issue.raisedBy === state.userId && svc.mySiteIds().includes(issue.siteId)).forEach((issue) => {
       const detail = svc.siteIssueDetails(issue.id);
       const who = detail?.sources.length
-        ? (detail.needsAnswer ? 'Awaiting office response' : 'Awaiting resolution')
-        : (issue.assignee ? `Waiting on ${firstName(issue.assignee)}` : 'Awaiting office response');
+        ? (detail.needsAnswer ? t('Awaiting office response') : t('Awaiting resolution'))
+        : (issue.assignee ? t('Waiting on {0}', firstName(issue.assignee)) : t('Awaiting office response'));
       waiting.push({ key: `wait-${issue.id}`, issue, who });
     });
   }
@@ -147,13 +147,13 @@ function DayCard({ item, act }) {
     const { leave } = item;
     return (
       <article className={row}>
-        <small>Leave request</small>
-        <b>{user(leave.userId).name} · {leave.days} day{leave.days === 1 ? '' : 's'}</b>
-        <span>{leave.type} · {fmtD(leave.from)} to {fmtD(leave.to)}{leave.reason ? ` · ${leave.reason}` : ''}</span>
+        <small>{t('Leave request')}</small>
+        <b>{user(leave.userId).name} · {leave.days === 1 ? t('{0} day', leave.days) : t('{0} days', leave.days)}</b>
+        <span>{t('{0} · {1} to {2}{3}', leave.type, fmtD(leave.from), fmtD(leave.to), leave.reason ? ` · ${leave.reason}` : '')}</span>
         <Acts choice>
-          <button type="button" onClick={() => act('leave', leave.id, true)}>Approve</button>
-          <button type="button" className="quiet" onClick={() => act('leave', leave.id, false)}>Decline</button>
-          <Link className="quiet" to={`/mobile/standin/${leave.userId}?leave=${leave.id}`}>Who covers?</Link>
+          <button type="button" onClick={() => act('leave', leave.id, true)}>{t('Approve')}</button>
+          <button type="button" className="quiet" onClick={() => act('leave', leave.id, false)}>{t('Decline')}</button>
+          <Link className="quiet" to={`/mobile/standin/${leave.userId}?leave=${leave.id}`}>{t('Who covers?')}</Link>
         </Acts>
       </article>
     );
@@ -162,13 +162,13 @@ function DayCard({ item, act }) {
     const { material } = item;
     return (
       <article className={row}>
-        <small>Your approval</small>
+        <small>{t('Your approval')}</small>
         <b>{material.name}</b>
         <span>{[material.vendor, projectName(material.projectId)].filter(Boolean).join(' · ')}</span>
         <Acts choice>
-          <button type="button" onClick={() => act('material', material.id, true)}>Approve</button>
-          <button type="button" className="quiet" onClick={() => act('material', material.id, false)}>Not this one</button>
-          <Link className="quiet" to={`/mobile/assist?kind=ask&q=${encodeURIComponent(`Tell me more about the ${material.name}`)}`}>Ask</Link>
+          <button type="button" onClick={() => act('material', material.id, true)}>{t('Approve')}</button>
+          <button type="button" className="quiet" onClick={() => act('material', material.id, false)}>{t('Not this one')}</button>
+          <Link className="quiet" to={`/mobile/assist?kind=ask&q=${encodeURIComponent(`Tell me more about the ${material.name}`)}`}>{t('Ask')}</Link>
         </Acts>
       </article>
     );
@@ -177,13 +177,13 @@ function DayCard({ item, act }) {
     const { change } = item;
     return (
       <article className={row}>
-        <small>Your approval · {change.no}</small>
+        <small>{t('Your approval · {0}', change.no)}</small>
         <b>{change.title}</b>
         <span>{change.reason}</span>
-        <span>{inr(change.cost)} extra · {change.days} day{change.days === 1 ? '' : 's'}</span>
+        <span>{t('{0} extra', inr(change.cost))} · {change.days === 1 ? t('{0} day', change.days) : t('{0} days', change.days)}</span>
         <Acts choice>
-          <button type="button" onClick={() => act('change', change.id, true)}>Approve</button>
-          <button type="button" className="quiet" onClick={() => act('change', change.id, false)}>Decline</button>
+          <button type="button" onClick={() => act('change', change.id, true)}>{t('Approve')}</button>
+          <button type="button" className="quiet" onClick={() => act('change', change.id, false)}>{t('Decline')}</button>
         </Acts>
       </article>
     );
@@ -192,12 +192,12 @@ function DayCard({ item, act }) {
     const { task } = item;
     return (
       <article className={row}>
-        <small>{task.from ? `Asked by ${firstName(task.from)}` : 'Assigned to you'}</small>
+        <small>{task.from ? t('Asked by {0}', firstName(task.from)) : t('Assigned to you')}</small>
         <b>{task.title}</b>
-        <span>{projectName(task.projectId)}{task.due ? ` · by ${fmtD(task.due)}` : ''}</span>
+        <span>{projectName(task.projectId)}{task.due ? t(' · by {0}', fmtD(task.due)) : ''}</span>
         <Acts choice>
-          <button type="button" onClick={() => act('task', task.id)}>Done</button>
-          <Link className="quiet" to={`/mobile/projects/${task.projectId}`}>Open project</Link>
+          <button type="button" onClick={() => act('task', task.id)}>{t('Done')}</button>
+          <Link className="quiet" to={`/mobile/projects/${task.projectId}`}>{t('Open project')}</Link>
         </Acts>
       </article>
     );
@@ -205,7 +205,7 @@ function DayCard({ item, act }) {
   if (item.kind === 'snag') {
     return (
       <Link className={row} to={`/mobile/projects/${item.site.projectId}`}>
-        <small>{state.role === 'contractor' ? 'Your snag' : 'Open snag'}</small>
+        <small>{state.role === 'contractor' ? t('Your snag') : t('Open snag')}</small>
         <b>{item.snag.text}</b>
         <span>{item.site.name}</span>
       </Link>
@@ -214,7 +214,7 @@ function DayCard({ item, act }) {
   if (item.kind === 'sites') {
     return (
       <article className={row}>
-        <small>Your sites today</small>
+        <small>{t('Your sites today')}</small>
         <ul className="sites-mini">
           {liveSites().map((site) => {
             const open = (state.db.ISSUES || []).filter((i) => i.siteId === site.id && i.status === 'open').length;
@@ -223,14 +223,14 @@ function DayCard({ item, act }) {
             return (
               <li key={site.id}>
                 <b>{projectName(site.projectId)}</b>
-                {' · '}{open ? `${open} open` : 'no issues'}
-                {' · '}{workers ? `${workers} workers logged` : 'no log yet'}
+                {' · '}{open ? t('{0} open', open) : t('no issues')}
+                {' · '}{workers ? t('{0} workers logged', workers) : t('no log yet')}
               </li>
             );
           })}
         </ul>
-        <span>Presence comes from your photos. Guard check is due at 18:00.</span>
-        <Acts choice><button type="button" className="quiet" onClick={() => act('guard')}>Guard check done</button></Acts>
+        <span>{t('Presence comes from your photos. Guard check is due at 18:00.')}</span>
+        <Acts choice><button type="button" className="quiet" onClick={() => act('guard')}>{t('Guard check done')}</button></Acts>
       </article>
     );
   }
@@ -243,8 +243,8 @@ function DayCard({ item, act }) {
         <b>{enquiry.name} · {svc.serviceType(enquiry.typeId)}</b>
         <span>{[source, enquiry.city, enquiry.msg].filter(Boolean).join(' · ')}</span>
         <Acts choice>
-          <button type="button" onClick={() => act('enquiry', enquiry.id, 'accepted')}>Accept</button>
-          <button type="button" className="quiet" onClick={() => act('enquiry', enquiry.id, 'not_eligible')}>Not eligible</button>
+          <button type="button" onClick={() => act('enquiry', enquiry.id, 'accepted')}>{t('Accept')}</button>
+          <button type="button" className="quiet" onClick={() => act('enquiry', enquiry.id, 'not_eligible')}>{t('Not eligible')}</button>
           {phone ? <a className="quiet" href={`https://wa.me/${phone}`} target="_blank" rel="noopener noreferrer">WhatsApp</a> : null}
         </Acts>
       </article>
@@ -255,12 +255,12 @@ function DayCard({ item, act }) {
     const withWhom = (booking.attendees || []).filter((id) => id !== booking.clientId).map((id) => firstName(id)).join(', ');
     return (
       <article className={row}>
-        <small>Client wants to meet</small>
+        <small>{t('Client wants to meet')}</small>
         <b>{user(booking.clientId || booking.by).name} · {fmtD(booking.date)} {hh(booking.start)}</b>
-        <span>{booking.title}{withWhom ? ` · with ${withWhom}` : ''}</span>
+        <span>{booking.title}{withWhom ? t(' · with {0}', withWhom) : ''}</span>
         <Acts choice>
-          <button type="button" onClick={() => act('booking', booking.id, true)}>Confirm</button>
-          <button type="button" className="quiet" onClick={() => act('booking', booking.id, false)}>Decline</button>
+          <button type="button" onClick={() => act('booking', booking.id, true)}>{t('Confirm')}</button>
+          <button type="button" className="quiet" onClick={() => act('booking', booking.id, false)}>{t('Decline')}</button>
         </Acts>
       </article>
     );
@@ -270,12 +270,12 @@ function DayCard({ item, act }) {
     const thread = threadForIssue(issue);
     return (
       <article className={row}>
-        <small>{item.label || `Site needs your answer${issue.due ? ` · reply by ${fmtD(issue.due)}` : ''}`}</small>
+        <small>{item.label || t('Site needs your answer') + (issue.due ? ` · ${t('reply by {0}', fmtD(issue.due))}` : '')}</small>
         <b>{issue.title}</b>
         <span>{[issue.type, issue.drawing, issue.raisedBy ? `raised by ${firstName(issue.raisedBy)}` : ''].filter(Boolean).join(' · ')}</span>
         <Acts choice>
-          {thread ? <Link to={`/mobile/chats/${thread.id}`}>Reply</Link> : <Link to={`/mobile/issues/${issue.id}`}>Open</Link>}
-          {item.kind === 'issue' ? <button type="button" className="quiet" onClick={() => act('close', issue.id)}>Mark answered</button> : null}
+          {thread ? <Link to={`/mobile/chats/${thread.id}`}>{t('Reply')}</Link> : <Link to={`/mobile/issues/${issue.id}`}>{t('Open')}</Link>}
+          {item.kind === 'issue' ? <button type="button" className="quiet" onClick={() => act('close', issue.id)}>{t('Mark answered')}</button> : null}
         </Acts>
       </article>
     );
@@ -284,11 +284,11 @@ function DayCard({ item, act }) {
     const message = item.followup.msg;
     return (
       <article className={row}>
-        <small>Reminder</small>
-        <b>{message?.text || 'Message'}</b>
+        <small>{t('Reminder')}</small>
+        <b>{message?.text || t('Message')}</b>
         <Acts choice>
-          {message ? <Link to={`/mobile/chats/${message.threadId}#${message.id}`}>Open</Link> : null}
-          <button type="button" className="quiet" onClick={() => act('followup', item.followup.id)}>Done</button>
+          {message ? <Link to={`/mobile/chats/${message.threadId}#${message.id}`}>{t('Open')}</Link> : null}
+          <button type="button" className="quiet" onClick={() => act('followup', item.followup.id)}>{t('Done')}</button>
         </Acts>
       </article>
     );
@@ -297,10 +297,10 @@ function DayCard({ item, act }) {
     const { decision } = item;
     return (
       <article className={row}>
-        <small>Client decision overdue</small>
+        <small>{t('Client decision overdue')}</small>
         <b>{decision.title}</b>
-        <span>{projectName(decision.projectId)} · due {fmtD(decision.due)}</span>
-        <Acts choice><button type="button" onClick={() => act('nudge', decision)}>Nudge client</button></Acts>
+        <span>{t('{0} · due {1}', projectName(decision.projectId), fmtD(decision.due))}</span>
+        <Acts choice><button type="button" onClick={() => act('nudge', decision)}>{t('Nudge client')}</button></Acts>
       </article>
     );
   }
@@ -308,10 +308,10 @@ function DayCard({ item, act }) {
     const { invoice } = item;
     return (
       <article className={row}>
-        <small>Payment overdue</small>
-        <b>Invoice {invoice.no}</b>
+        <small>{t('Payment overdue')}</small>
+        <b>{t('Invoice {0}', invoice.no)}</b>
         <span>{inr(invoice.amount)} · {projectName(invoice.projectId)}</span>
-        <Acts choice><button type="button" onClick={() => act('invoice', invoice)}>Draft reminder</button></Acts>
+        <Acts choice><button type="button" onClick={() => act('invoice', invoice)}>{t('Draft reminder')}</button></Acts>
       </article>
     );
   }
@@ -319,19 +319,19 @@ function DayCard({ item, act }) {
     const { holiday } = item;
     return (
       <article className={row}>
-        <small>Holiday</small>
+        <small>{t('Holiday')}</small>
         <b>{holiday.name} · {fmtD(holiday.date)}</b>
-        <span>Tell every site so labour and deliveries are planned.</span>
-        <Acts choice><button type="button" onClick={() => act('holiday', holiday.date)}>Tell site groups</button></Acts>
+        <span>{t('Tell every site so labour and deliveries are planned.')}</span>
+        <Acts choice><button type="button" onClick={() => act('holiday', holiday.date)}>{t('Tell site groups')}</button></Acts>
       </article>
     );
   }
   if (item.kind === 'quiet') {
     return (
       <Link className={row} to={`/mobile/projects/${item.site.projectId}`}>
-        <small>No recent photo</small>
+        <small>{t('No recent photo')}</small>
         <b>{item.site.name}</b>
-        <span>{item.age > 30 ? 'No site photo yet' : `Nothing from site for ${item.age} days`}</span>
+        <span>{item.age > 30 ? t('No site photo yet') : t('Nothing from site for {0} days', item.age)}</span>
       </Link>
     );
   }
@@ -348,7 +348,7 @@ function DayCard({ item, act }) {
   if (item.kind === 'milestone') {
     return (
       <Link className={row} to={`/mobile/projects/${item.project.id}`}>
-        <small>Next milestone</small>
+        <small>{t('Next milestone')}</small>
         <b>{item.next.name}</b>
         <span>{item.project.name} · {fmtD(item.next.date)}</span>
       </Link>
@@ -435,7 +435,7 @@ export default function Today() {
     setNote('');
     if (name === 'leave') svc.decideLeave(a, b);
     else if (name === 'material') {
-      try { svc.approveMaterial(a, b); } catch (err) { setNote(err.message === 'forbidden' ? 'You can’t decide this material.' : err.message); return; }
+      try { svc.approveMaterial(a, b); } catch (err) { setNote(err.message === 'forbidden' ? t('You can’t decide this material.') : t(err.message)); return; }
     } else if (name === 'change') {
       const change = (state.db.CHANGES || []).find((c) => c.id === a);
       if (!change) return;
@@ -447,24 +447,24 @@ export default function Today() {
     } else if (name === 'task') {
       const task = (state.db.TASKS || []).find((row) => row.id === a);
       if (!task || task.owner !== state.userId) return;
-      try { svc.completeTask(task.id); render(); } catch (err) { setNote('Could not save that. Try again.'); return; }
+      try { svc.completeTask(task.id); render(); } catch (err) { setNote(t('Could not save that. Try again.')); return; }
     } else if (name === 'enquiry') svc.decideEnquiry(a, b);
     else if (name === 'booking') svc.decideBooking(a, b);
     else if (name === 'close') svc.closeIssue(a);
     else if (name === 'followup') svc.doneFollowup(a);
     else if (name === 'holiday') {
       const count = svc.pushHoliday(a);
-      setNote(count ? `Told ${count} site group${count === 1 ? '' : 's'}.` : 'No site group to tell.');
-    }     else if (name === 'guard') setNote('Guard check logged for today. Next reminder is tomorrow.');
+      setNote(count ? (count === 1 ? t('Told 1 site group.') : t('Told {0} site groups.', count)) : t('No site group to tell.'));
+    }     else if (name === 'guard') setNote(t('Guard check logged for today. Next reminder is tomorrow.'));
     else if (name === 'nudge') {
       const thread = svc.threads().find((t) => t.kind === 'client' && t.projectId === a.projectId);
-      if (!thread) { setNote('No client conversation for this decision.'); return; }
+      if (!thread) { setNote(t('No client conversation for this decision.')); return; }
       setDraft(thread.id, `Hi, could you help decide "${a.title}" so we can keep the project on schedule? Thank you.`);
       navigate(`/mobile/chats/${thread.id}`);
       return;
     } else if (name === 'invoice') {
       const thread = svc.threads().find((t) => t.kind === 'client' && t.projectId === a.projectId);
-      if (!thread) { setNote('No client conversation for this invoice.'); return; }
+      if (!thread) { setNote(t('No client conversation for this invoice.')); return; }
       AIProvider.draftNudge(a, 'English').then((text) => {
         setDraft(thread.id, text);
         navigate(`/mobile/chats/${thread.id}`);
@@ -477,7 +477,7 @@ export default function Today() {
   async function shareWeekly(project, edit) {
     const card = await AIProvider.weeklyCard(project.id);
     const thread = svc.threads().find((t) => t.kind === 'client' && t.projectId === project.id);
-    if (!thread) { setNote('No client conversation for this project.'); return; }
+    if (!thread) { setNote(t('No client conversation for this project.')); return; }
     const askLine = Array.isArray(card.askClient) ? card.askClient.filter(Boolean).join(', ') : (card.askClient || '');
     const text = `${card.title}\n${card.lines.join('\n')}${askLine ? `\n${askLine}` : ''}`;
     if (edit) {
@@ -487,7 +487,7 @@ export default function Today() {
     }
     postMessage(thread.id, { text });
     setShared((prev) => ({ ...prev, [project.id]: true }));
-    setNote('Shared with the client group.');
+    setNote(t('Shared with the client group.'));
     render();
   }
 
@@ -495,7 +495,7 @@ export default function Today() {
     <div className="screen">
       <header className="top">
         <h1>{t('today')}<span>{fmtD(day)}</span></h1>
-        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Ftoday" aria-label="Profile">
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Ftoday" aria-label={t('Profile')}>
           <Avatar person={person} size="sm" />
         </Link>
       </header>
@@ -503,20 +503,20 @@ export default function Today() {
         <div className="day-sheet">
           <section className="day-now">
             <div>
-              <h2>{focus ? focus.title : (nowItems.length ? 'Your day is open' : 'You’re up to date')}</h2>
-              <p>{focus ? `${currentMeeting ? 'Now' : hh(focus.start)} · ${placeOf(focus)}` : (ahead || 'Nothing else on your calendar')}</p>
+              <h2>{focus ? focus.title : (nowItems.length ? t('Your day is open') : t('You’re up to date'))}</h2>
+              <p>{focus ? `${currentMeeting ? t('Now') : hh(focus.start)} · ${placeOf(focus)}` : (ahead || t('Nothing else on your calendar'))}</p>
         </div>
           </section>
-        {!state.online && <p className="banner">Your message will send when the network is back.</p>}
+        {!state.online && <p className="banner">{t('Your message will send when the network is back.')}</p>}
           {siteThreads.length > 0 && can('thread', 'w') && (
             <div className="day-row day-post">
               <Link to={postTo}>
-                <b>Post a site update</b>
-                <span>Photo, voice, delivery or attendance</span>
+                <b>{t('Post a site update')}</b>
+                <span>{t('Photo, voice, delivery or attendance')}</span>
               </Link>
               <div className="day-acts">
-                {site && <Link to={`/mobile/chats/${site.t.id}/voice`}>Voice</Link>}
-                {canSnag && <button type="button" className="quiet" onClick={() => setSnagOpen((v) => !v)}>Snag</button>}
+                {site && <Link to={`/mobile/chats/${site.t.id}/voice`}>{t('Voice')}</Link>}
+                {canSnag && <button type="button" className="quiet" onClick={() => setSnagOpen((v) => !v)}>{t('Snag')}</button>}
               </div>
             </div>
           )}
@@ -530,8 +530,8 @@ export default function Today() {
               setSnagOpen(false);
               render();
             }}>
-              <input value={snag} onChange={(e) => setSnag(e.target.value)} placeholder="What’s wrong on site?" aria-label="Snag" />
-              <button type="submit">Send</button>
+              <input value={snag} onChange={(e) => setSnag(e.target.value)} placeholder={t('What’s wrong on site?')} aria-label={t('Snag')} />
+              <button type="submit">{t('Send')}</button>
             </form>
           )}
           {nowItems.length > 0 && (
@@ -541,15 +541,15 @@ export default function Today() {
           )}
           {!nowItems.length && !laterItems.length && (
             <div className="day-clear">
-            <h3>Nothing waiting on you</h3>
-            <Link to="/mobile/projects">Open projects</Link>
+            <h3>{t('Nothing waiting on you')}</h3>
+            <Link to="/mobile/projects">{t('Open projects')}</Link>
           </div>
           )}
           {note ? <p className="note">{note}</p> : null}
           <div className="day-menu">
           {leaves.length > 0 && (
             <details className="today-fold">
-              <summary><span>Leave requests</span><b>{leaves.length}</b></summary>
+              <summary><span>{t('Leave requests')}</span><b>{leaves.length}</b></summary>
               <div className="day-card">
                 {leaves.map((item) => <DayCard key={item.key} item={item} act={act} />)}
               </div>
@@ -557,7 +557,7 @@ export default function Today() {
           )}
           {enquiries.length > 0 && (
             <details className="today-fold" open={enquiries.some((item) => item.key === opened)}>
-              <summary><span>New enquiries</span><b>{enquiries.length}</b></summary>
+              <summary><span>{t('New enquiries')}</span><b>{enquiries.length}</b></summary>
               <div className="day-card">
                 {enquiries.map((item) => <DayCard key={item.key} item={item} act={act} />)}
               </div>
@@ -573,7 +573,7 @@ export default function Today() {
           )}
           {reminders.length > 0 && (
             <details className="today-fold">
-              <summary><span>Reminders</span><b>{reminders.length}</b></summary>
+              <summary><span>{t('Reminders')}</span><b>{reminders.length}</b></summary>
               <div className="day-card">
                 {reminders.map((item) => <DayCard key={item.key} item={item} act={act} />)}
               </div>
@@ -581,26 +581,26 @@ export default function Today() {
           )}
           {waiting.length > 0 && (
             <details className="today-fold">
-              <summary><span>Waiting on others</span><b>{waiting.length}</b></summary>
+              <summary><span>{t('Waiting on others')}</span><b>{waiting.length}</b></summary>
               {waiting.map((item) => (
                 <div className="wait-row" key={item.key}>
                   <b>{item.issue.title}</b>
-                  <span>{item.who}{item.issue.due ? ` · by ${fmtD(item.issue.due)}` : ''}</span>
-                  <Link to={`/mobile/issues/${item.issue.id}`}>Open linked issue</Link>
+                  <span>{item.who}{item.issue.due ? t(' · by {0}', fmtD(item.issue.due)) : ''}</span>
+                  <Link to={`/mobile/issues/${item.issue.id}`}>{t('Open linked issue')}</Link>
                 </div>
               ))}
         </details>
           )}
           {away.length > 0 && (
             <div className="day-quiet">
-              <span><Icon name="cal" /> Away today: {away.join(', ')}</span>
+              <span><Icon name="cal" />{' '}{t('Away today:')}{' '}{away.join(', ')}</span>
             </div>
           )}
           {svc.assistKinds().includes('daily') && (
-            <Link className="day-report" to={reportTo}>Review day report</Link>
+            <Link className="day-report" to={reportTo}>{t('Review day report')}</Link>
           )}
           <details className="today-fold">
-            <summary><span>Meetings and studio tools</span></summary>
+            <summary><span>{t('Meetings and studio tools')}</span></summary>
             <div className="tool-list">
               {todayMeetings.length ? todayMeetings.map((b) => {
                 const past = now >= b.end;
@@ -609,7 +609,7 @@ export default function Today() {
                 return (
                   <div className={`day-row${past ? ' past' : ''}`} key={b.id}>
                     <div>
-                      <b>{current ? 'Now · ' : ''}{hh(b.start)}–{hh(b.end)} · {b.title}</b>
+                      <b>{current ? t('Now · ') : ''}{hh(b.start)}–{hh(b.end)} · {b.title}</b>
                       <span>{placeOf(b)}</span>
                       {people.length > 0 && (
                         <div className="meet-people">
@@ -624,44 +624,44 @@ export default function Today() {
                     </div>
                   </div>
                 );
-              }) : <p className="note">{state.role === 'client' ? 'No meeting booked. Pick a day and time, the studio confirms.' : 'Nothing booked for you today.'}</p>}
+              }) : <p className="note">{state.role === 'client' ? t('No meeting booked. Pick a day and time, the studio confirms.') : t('Nothing booked for you today.')}</p>}
               {meetings.filter((b) => b.date > day).slice(0, 3).map((b) => (
                 <div className="day-row" key={b.id}>
                   <div>
                     <b>{fmtD(b.date)} · {hh(b.start)} · {b.title}</b>
-                    <span>{b.status === 'pending' ? 'Waiting for the studio' : 'Confirmed'}</span>
+                    <span>{b.status === 'pending' ? t('Waiting for the studio') : t('Confirmed')}</span>
                   </div>
                 </div>
               ))}
               {canBook && (
                 <Link className="day-row tool-link" to={`/mobile/book?kind=${bookKind}`}>
-                  <b>{state.role === 'client' ? 'Book a meeting' : `Book ${(state.db.ROOMS?.[0]?.name || 'a room').toLowerCase()}`}</b>
+                  <b>{state.role === 'client' ? t('Book a meeting') : t('Book {0}', (state.db.ROOMS?.[0]?.name || t('a room')).toLowerCase())}</b>
                 </Link>
               )}
-              {weekly.length > 0 && <p className="tool-label">Weekly share cards</p>}
+              {weekly.length > 0 && <p className="tool-label">{t('Weekly share cards')}</p>}
               {weekly.map((project) => (
                 <article className="day-row" key={project.id}>
                   <div>
                     <b>{project.name}</b>
-                    <span>{shared[project.id] ? 'Shared with the client group.' : 'Drafted from this week’s site photos.'}</span>
+                    <span>{shared[project.id] ? t('Shared with the client group.') : t('Drafted from this week’s site photos.')}</span>
                   </div>
                   <Acts>
-                    <button type="button" onClick={() => shareWeekly(project, false)}>Share</button>
-                    <button type="button" className="quiet" onClick={() => shareWeekly(project, true)}>Edit first</button>
+                    <button type="button" onClick={() => shareWeekly(project, false)}>{t('Share')}</button>
+                    <button type="button" className="quiet" onClick={() => shareWeekly(project, true)}>{t('Edit first')}</button>
                   </Acts>
           </article>
         ))}
-              {chain.length > 0 && <p className="tool-label">Materials</p>}
+              {chain.length > 0 && <p className="tool-label">{t('Materials')}</p>}
               {chain.map((m) => (
                 <div className="day-row" key={m.id}>
                   <b>{m.name}</b>
                   <div className="day-acts"><span>{(m.status || 'open').replaceAll('_', ' ')}</span></div>
               </div>
             ))}
-              {siteToday.length > 0 && <p className="tool-label">Site updates</p>}
+              {siteToday.length > 0 && <p className="tool-label">{t('Site updates')}</p>}
               {siteToday.map((f) => {
                 const thread = svc.threads().find((th) => th.kind === 'site' && th.siteId === f.site.id);
-                const text = (f.text || f.aiSummary || 'Update').trim();
+                const text = (f.text || f.aiSummary || t('Update')).trim();
                 return (
                   <Link key={f.id} className="day-row site-line" to={thread ? `/mobile/chats/${thread.id}` : `/mobile/projects/${f.site.projectId}`}>
                     <b>{fmtT(f.at)} · {firstName(f.by)}</b>
@@ -671,7 +671,7 @@ export default function Today() {
               })}
               {lastThread && (
                 <Link className="day-row tool-link site-go" to={`/mobile/chats/${lastThread.id}`}>
-                  <b>Continue {threadTitle(lastThread)}</b>
+                  <b>{t('Continue {0}', threadTitle(lastThread))}</b>
                 </Link>
               )}
               {notice && <p className="note studio-note">{notice.text}</p>}
@@ -679,7 +679,7 @@ export default function Today() {
           </details>
           {svc.assistKinds().includes('ask') && (
             <details className="today-fold">
-              <summary><span>Ask about your work</span></summary>
+              <summary><span>{t('Ask about your work')}</span></summary>
               <div className="ask-chips">
                 {askChips.map((q) => <Link key={q} to={`/mobile/assist?kind=ask&q=${encodeURIComponent(q)}`}>{q}</Link>)}
               </div>
@@ -689,8 +689,8 @@ export default function Today() {
                 if (!q) return;
                 navigate(`/mobile/assist?kind=ask&q=${encodeURIComponent(q)}`);
               }}>
-                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ask about a drawing, date or decision" aria-label="Ask about your work" />
-                <button type="submit">Ask</button>
+                <input value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={t('Ask about a drawing, date or decision')} aria-label={t('Ask about your work')} />
+                <button type="submit">{t('Ask')}</button>
               </form>
           </details>
         )}

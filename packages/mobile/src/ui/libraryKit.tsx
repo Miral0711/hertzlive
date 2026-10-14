@@ -209,14 +209,14 @@ export function Select({ label, value, options, onChange }: {
   );
 }
 
-export function SearchBox({ value, onChangeText, placeholder, label }: { value: string; onChangeText: (v: string) => void; placeholder: string; label?: string }) {
+export function SearchBox({ value, onChangeText, placeholder, label, style }: { value: string; onChangeText: (v: string) => void; placeholder: string; label?: string; style?: any }) {
   const s = useStyles((c, t) => ({
     box: { marginVertical: 12, marginHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 46, paddingHorizontal: 12, borderRadius: t.radius.r2, backgroundColor: c.surface2 },
     input: { flex: 1, minWidth: 0, color: c.ink, fontSize: 16, paddingVertical: 8 },
   }));
   const { c } = useTheme();
   return (
-    <View style={s.box}>
+    <View style={[s.box, style]}>
       <Icon name="search" color={c.ink3} />
       <TextInput style={s.input} value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={c.ink3} accessibilityLabel={label || placeholder} autoCapitalize="none" />
     </View>

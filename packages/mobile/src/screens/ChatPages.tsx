@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Link, openExternal, useNavigate, useParams, useSearchParams } from '../platform/router';
 import { useStyles, useTheme } from '../platform/theme';
 import Icon from '../ui/Icon';
 import Photo from '../ui/Photo';
 import { Avatar, ThreadAvatar } from '../ui/faces';
 import { Note, Page, Screen, TopBar, BackButton, backName } from '../ui/frame';
+import { AddPeopleSheet } from './Chats';
 import {
   svc, state, user, firstName, fmtT, messagesOf, audience, threadTitle, postMessage, projectName, phoneOf, stamp, render,
   toggleReaction, deleteMessage, hideMessage, toggleDecision, editMessage, can, myThreads, preview, useStore, core,
@@ -13,6 +14,7 @@ import {
 import { FILE_KINDS, filingLabel } from '../../../frontend/src/shared/filing';
 import { siteHasSuggestion } from '../../../frontend/src/shared/chatExtras';
 import { AudioModule, RecordingPresets, createAudioPlayer, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import { t } from '../../../frontend/src/shared/i18n';
 
 const SAMPLE_MEDIA: Record<string, { title: string; hue: number; seed: number }[]> = {
   site: [
@@ -89,7 +91,7 @@ function useKit() {
   }));
 }
 
-function Empty({ title, text, back = '/mobile/chats', pageTitle = 'Chat' }: { title: string; text?: string; back?: string; pageTitle?: string }) {
+function Empty({ title, text, back = '/mobile/chats', pageTitle = t('Chat') }: { title: string; text?: string; back?: string; pageTitle?: string }) {
   const k = useKit();
   return (
     <Page back={back} title={pageTitle}>
@@ -217,8 +219,10 @@ export function GroupInfo() {
   const backTo = fromOf(params.get('from'));
   const [sample, setSample] = useState<any>(null);
   const [tab, setTab] = useState('Photos');
+  const [adding, setAdding] = useState(false);
   const thread = svc.thread(threadId);
   const s = useStyles((cc, th) => ({
+    addIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: cc.accentSoft },
     id: { alignItems: 'center', gap: 4, paddingTop: 10, paddingBottom: 6 },
     idB: { fontSize: 20, fontWeight: '600', lineHeight: 25, color: cc.ink, textAlign: 'center' },
     idS: { fontSize: 14, lineHeight: 19, color: cc.ink2, textAlign: 'center' },
@@ -227,7 +231,7 @@ export function GroupInfo() {
     open: { marginBottom: 8 },
     openT: { marginTop: 6, color: cc.ink2, fontSize: 14 },
   }));
-  if (!thread) return <Empty title="This chat isn’t available" />;
+  if (!thread) return <Empty title={t('This chat isn’t available')} />;
   const members = thread.memberIds.map((id: string) => user(id)).filter((u: any) => u?.id);
   const other = thread.kind === 'dm' ? members.find((u: any) => u.id !== state.userId) : null;
   const muted = svc.chatMuted(threadId);
@@ -246,22 +250,22 @@ export function GroupInfo() {
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   const about = ({
     internal: 'Office only. The client never sees this.',
-    client: 'The client is in this conversation.',
+    client: t('The client is in this conversation.'),
     site: 'Notes and photos for the site team.',
-    dm: other ? `${other.title || 'Direct message'} · ${phoneOf(other)}` : 'Direct message',
+    dm: other ? `${other.title || t('Direct message')} · ${phoneOf(other)}` : t('Direct message'),
   } as Record<string, string>)[thread.kind] || audience(thread);
   return (
-    <Page sheet stackTitle back={chatTo} backLabel="Chat" title={threadTitle(thread)} sub={thread.kind === 'dm' ? 'Direct message' : `${audience(thread)} · ${members.length} people`}>
+    <Page sheet stackTitle back={chatTo} backLabel={t('Chat')} title={threadTitle(thread)} sub={thread.kind === 'dm' ? t('Direct message') : t('{0} · {1} people', audience(thread), members.length)}>
       <View style={s.id}>
         <ThreadAvatar thread={thread} size="lg" />
         <Text style={s.idB}>{threadTitle(thread)}</Text>
         <Text style={s.idS}>{about}</Text>
       </View>
-      <Sect>Media, links and docs</Sect>
+      <Sect>{t('Media, links and docs')}</Sect>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         {['Photos', 'Files', 'Links', 'Voice', 'Drawings'].map((k) => (
           <Pressable key={k} onPress={() => { setTab(k); setSample(null); }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: tab === k ? c.accent : c.surface2 }}>
-            <Text style={{ color: tab === k ? c.accentInk : c.ink2, fontWeight: '600' }}>{k}</Text>
+            <Text style={{ color: tab === k ? c.accentInk : c.ink2, fontWeight: '600' }}>{t(k)}</Text>
           </Pressable>
         ))}
       </View>
@@ -274,7 +278,7 @@ export function GroupInfo() {
       {(tab === 'Photos' || tab === 'Links') && media.length ? (
         <View style={s.strip}>
           {media.map((m: any) => (
-            <Link key={m.id} to={`${chatTo}#${m.id}`} accessibilityLabel={m.link?.title || m.text || 'Photo'} style={s.cell}>
+            <Link key={m.id} to={`${chatTo}#${m.id}`} accessibilityLabel={m.link?.title || m.text || t('Photo')} style={s.cell}>
               {m.photo?.dataUrl
                 ? <Image source={{ uri: m.photo.dataUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 : <Photo hue={m.photo?.hue ?? m.link?.hue} seed={m.photo?.seed ?? m.link?.seed} ar={1} />}
@@ -290,29 +294,35 @@ export function GroupInfo() {
           ))}
         </View>
       )}
-      {tab !== 'Photos' && tab !== 'Links' && !docs.length && !placeholders.length ? <Text style={k.note}>Nothing here yet.</Text> : null}
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && !placeholders.length ? <Text style={k.note}>{t('Nothing here yet.')}</Text> : null}
       {tab !== 'Photos' && tab !== 'Links' && !docs.length && placeholders.map((item) => (
         <DayRow key={item.title}><RowB>{item.kind}</RowB><RowS>{item.title}</RowS></DayRow>
       ))}
       {tab !== 'Photos' && tab !== 'Links' && docs.map((m: any) => (
         <DayRow key={m.id} to={`${chatTo}#${m.id}`}>
-          <RowB>{m.voice ? 'Voice note' : 'File'}</RowB>
-          <RowS>{m.text || (typeof m.voice === 'string' ? m.voice : m.voice?.dur) || 'Shared in this chat'}</RowS>
+          <RowB>{m.voice ? t('Voice note') : t('File')}</RowB>
+          <RowS>{m.text || (typeof m.voice === 'string' ? m.voice : m.voice?.dur) || t('Shared in this chat')}</RowS>
         </DayRow>
       ))}
-      <Sect>Options</Sect>
+      <Sect>{t('Options')}</Sect>
       <DayRow
         onPress={() => {
           svc.setChatMuted(threadId, !muted);
         }}
-        acts={muted ? 'On' : 'Off'}
+        acts={muted ? t('On') : t('Off')}
       >
-        <RowB>Mute notifications</RowB><RowS>Stops the unread mark on this phone</RowS>
+        <RowB>{t('Mute notifications')}</RowB><RowS>{t('Stops the unread mark on this phone')}</RowS>
       </DayRow>
       {pinned.map((m: any) => (
-        <DayRow key={m.id} to={`${chatTo}#${m.id}`}><RowB>Pinned decision</RowB><RowS>{m.text || 'Decision'}</RowS></DayRow>
+        <DayRow key={m.id} to={`${chatTo}#${m.id}`}><RowB>{t('Pinned decision')}</RowB><RowS>{m.text || t('Decision')}</RowS></DayRow>
       ))}
-      <Sect>{thread.kind === 'dm' ? 'Contact' : `${members.length} people`}</Sect>
+      <Sect>{thread.kind === 'dm' ? t('Contact') : t('{0} people', members.length)}</Sect>
+      {svc.canInvite(thread) && (
+        <Pressable style={k.dayRow} onPress={() => setAdding(true)} accessibilityRole="button" accessibilityLabel={t('Add people')}>
+          <View style={s.addIcon}><Icon name="plus" color={c.accentText} /></View>
+          <Text style={[k.dayB, { color: c.accentText }]}>{t('Add people')}</Text>
+        </Pressable>
+      )}
       {members.map((u: any) => (
         <View key={u.id} style={k.dayRow}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 }}>
@@ -323,10 +333,11 @@ export function GroupInfo() {
             </View>
           </View>
           {u.id !== state.userId
-            ? <Pressable onPress={() => openExternal(tel(u))} accessibilityLabel={`Call ${u.name}`} hitSlop={8}><Text style={k.acts}>Call</Text></Pressable>
-            : <Text style={k.acts}>You</Text>}
+            ? <Pressable onPress={() => openExternal(tel(u))} accessibilityLabel={t('Call {0}', u.name)} hitSlop={8}><Text style={k.acts}>{t('Call')}</Text></Pressable>
+            : <Text style={k.acts}>{t('You')}</Text>}
         </View>
       ))}
+      {adding && <AddPeopleSheet thread={thread} onClose={() => setAdding(false)} />}
     </Page>
   );
 }
@@ -335,6 +346,26 @@ export function GroupInfo() {
 
 let playingNote: { id: number; player: any; setOn: (v: boolean) => void } | null = null;
 let noteSeq = 1;
+
+// The playback track: while a note plays, a bar runs across it (prototype .voice-track + voice-run).
+function RunBar({ on }: { on: boolean }) {
+  const { c } = useTheme();
+  const [w, setW] = useState(0);
+  const x = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!on || !w) return undefined;
+    const bar = w * 0.35;
+    x.setValue(-1.2 * bar);
+    const loop = Animated.loop(Animated.timing(x, { toValue: 3.2 * bar, duration: 1100, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }));
+    loop.start();
+    return () => loop.stop();
+  }, [on, w, x]);
+  return (
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ flex: 1, height: 3, borderRadius: 99, backgroundColor: c.accentSoft, overflow: 'hidden' }}>
+      {on ? <Animated.View style={{ width: '35%', height: 3, backgroundColor: c.accent, transform: [{ translateX: x }] }} /> : null}
+    </View>
+  );
+}
 
 export function VoicePlay({ src, dur = '' }: { src?: string; dur?: string }) {
   const [id] = useState(() => noteSeq++);
@@ -368,15 +399,14 @@ export function VoicePlay({ src, dur = '' }: { src?: string; dur?: string }) {
     } catch { setOn(false); }
   }
   return (
-    <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36, marginBottom: 4 }} onPress={toggle} accessibilityRole="button" accessibilityLabel={on ? 'Stop voice note' : 'Play voice note'}>
+    <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36, marginBottom: 4 }} onPress={toggle} accessibilityRole="button" accessibilityLabel={on ? t('Stop voice note') : t('Play voice note')}>
       <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
         {on
           ? <View style={{ width: 10, height: 12, borderLeftWidth: 3, borderRightWidth: 3, borderColor: c.accentInk }} />
           : <View style={{ marginLeft: 2 }}><Icon name="play" size={14} color={c.accentInk} /></View>}
       </View>
-      <View style={{ flex: 1, height: 3, borderRadius: 99, backgroundColor: c.accentSoft, overflow: 'hidden' }}>
-        {on ? <View style={{ width: '35%', height: 3, backgroundColor: c.accent }} /> : null}
-      </View>
+      <RunBar on={on} />
+
       <Text style={{ fontSize: 12, color: c.ink2 }}>{dur}</Text>
     </Pressable>
   );
@@ -416,8 +446,14 @@ export function Voice() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const timer = useRef<any>(null);
   const started = useRef(0);
-  useEffect(() => () => clearInterval(timer.current), []);
-  if (!thread) return <Empty title="This chat isn’t available" pageTitle="Voice" />;
+  useEffect(() => () => {
+    clearInterval(timer.current);
+    if (recorder.isRecording) {
+      try { recorder.stop().catch(() => {}); } catch { /* recorder already released */ }
+      setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!thread) return <Empty title={t('This chat isn’t available')} pageTitle={t('Voice')} />;
 
   async function start() {
     setMicNote('');
@@ -432,7 +468,7 @@ export function Voice() {
       timer.current = setInterval(() => setDur(clock(Date.now() - started.current)), 200);
       setPhase('recording');
     } catch {
-      setMicNote('The microphone did not open. Allow the microphone, then try again.');
+      setMicNote(t('The microphone did not open. Allow the microphone, then try again.'));
     }
   }
   async function stop() {
@@ -445,7 +481,7 @@ export function Voice() {
       setAudio(await toDataUrl(uri));
       setPhase('ready');
     } catch {
-      setMicNote('The recording could not be saved. Try again.');
+      setMicNote(t('The recording could not be saved. Try again.'));
       setPhase('idle');
     }
   }
@@ -453,30 +489,30 @@ export function Voice() {
   void AudioModule; void c;
 
   return (
-    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Voice note" sub={threadTitle(thread)}>
+    <Page back={`/mobile/chats/${threadId}`} backLabel={t('Chat')} title={t('Voice note')} sub={threadTitle(thread)}>
       {phase === 'idle' && (
         <View style={k.stack}>
-          <Note>Tap once to record. You can listen to it, then send it into this chat.</Note>
-          <Primary label="Tap to record" onPress={start} />
+          <Note>{t('Tap once to record. You can listen to it, then send it into this chat.')}</Note>
+          <Primary label={t('Tap to record')} onPress={start} />
           {micNote ? <Soft>{micNote}</Soft> : null}
         </View>
       )}
       {phase === 'recording' && (
         <View style={k.stack}>
-          <Text style={{ fontWeight: '700', color: c.ink, fontSize: 16 }}>Recording · {dur}</Text>
-          <Primary label="Stop" onPress={stop} />
+          <Text style={{ fontWeight: '700', color: c.ink, fontSize: 16 }}>{t('Recording · {0}', dur)}</Text>
+          <Primary label={t('Stop')} onPress={stop} />
         </View>
       )}
       {phase === 'ready' && (
         <View style={k.stack}>
           <VoicePlay src={audio} dur={dur} />
-          <Note>Tap play to hear the recording, then send it.</Note>
-          <Primary label="Send to this chat" onPress={() => {
+          <Note>{t('Tap play to hear the recording, then send it.')}</Note>
+          <Primary label={t('Send to this chat')} onPress={() => {
             if (!audio) return;
             postMessage(threadId, { voice: { dur, audio } });
             navigate(`/mobile/chats/${threadId}`);
           }} />
-          <Pressable style={k.textBtn} onPress={again} accessibilityRole="button" accessibilityLabel="Record again"><Text style={k.textBtnT}>Record again</Text></Pressable>
+          <Pressable style={k.textBtn} onPress={again} accessibilityRole="button" accessibilityLabel={t('Record again')}><Text style={k.textBtnT}>{t('Record again')}</Text></Pressable>
         </View>
       )}
     </Page>
@@ -485,7 +521,7 @@ export function Voice() {
 
 // ---------- Message actions ----------
 
-const EMOJI: [string, string][] = [['✅', 'Done'], ['👀', 'Review'], ['📝', 'Noted'], ['⭐', 'Mark'], ['⚠️', 'Flag']];
+const EMOJI = (): [string, string][] => ([['✅', t('Done')], ['👀', t('Review')], ['📝', t('Noted')], ['⭐', t('Mark')], ['⚠️', t('Flag')]]);
 
 function reminderAt(which: string) {
   const d = new Date();
@@ -518,18 +554,18 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
   if (confirmDelete) {
     return (
       <View>
-        <Text style={k.h2}>Delete this message?</Text>
-        <Ghost warn label="Delete for me" onPress={() => { hideMessage(message); onDeleted?.(); }} />
-        {mine && !message.deleted && <Ghost warn label="Delete for everyone" onPress={() => { deleteMessage(message); onDeleted?.(); }} />}
-        <Ghost label="Cancel" onPress={() => setConfirmDelete(false)} />
+        <Text style={k.h2}>{t('Delete this message?')}</Text>
+        <Ghost warn label={t('Delete for me')} onPress={() => { hideMessage(message); onDeleted?.(); }} />
+        {mine && !message.deleted && <Ghost warn label={t('Delete for everyone')} onPress={() => { deleteMessage(message); onDeleted?.(); }} />}
+        <Ghost label={t('Cancel')} onPress={() => setConfirmDelete(false)} />
       </View>
     );
   }
   return (
     <View>
       {!message.deleted && (
-        <View accessibilityRole="toolbar" accessibilityLabel="Reactions" style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
-          {EMOJI.map(([emoji, label]) => {
+        <View accessibilityRole="toolbar" accessibilityLabel={t('Reactions')} style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+          {EMOJI().map(([emoji, label]) => {
             const on = message.reactions?.[emoji]?.includes(state.userId);
             return (
               <Pressable key={emoji} onPress={() => toggleReaction(message, emoji)} accessibilityLabel={label}
@@ -541,44 +577,44 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
           })}
         </View>
       )}
-      {filing && !message.deleted ? <Text style={[k.note, { paddingVertical: 8, paddingHorizontal: 2, marginTop: 0 }]}>Filed · {filingLabel(filing) || 'this chat'}</Text> : null}
-      {!message.deleted && <Ghost label="Reply" onPress={() => onReply?.()} />}
-      {!message.deleted && <Ghost label="Forward" onPress={() => onForward?.()} />}
-      <Ghost warn label="Delete" onPress={() => setConfirmDelete(true)} />
-      {!message.deleted && <Ghost label="Change where this is filed" to={`/mobile/chats/${thread.id}/messages/${message.id}/filing`} />}
-      {message.issueId ? <Ghost label="Open linked issue" to={`/mobile/issues/${message.issueId}`} /> : null}
+      {filing && !message.deleted ? <Text style={[k.note, { paddingVertical: 8, paddingHorizontal: 2, marginTop: 0 }]}>{t('Filed ·')}{' '}{filingLabel(filing) || t('this chat')}</Text> : null}
+      {!message.deleted && <Ghost label={t('Reply')} onPress={() => onReply?.()} />}
+      {!message.deleted && <Ghost label={t('Forward')} onPress={() => onForward?.()} />}
+      <Ghost warn label={t('Delete')} onPress={() => setConfirmDelete(true)} />
+      {!message.deleted && <Ghost label={t('Change where this is filed')} to={`/mobile/chats/${thread.id}/messages/${message.id}/filing`} />}
+      {message.issueId ? <Ghost label={t('Open linked issue')} to={`/mobile/issues/${message.issueId}`} /> : null}
       {!message.deleted && thread.projectId && svc.assistKinds().includes('followup') && (message.text || message.transcript) ? (
-        <Ghost label="Suggest a follow-up" to={`/mobile/assist?kind=followup&message=${message.id}`} />
+        <Ghost label={t('Suggest a follow-up')} to={`/mobile/assist?kind=followup&message=${message.id}`} />
       ) : null}
       {!message.deleted && message.photo && svc.assistKinds().includes('concept') ? (
-        <Ghost label="Finish palette from this photo" to={`/mobile/assist?kind=concept&message=${message.id}&project=${thread.projectId || ''}`} />
+        <Ghost label={t('Finish palette from this photo')} to={`/mobile/assist?kind=concept&message=${message.id}&project=${thread.projectId || ''}`} />
       ) : null}
-      {canPin && <Ghost label={message.decision ? 'Unpin decision' : 'Pin as decision'} onPress={() => toggleDecision(message)} />}
-      <Ghost label="Info · sent, delivered, read" onPress={() => setShowInfo((v) => !v)} />
+      {canPin && <Ghost label={message.decision ? t('Unpin decision') : t('Pin as decision')} onPress={() => toggleDecision(message)} />}
+      <Ghost label={t('Info · sent, delivered, read')} onPress={() => setShowInfo((v) => !v)} />
       {showInfo && (
         <View style={[k.card, { marginTop: 8 }]}>
-          <CardP>Sent · {fmtT(message.at)}</CardP>
-          <CardP>Delivered · {fmtT(message.at)}</CardP>
+          <CardP>{t('Sent · {0}', fmtT(message.at))}</CardP>
+          <CardP>{t('Delivered · {0}', fmtT(message.at))}</CardP>
           {others.map((id: string) => {
             const person = user(id);
             const read = id.charCodeAt(0) % 3 !== 0;
-            return <CardP key={id}>{person.name} · {read ? `read ${fmtT(message.at)}` : 'not yet read'}</CardP>;
+            return <CardP key={id}>{person.name} · {read ? t('read {0}', fmtT(message.at)) : t('not yet read')}</CardP>;
           })}
         </View>
       )}
-      {!message.deleted && !remindOpen && <Ghost label="Remind me" onPress={() => setRemindOpen(true)} />}
+      {!message.deleted && !remindOpen && <Ghost label={t('Remind me')} onPress={() => setRemindOpen(true)} />}
       {!message.deleted && remindOpen && (
         <>
-          <Ghost label="Tomorrow 9am" onPress={() => { svc.addFollowup(message.id, reminderAt('tomorrow')); setReminded('Reminder set for tomorrow at 9am.'); render(); }} />
-          <Ghost label="Monday 9am" onPress={() => { svc.addFollowup(message.id, reminderAt('monday')); setReminded('Reminder set for Monday at 9am.'); render(); }} />
+          <Ghost label={t('Tomorrow 9am')} onPress={() => { svc.addFollowup(message.id, reminderAt('tomorrow')); setReminded(t('Reminder set for tomorrow at 9am.')); render(); }} />
+          <Ghost label={t('Monday 9am')} onPress={() => { svc.addFollowup(message.id, reminderAt('monday')); setReminded(t('Reminder set for Monday at 9am.')); render(); }} />
         </>
       )}
       {reminded ? <Text style={[k.note, { paddingVertical: 8, paddingHorizontal: 2, marginTop: 0 }]}>{reminded}</Text> : null}
-      {mine && !message.deleted && !!message.text && !message.voice && !editing && <Ghost label="Edit" onPress={() => setEditing(true)} />}
+      {mine && !message.deleted && !!message.text && !message.voice && !editing && <Ghost label={t('Edit')} onPress={() => setEditing(true)} />}
       {mine && !message.deleted && !!message.text && !message.voice && editing && (
         <View style={[k.stack, { marginVertical: 8 }]}>
-          <Field label="Edit" value={edit} onChangeText={setEdit} multiline />
-          <Primary label="Save" onPress={() => { editMessage(message, edit); setEditing(false); }} />
+          <Field label={t('Edit')} value={edit} onChangeText={setEdit} multiline />
+          <Primary label={t('Save')} onPress={() => { editMessage(message, edit); setEditing(false); }} />
         </View>
       )}
     </View>
@@ -604,8 +640,8 @@ export function ForwardPick({ message, onClose }: { message: any; onClose: () =>
   return (
     <Screen>
       <TopBar>
-        <Pressable onPress={onClose} accessibilityLabel="Back to chat" style={{ minHeight: 44, justifyContent: 'center' }}><Icon name="back" /></Pressable>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: c.ink, flex: 1 }}>Forward to</Text>
+        <Pressable onPress={onClose} accessibilityLabel={t('Back to chat')} style={{ minHeight: 44, justifyContent: 'center' }}><Icon name="back" /></Pressable>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: c.ink, flex: 1 }}>{t('Forward to')}</Text>
       </TopBar>
       <ScrollView style={{ flex: 1, backgroundColor: c.surface }}>
         {myThreads().map(({ t: dest }: any) => {
@@ -626,8 +662,8 @@ export function ForwardPick({ message, onClose }: { message: any; onClose: () =>
       </ScrollView>
       {picked.length > 0 && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, backgroundColor: c.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line }}>
-          <Text style={{ flex: 1, color: c.ink, fontWeight: '600', fontSize: 16 }}>{picked.length} selected</Text>
-          <Pressable onPress={send} accessibilityLabel="Forward message" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ flex: 1, color: c.ink, fontWeight: '600', fontSize: 16 }}>{t('{0} selected', picked.length)}</Text>
+          <Pressable onPress={send} accessibilityLabel={t('Forward message')} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="send" color={c.accentInk} />
           </Pressable>
         </View>
@@ -643,13 +679,13 @@ function SiteReviewBlock({ messageId }: { messageId: string }) {
   const r = svc.siteUpdateReview(messageId);
   const [error, setError] = useState('');
   if (!r) return null;
-  if (r.applied || r.message?.siteAnswer) return <Soft>Confirmed records · included in daily log</Soft>;
+  if (r.applied || r.message?.siteAnswer) return <Soft>{t('Confirmed records · included in daily log')}</Soft>;
   if (!siteHasSuggestion(r)) return null;
   const s = r.suggestion;
   return (
     <View style={k.stack}>
-      <Soft>AI suggestion · demo. Check against the source; only selected records will be saved.</Soft>
-      <Primary label="Confirm selected records" onPress={() => {
+      <Soft>{t('AI suggestion · demo. Check against the source; only selected records will be saved.')}</Soft>
+      <Primary label={t('Confirm selected records')} onPress={() => {
         try {
           svc.saveSiteUpdate(messageId, {
             attendance: !!(r.canAttendance && s.headcount),
@@ -665,7 +701,7 @@ function SiteReviewBlock({ messageId }: { messageId: string }) {
           });
           setError('');
           render();
-        } catch (err: any) { setError(err.message); }
+        } catch (err: any) { setError(t(err.message)); }
       }} />
       {error ? <Warn>{error}</Warn> : null}
     </View>
@@ -682,13 +718,13 @@ export function MessagePage() {
   const message = messagesOf(threadId).find((m: any) => m.id === messageId);
   const [reply, setReply] = useState('');
   const replyRef = useRef<TextInput>(null);
-  if (!thread || !message) return <Empty title="This message isn’t available" back={`/mobile/chats/${threadId || ''}`} pageTitle="Message" />;
+  if (!thread || !message) return <Empty title={t('This message isn’t available')} back={`/mobile/chats/${threadId || ''}`} pageTitle={t('Message')} />;
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Message" sub={`${firstName(message.by)} · ${fmtT(message.at)}`}>
+      <Page back={`/mobile/chats/${threadId}`} backLabel={t('Chat')} title={t('Message')} sub={`${firstName(message.by)} · ${fmtT(message.at)}`}>
         <Card>
-          {message.deleted ? <CardP style={{ color: c.ink3, fontStyle: 'italic' }}>This message was deleted</CardP> : <CardP>{message.text}</CardP>}
-          {message.edited ? <Text style={{ color: c.ink3, fontSize: 12 }}>Edited</Text> : null}
+          {message.deleted ? <CardP style={{ color: c.ink3, fontStyle: 'italic' }}>{t('This message was deleted')}</CardP> : <CardP>{message.text}</CardP>}
+          {message.edited ? <Text style={{ color: c.ink3, fontSize: 12 }}>{t('Edited')}</Text> : null}
         </Card>
         <SiteReviewBlock messageId={message.id} />
         <MessageActions thread={thread} message={message}
@@ -698,10 +734,10 @@ export function MessagePage() {
         {!message.deleted && (
           <View style={k.stack}>
             <View style={{ gap: 4 }}>
-              <Text style={k.label}>Reply</Text>
-              <TextInput ref={replyRef} style={[k.input, { minHeight: 90, textAlignVertical: 'top' }]} multiline numberOfLines={3} value={reply} onChangeText={setReply} accessibilityLabel="Reply" />
+              <Text style={k.label}>{t('Reply')}</Text>
+              <TextInput ref={replyRef} style={[k.input, { minHeight: 90, textAlignVertical: 'top' }]} multiline numberOfLines={3} value={reply} onChangeText={setReply} accessibilityLabel={t('Reply')} />
             </View>
-            <Primary label="Send reply" onPress={() => {
+            <Primary label={t('Send reply')} onPress={() => {
               if (!reply.trim()) return;
               postMessage(threadId, { text: reply.trim(), replyTo: messageId });
               navigate(`/mobile/chats/${threadId}`);
@@ -733,19 +769,19 @@ export function Filing() {
   const fromChat = params.get('from') === 'chat';
   const backTo = fromChat ? `/mobile/chats/${threadId}` : `/mobile/chats/${threadId}/messages/${messageId}`;
   return (
-    <Page back={backTo} backLabel={fromChat ? 'Chat' : 'Message'} title="Where should this go?">
+    <Page back={backTo} backLabel={fromChat ? t('Chat') : t('Message')} title={t('Where should this go?')}>
       <View style={k.stack}>
-        <Select label="Project" value={projectId} onChange={setProjectId} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
-        <Select label="Room" value={room} onChange={setRoom} options={rooms.map((r) => ({ value: r, label: r }))} />
-        <Select label="What is it" value={kind} onChange={setKind} options={kinds.map(([k, l]) => ({ value: k, label: l }))} />
-        <Field label="Drawing number" value={drawing} onChangeText={setDrawing} placeholder="HA-2401-A-101" />
+        <Select label={t('Project')} value={projectId} onChange={setProjectId} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
+        <Select label={t('Room')} value={room} onChange={setRoom} options={rooms.map((r) => ({ value: r, label: r }))} />
+        <Select label={t('What is it')} value={kind} onChange={setKind} options={kinds.map(([k, l]) => ({ value: k, label: l }))} />
+        <Field label={t('Drawing number')} value={drawing} onChangeText={setDrawing} placeholder="HA-2401-A-101" />
         {error ? <Warn>{error}</Warn> : null}
-        <Primary label="Save filing" onPress={() => {
+        <Primary label={t('Save filing')} onPress={() => {
           try {
             const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
             if (!saved) throw new Error('Filing could not be saved on this device.');
             navigate(backTo);
-          } catch (err: any) { setError(err.message); }
+          } catch (err: any) { setError(t(err.message)); }
         }} />
       </View>
     </Page>
@@ -766,37 +802,37 @@ export function Issue() {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const detail = svc.siteIssueDetails(issueId);
-  if (!detail) return <Empty title="This issue isn’t available" back={back} pageTitle="Issue" />;
+  if (!detail) return <Empty title={t('This issue isn’t available')} back={back} pageTitle={t('Issue')} />;
   const { issue } = detail;
   const here = `/mobile/issues/${issueId}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Page sheet stackTitle back={back} backLabel={backLabel} title={issue.title} sub={`${issue.status}${issue.due ? ` · reply by ${fmtT(issue.due)}` : ''}`}>
-        <Text style={[k.note, { marginTop: 0, marginBottom: 6 }]}>{issue.type}{issue.drawing ? ` · ${issue.drawing}` : ''} · raised by {firstName(issue.raisedBy)}</Text>
-        <Text style={k.h2}>Linked site updates</Text>
+        <Text style={[k.note, { marginTop: 0, marginBottom: 6 }]}>{t('{0}{1} · raised by {2}', issue.type, issue.drawing ? ` · ${issue.drawing}` : '', firstName(issue.raisedBy))}</Text>
+        <Text style={k.h2}>{t('Linked site updates')}</Text>
         {detail.sources.map((m: any) => (
           <DayRow key={m.id} to={`/mobile/chats/${m.threadId}?from=${encodeURIComponent(here)}#${m.id}`}>
             <RowB>{firstName(m.by)}</RowB><RowS>{m.text}</RowS>
           </DayRow>
         ))}
-        {!detail.sources.length && <Soft>No site update linked.</Soft>}
-        <Text style={k.h2}>Office answers</Text>
+        {!detail.sources.length && <Soft>{t('No site update linked.')}</Soft>}
+        <Text style={k.h2}>{t('Office answers')}</Text>
         {detail.answers.length ? detail.answers.map((m: any) => (
           <DayRow key={m.id}><RowB>{firstName(m.by)}</RowB><RowS>{m.text}</RowS></DayRow>
-        )) : <Soft>No answer yet.</Soft>}
+        )) : <Soft>{t('No answer yet.')}</Soft>}
         {detail.canAnswer && (
           <View style={k.stack}>
-            <Field label="Office answer" value={answer} onChangeText={setAnswer} multiline />
+            <Field label={t('Office answer')} value={answer} onChangeText={setAnswer} multiline />
             {error ? <Warn>{error}</Warn> : null}
-            <Primary label="Send answer" onPress={() => {
+            <Primary label={t('Send answer')} onPress={() => {
               try { svc.answerSiteIssue(issueId, answer); setAnswer(''); setError(''); render(); }
-              catch (err: any) { setError(err.message); }
+              catch (err: any) { setError(t(err.message)); }
             }} />
           </View>
         )}
         {svc.assistKinds().includes('ask') ? (
           <DayRow to={`/mobile/projects/${issue.projectId}/assist?kind=ask&issue=${issueId}&from=${encodeURIComponent(here)}`}>
-            <RowB>Summarise this issue</RowB><RowS>From the recorded history</RowS>
+            <RowB>{t('Summarise this issue')}</RowB><RowS>{t('From the recorded history')}</RowS>
           </DayRow>
         ) : null}
         <View style={{ height: 1, backgroundColor: c.ground }} />
@@ -849,10 +885,10 @@ export function Assist() {
   const clientThread = svc.threads().find((t: any) => t.projectId === pid && t.kind === 'client');
   const clientMessages = clientThread ? messagesOf(clientThread.id).filter((m: any) => !m.deleted && (m.text || m.transcript)).slice(-12) : [];
   const photos = svc.threads().filter((t: any) => !pid || t.projectId === pid).flatMap((t: any) => messagesOf(t.id).filter((m: any) => m.photo && !m.deleted).map((m: any) => ({ ...m, threadName: threadTitle(t) })));
-  const title = issueId ? 'Summarise this issue' : drawingNo ? 'Ask about this sheet' : ({
-    ask: 'Ask about this project', compare: 'Compare materials', daily: 'Review day report',
-    client: 'Client update', concept: 'Finish palette', followup: 'Suggested follow-up',
-  } as Record<string, string>)[kind] || 'Draft';
+  const title = issueId ? t('Summarise this issue') : drawingNo ? t('Ask about this sheet') : ({
+    ask: t('Ask about this project'), compare: t('Compare materials'), daily: t('Review day report'),
+    client: t('Client update'), concept: t('Finish palette'), followup: t('Suggested follow-up'),
+  } as Record<string, string>)[kind] || t('Draft');
 
   const chats = svc.threads().filter((t: any) => t.projectId === pid && ['client', 'internal', 'site'].includes(t.kind) && can('thread', 'w'));
   const chosen = chats.some((t: any) => t.id === sendTo) ? sendTo : (chats.find((t: any) => t.kind === 'internal') || chats.find((t: any) => t.kind === 'site') || chats[0])?.id || '';
@@ -864,15 +900,15 @@ export function Assist() {
   function sendQuestion() {
     const thread = chats.find((t: any) => t.id === chosen);
     const text = question.trim();
-    if (!thread || !text) { setError('Write the question and choose who receives it.'); return; }
-    if (!postMessage(thread.id, { text })) { setError('This conversation is not available to send to.'); return; }
+    if (!thread || !text) { setError(t('Write the question and choose who receives it.')); return; }
+    if (!postMessage(thread.id, { text })) { setError(t('This conversation is not available to send to.')); return; }
     afterSend(thread.id);
   }
   function sendPrepared() {
     const thread = chats.find((t: any) => t.id === chosen);
     const text = (result?.text || '').trim();
-    if (!thread || !text) { setError('Choose who receives this draft.'); return; }
-    if (!postMessage(thread.id, { text })) { setError('This conversation is not available to send to.'); return; }
+    if (!thread || !text) { setError(t('Choose who receives this draft.')); return; }
+    if (!postMessage(thread.id, { text })) { setError(t('This conversation is not available to send to.')); return; }
     afterSend(thread.id);
   }
   const pickedIds = () => Object.keys(picked).filter((id) => picked[id]);
@@ -895,7 +931,7 @@ export function Assist() {
       setOptions(next);
       setResult(draft);
       setOwner(draft.proposal?.owners?.[0]?.id || '');
-    } catch (err: any) { setError(err.message); }
+    } catch (err: any) { setError(t(err.message)); }
   }
   async function sendDraft() {
     setError('');
@@ -903,7 +939,7 @@ export function Assist() {
       await svc.sendAssist(kind, options, result.text, result.sources);
       render();
       navigate(`/mobile/chats/${result.destinationThreadId}`);
-    } catch (err: any) { setError(err.message); }
+    } catch (err: any) { setError(t(err.message)); }
   }
   function saveFollowup() {
     setError('');
@@ -914,8 +950,8 @@ export function Assist() {
         owner, due, reviewedSource: result.sources[0],
       });
       render();
-      setSaved('Follow-up saved. It shows in Today for the person you chose.');
-    } catch (err: any) { setError(err.message); }
+      setSaved(t('Follow-up saved. It shows in Today for the person you chose.'));
+    } catch (err: any) { setError(t(err.message)); }
   }
 
   const messageThreadId = messageId ? (state as any).db?.MESSAGES.find((m: any) => m.id === messageId)?.threadId : '';
@@ -925,32 +961,32 @@ export function Assist() {
   );
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Page sheet stackTitle back={backPath} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title}
+      <Page sheet stackTitle back={backPath} backLabel={issueId ? t('Issue') : drawingNo ? t('Drawing') : messageThreadId ? t('Chat') : t('Back')} title={title}
         sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
-        {!!issueId && !brief && <EmptyBox h="This issue isn’t available" />}
-        {!!drawingNo && !sheetDrawing && <EmptyBox h="This sheet isn’t available" />}
-        {!allowed && <EmptyBox h="This draft isn’t available for you" p="Switch person if you need this action." />}
+        {!!issueId && !brief && <EmptyBox h={t('This issue isn’t available')} />}
+        {!!drawingNo && !sheetDrawing && <EmptyBox h={t('This sheet isn’t available')} />}
+        {!allowed && <EmptyBox h={t('This draft isn’t available for you')} p={t('Switch person if you need this action.')} />}
         {allowed && (!issueId || brief) && (!drawingNo || sheetDrawing) && (
           <View style={k.stack}>
-            {!!issueId && !!brief && <Soft>{projectName(brief.issue.projectId)}. This uses the recorded history of this issue only.</Soft>}
-            {!!drawingNo && !!sheetDrawing && <Soft>{projectName(projectId)} · {drawingNo}. This question is about this sheet.</Soft>}
+            {!!issueId && !!brief && <Soft>{t('{0}. This uses the recorded history of this issue only.', projectName(brief.issue.projectId))}</Soft>}
+            {!!drawingNo && !!sheetDrawing && <Soft>{t('{0} · {1}. This question is about this sheet.', projectName(projectId), drawingNo)}</Soft>}
             {!['daily', 'followup', 'concept'].includes(kind) && !issueId && !drawingNo && (
-              <Select label="Project" value={pid} onChange={(v) => { setPid(v); setPicked({}); }} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
+              <Select label={t('Project')} value={pid} onChange={(v) => { setPid(v); setPicked({}); }} options={projects.map((p: any) => ({ value: p.id, label: p.name }))} />
             )}
-            {kind === 'daily' && <Select label="Site" value={siteId} onChange={setSiteId} options={sites.map((s: any) => ({ value: s.id, label: s.name }))} />}
-            {kind === 'ask' && !issueId && <Field label="Your question" value={question} onChangeText={setQuestion} multiline />}
+            {kind === 'daily' && <Select label={t('Site')} value={siteId} onChange={setSiteId} options={sites.map((s: any) => ({ value: s.id, label: s.name }))} />}
+            {kind === 'ask' && !issueId && <Field label={t('Your question')} value={question} onChangeText={setQuestion} multiline />}
             {kind === 'ask' && (
               <>
-                <Text style={dest.h2}>Who receives this</Text>
-                {chats.map((t: any) => (
-                  <Pressable key={t.id} style={[dest.card, chosen === t.id ? dest.on : null]} onPress={() => setSendTo(t.id)} accessibilityRole="button" accessibilityState={{ selected: chosen === t.id }}>
-                    <Text style={dest.b}>{audience(t)}</Text>
-                    <Text style={dest.s}>{t.name}</Text>
-                    {chosen === t.id ? <Text style={dest.here}>Sending here</Text> : null}
+                <Text style={dest.h2}>{t('Who receives this')}</Text>
+                {chats.map((c: any) => (
+                  <Pressable key={c.id} style={[dest.card, chosen === c.id ? dest.on : null]} onPress={() => setSendTo(c.id)} accessibilityRole="button" accessibilityState={{ selected: chosen === c.id }}>
+                    <Text style={dest.b}>{audience(c)}</Text>
+                    <Text style={dest.s}>{c.name}</Text>
+                    {chosen === c.id ? <Text style={dest.here}>{t('Sending here')}</Text> : null}
                   </Pressable>
                 ))}
-                {!chats.length && <Soft>No conversation you can send this to.</Soft>}
-                {!issueId && chats.length > 0 && <Primary label="Send question" onPress={sendQuestion} />}
+                {!chats.length && <Soft>{t('No conversation you can send this to.')}</Soft>}
+                {!issueId && chats.length > 0 && <Primary label={t('Send question')} onPress={sendQuestion} />}
               </>
             )}
             {kind === 'compare' && materials.map((m: any) => (
@@ -958,33 +994,33 @@ export function Assist() {
             ))}
             {kind === 'client' && (clientMessages.length ? clientMessages.map((m: any) => (
               <Check key={m.id} label={(m.text || m.transcript).slice(0, 120)} on={!!picked[m.id]} onPress={() => setPicked({ ...picked, [m.id]: !picked[m.id] })} />
-            )) : <Soft>No client conversation to draft from.</Soft>)}
+            )) : <Soft>{t('No client conversation to draft from.')}</Soft>)}
             {kind === 'concept' && !messageId && (photos.length ? photos.slice(0, 8).map((m: any) => (
               <Check radio key={m.id} label={`${m.threadName}: ${(m.text || 'Photo').slice(0, 80)}`} on={!!picked[m.id]} onPress={() => setPicked({ [m.id]: true })} />
-            )) : <Soft>Send a photo in a project chat first.</Soft>)}
+            )) : <Soft>{t('Send a photo in a project chat first.')}</Soft>)}
             {error ? <Warn>{error}</Warn> : null}
             <Pressable style={[k.primary, dest.draft]} onPress={run} accessibilityRole="button">
-              <Text style={[k.primaryT, dest.draftT]}>{issueId ? 'Prepare issue brief' : 'Prepare draft'}</Text>
+              <Text style={[k.primaryT, dest.draftT]}>{issueId ? t('Prepare issue brief') : t('Prepare draft')}</Text>
             </Pressable>
           </View>
         )}
         {result && (
           <View style={[k.card, { marginTop: 12 }]}>
-            <Text style={{ fontWeight: '600', color: c.ink, fontSize: 16 }}>AI draft · demo</Text>
+            <Text style={{ fontWeight: '600', color: c.ink, fontSize: 16 }}>{t('AI draft · demo')}</Text>
             <CardP>{result.text}</CardP>
             {result.concepts?.map((cn: any) => (
               <CardP key={cn.name}><Text style={{ fontWeight: '600' }}>{cn.name}</Text> · {cn.note}</CardP>
             ))}
             {result.missing?.length ? <Warn>{result.missing.join(' ')}</Warn> : null}
-            {['daily', 'client'].includes(kind) && <Primary label="Send this draft" onPress={sendDraft} />}
-            {kind === 'ask' && chats.length > 0 && <Primary label={`Send this draft to ${audience(chats.find((t: any) => t.id === chosen))}`} onPress={sendPrepared} />}
+            {['daily', 'client'].includes(kind) && <Primary label={t('Send this draft')} onPress={sendDraft} />}
+            {kind === 'ask' && chats.length > 0 && <Primary label={t('Send this draft to {0}', audience(chats.find((t: any) => t.id === chosen)))} onPress={sendPrepared} />}
           </View>
         )}
         {result && kind === 'followup' && (
           <View style={k.stack}>
-            <Select label="Who" value={owner} onChange={setOwner} options={(result.proposal?.owners || []).map((u: any) => ({ value: u.id, label: u.name }))} />
-            <Field label="Needed by" value={due} onChangeText={setDue} placeholder="YYYY-MM-DD" />
-            {saved ? <Soft>{saved}</Soft> : <Primary label="Save follow-up" onPress={saveFollowup} />}
+            <Select label={t('Who')} value={owner} onChange={setOwner} options={(result.proposal?.owners || []).map((u: any) => ({ value: u.id, label: u.name }))} />
+            <Field label={t('Needed by')} value={due} onChangeText={setDue} placeholder="YYYY-MM-DD" />
+            {saved ? <Soft>{saved}</Soft> : <Primary label={t('Save follow-up')} onPress={saveFollowup} />}
           </View>
         )}
       </Page>
@@ -1004,13 +1040,13 @@ export function Call() {
   const [error, setError] = useState('');
   const voice = params.get('voice') === '1';
   const thread = svc.thread(threadId);
-  if (!thread) return <Empty title="This chat isn’t available" pageTitle="Call" />;
+  if (!thread) return <Empty title={t('This chat isn’t available')} pageTitle={t('Call')} />;
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   if (voice) {
     const members = thread.memberIds.map((id: string) => user(id)).filter((u: any) => u?.id && u.id !== state.userId);
     return (
-      <Page sheet stackTitle back={chatTo} backLabel="Chat" title="Call" sub={threadTitle(thread)}>
-        <Text style={[k.note, { marginTop: 0, marginBottom: 6 }]}>Phone someone in this chat.</Text>
+      <Page sheet stackTitle back={chatTo} backLabel={t('Chat')} title={t('Call')} sub={threadTitle(thread)}>
+        <Text style={[k.note, { marginTop: 0, marginBottom: 6 }]}>{t('Phone someone in this chat.')}</Text>
         {members.map((u: any) => (
           <View key={u.id} style={k.dayRow}>
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minWidth: 0 }}>
@@ -1020,19 +1056,19 @@ export function Call() {
                 <Text style={k.dayS} numberOfLines={1}>{u.title} · {phoneOf(u)}</Text>
               </View>
             </View>
-            <Pressable onPress={() => openExternal(tel(u))} accessibilityLabel={`Call ${u.name}`} hitSlop={8}><Text style={k.acts}>Call</Text></Pressable>
+            <Pressable onPress={() => openExternal(tel(u))} accessibilityLabel={t('Call {0}', u.name)} hitSlop={8}><Text style={k.acts}>{t('Call')}</Text></Pressable>
           </View>
         ))}
       </Page>
     );
   }
   return (
-    <Page back={chatTo} backLabel="Chat" title="Start video call" sub={threadTitle(thread)}>
-      <Note>Posts a call card into this chat. Meet for the studio.</Note>
+    <Page back={chatTo} backLabel={t('Chat')} title={t('Start video call')} sub={threadTitle(thread)}>
+      <Note>{t('Posts a call card into this chat. Meet for the studio.')}</Note>
       {error ? <Warn>{error}</Warn> : null}
-      <Primary label="Start Google Meet" onPress={() => {
+      <Primary label={t('Start Google Meet')} onPress={() => {
         try { setMade(svc.startCall(threadId)); setError(''); render(); }
-        catch (err: any) { setError(err.message); }
+        catch (err: any) { setError(t(err.message)); }
       }} />
       {made ? (
         <Pressable onPress={() => openExternal(made.url)} accessibilityRole="link" accessibilityLabel={made.url}>

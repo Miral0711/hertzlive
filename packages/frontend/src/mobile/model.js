@@ -61,11 +61,11 @@ export function threadTitle(t) {
 }
 
 export function preview(m) {
-  if (!m) return 'No messages yet';
-  if (m.deleted) return 'This message was deleted';
-  if (m.voice) return `Voice note · ${typeof m.voice === 'string' ? m.voice : m.voice.dur || ''}`.trim();
-  if (m.photo) return m.text || 'Photo';
-  return m.text || 'Update';
+  if (!m) return t('No messages yet');
+  if (m.deleted) return t('This message was deleted');
+  if (m.voice) return t('Voice note · {0}', typeof m.voice === 'string' ? m.voice : m.voice.dur || '').trim();
+  if (m.photo) return m.text || t('Photo');
+  return m.text || t('Update');
 }
 
 export function toggleReaction(message, emoji) { return svc.reactToMessage(message, emoji); }
@@ -134,22 +134,22 @@ export function postVoice(threadId) {
 export function attentionItems() {
   const id = state.userId;
   const tasks = (can('task', 'r') ? state.db.TASKS || [] : [])
-    .filter((t) => t.owner === id && t.status !== 'done' && t.status !== 'closed' && onPhone(t.projectId))
-    .map((t) => ({
-      key: `task:${t.id}`,
-      kind: 'Your task',
-      title: t.title,
-      meta: [projectName(t.projectId), t.due ? `Due ${fmtD(t.due)}` : ''].filter(Boolean).join(' · '),
-      projectId: t.projectId,
-      hot: t.critical || t.priority === 'critical',
+    .filter((task) => task.owner === id && task.status !== 'done' && task.status !== 'closed' && onPhone(task.projectId))
+    .map((task) => ({
+      key: `task:${task.id}`,
+      kind: t('Your task'),
+      title: task.title,
+      meta: [projectName(task.projectId), task.due ? `Due ${fmtD(task.due)}` : ''].filter(Boolean).join(' · '),
+      projectId: task.projectId,
+      hot: task.critical || task.priority === 'critical',
     }));
   const issues = svc.issues()
     .filter((i) => i.assignee === id && i.status !== 'closed' && onPhone(i.projectId))
     .map((i) => ({
       key: `issue:${i.id}`,
-      kind: 'Needs your answer',
+      kind: t('Needs your answer'),
       title: i.title,
-      meta: [projectName(i.projectId), i.drawing, i.sla ? `Reply in ${i.sla}` : ''].filter(Boolean).join(' · '),
+      meta: [projectName(i.projectId), i.drawing, i.sla ? t('Reply in {0}', i.sla) : ''].filter(Boolean).join(' · '),
       projectId: i.projectId,
       issueId: i.id,
       hot: true,
@@ -188,7 +188,7 @@ export function projectNeeds(projectId) {
     svc.materials({ projectId }).filter((m) => m.status === 'client_pending').forEach((m) => {
       rows.push({
         key: `mat:${m.id}`,
-        kind: 'Your approval',
+        kind: t('Your approval'),
         title: m.name,
         meta: m.vendor || '',
         to: `/mobile/projects/${projectId}/materials`,
@@ -197,7 +197,7 @@ export function projectNeeds(projectId) {
     (state.db.CHANGES || []).filter((c) => c.projectId === projectId && c.status === 'awaiting_client').forEach((c) => {
       rows.push({
         key: `chg:${c.id}`,
-        kind: 'Your approval',
+        kind: t('Your approval'),
         title: c.title,
         meta: c.no,
         to: `/mobile/projects/${projectId}/changes`,

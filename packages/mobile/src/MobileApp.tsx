@@ -8,7 +8,7 @@ import { Location, Router, useNavigate } from './platform/router';
 import { ThemeProvider, useStyles, useTheme } from './platform/theme';
 import { FieldProvider, useField } from './ui/FieldContext';
 import Icon from './ui/Icon';
-import { myThreads, t, todayCount, unreadCount, useStore } from './store';
+import { myThreads, t, todayCount, unreadCount, useLang, useStore } from './store';
 import { routes } from './routes';
 
 boot();
@@ -63,6 +63,7 @@ const deepLink = (): string | null => {
 
 function Shell() {
   useStore();
+  const lang = useLang();
   const { dark } = useTheme();
   const authed = isAuthenticated();
   return (
@@ -73,7 +74,7 @@ function Shell() {
         initial={authed ? (deepLink() || '/mobile/chats') : '/mobile/login'}
         gate={(path) => (!authed && path !== '/mobile/login' ? '/mobile/login' : authed && path === '/mobile/login' ? '/mobile/chats' : null)}
         layout={(loc: Location, screen) => (
-          <View style={{ flex: 1 }}>
+          <View key={lang} style={{ flex: 1 }}>
             <View style={{ flex: 1 }}>{screen}</View>
             {WITH_TABS.has(loc.pathname) && <Tabs pathname={loc.pathname} />}
           </View>

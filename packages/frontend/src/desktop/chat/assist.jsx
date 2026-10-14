@@ -5,6 +5,7 @@ import {
   assistAllowed, assistTitles, openDesktopAssist as open,
 } from './assistCore';
 import { ProjectUpdates, SiteReviewQueue } from './site';
+import { t } from '../../shared/i18n';
 
 export { ProjectUpdates, SiteReviewQueue };
 export {
@@ -22,7 +23,7 @@ export function openDesktopAssist(kind, options = {}) {
 // Extra props become options (e.g. projectId, siteId).
 export function AssistButton({ kind, sm = true, children, ...options }) {
   if (!assistAllowed(kind)) return null;
-  return <Btn sm={sm} onClick={() => open(kind, options)}>{children || assistTitles[kind]}</Btn>;
+  return <Btn sm={sm} onClick={() => open(kind, options)}>{children || t(assistTitles[kind])}</Btn>;
 }
 // Helper toolbar on a project's overview tab.
 export function AssistTools({ projectId }) {
@@ -46,7 +47,7 @@ export function MessageAssist({ m }) {
   if (!follow && !concept) return null;
   return (
     <details className="mt-2 text-xs">
-      <summary className="cursor-pointer py-1.5 text-ink-2">Help with this update</summary>
+      <summary className="cursor-pointer py-1.5 text-ink-2">{t('Help with this update')}</summary>
       <div className="flex flex-wrap gap-1.5">
         {follow && <AssistButton kind="followup" messageId={m.id} />}
         {concept && <AssistButton kind="concept" messageId={m.id} />}

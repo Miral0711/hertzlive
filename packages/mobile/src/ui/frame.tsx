@@ -4,23 +4,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from './Icon';
 import { useNavigate } from '../platform/router';
 import { useStyles } from '../platform/theme';
+import { t } from '../../../frontend/src/shared/i18n';
 
 export function backName(url?: string) {
   const path = (url || '').split('?')[0];
-  if (path === '/mobile/updates') return 'Updates';
-  if (path === '/mobile/today') return 'Today';
-  if (path.startsWith('/mobile/issues/')) return 'Issue';
-  if (path.includes('/changes')) return 'Changes';
-  if (/\/drawings\/[^/]+/.test(path)) return 'Drawing';
-  if (path.includes('/drawings')) return 'Drawings';
-  if (path.includes('/people')) return 'People';
-  if (path.includes('/refs')) return 'References';
-  if (path.includes('/materials')) return 'Materials';
-  if (path.startsWith('/mobile/photos')) return 'Photos';
-  if (path.startsWith('/mobile/chats/')) return 'Chat';
-  if (path.startsWith('/mobile/projects/')) return 'Project';
-  if (path === '/mobile/profile') return 'Profile';
-  if (path.startsWith('/mobile/chats')) return 'Chats';
+  if (path === '/mobile/updates') return t('Updates');
+  if (path === '/mobile/today') return t('Today');
+  if (path.startsWith('/mobile/issues/')) return t('Issue');
+  if (path.includes('/changes')) return t('Changes');
+  if (/\/drawings\/[^/]+/.test(path)) return t('Drawing');
+  if (path.includes('/drawings')) return t('Drawings');
+  if (path.includes('/people')) return t('People');
+  if (path.includes('/refs')) return t('References');
+  if (path.includes('/materials')) return t('Materials');
+  if (path.startsWith('/mobile/photos')) return t('Photos');
+  if (path.startsWith('/mobile/chats/')) return t('Chat');
+  if (path.startsWith('/mobile/projects/')) return t('Project');
+  if (path === '/mobile/profile') return t('Profile');
+  if (path.startsWith('/mobile/chats')) return t('Chats');
   return 'Back';
 }
 
@@ -40,15 +41,15 @@ export function TopBar({ children, style }: { children: React.ReactNode; style?:
   return <View style={[s.top, style]}>{children}</View>;
 }
 
-export function BackButton({ to, label = 'Back', showLabel = true }: { to?: string; label?: string; showLabel?: boolean }) {
+export function BackButton({ to, label = 'Back', showLabel = true, color }: { to?: string; label?: string; showLabel?: boolean; color?: string }) {
   const navigate = useNavigate();
   const s = useStyles((c) => ({
     btn: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingRight: 6 },
     text: { color: c.accent, fontWeight: '600', fontSize: 16 },
   }));
   return (
-    <Pressable style={s.btn} onPress={() => navigate(to ?? -1)} accessibilityLabel={label === 'Back' ? 'Back' : `Back to ${label}`}>
-      <Icon name="back" color={undefined} />
+    <Pressable style={s.btn} onPress={() => navigate(to ?? -1)} accessibilityLabel={label === 'Back' || label === t('Back') ? t('Back') : t('Back to {0}', label)}>
+      <Icon name="back" color={color} />
       {showLabel ? <Text style={s.text}>{label}</Text> : null}
     </Pressable>
   );

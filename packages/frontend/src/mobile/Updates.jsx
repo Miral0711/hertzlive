@@ -6,18 +6,18 @@ import { updates, fmtD, me, projectName } from './model';
 import { t } from './copy';
 import { Avatar } from './faces';
 
-const KIND = {
-  decision: 'Decision',
-  issue: 'Issue',
-  answer: 'Office answer',
-  approval: 'Approval',
-  drawing: 'Drawing',
-  delivery: 'Delivery',
-  site: 'Site',
-  client: 'Client',
-  enquiry: 'Enquiry',
-  people: 'People',
-};
+const KIND = () => ({
+  decision: t('Decision'),
+  issue: t('Issue'),
+  answer: t('Office answer'),
+  approval: t('Approval'),
+  drawing: t('Drawing'),
+  delivery: t('Delivery'),
+  site: t('Site'),
+  client: t('Client'),
+  enquiry: t('Enquiry'),
+  people: t('People'),
+});
 
 export default function Updates() {
   useStore();
@@ -30,7 +30,7 @@ export default function Updates() {
   const shown = list.filter((item) => {
     if (kind !== 'all' && item.kind !== kind) return false;
     if (!q) return true;
-    return [item.title, item.detail, item.projectId ? projectName(item.projectId) : '', KIND[item.kind] || item.kind]
+    return [item.title, item.detail, item.projectId ? projectName(item.projectId) : '', KIND()[item.kind] || item.kind]
       .join(' ')
       .toLowerCase()
       .includes(q);
@@ -41,7 +41,7 @@ export default function Updates() {
     const key = item.projectId || 'studio';
     if (!seen.has(key)) {
       seen.set(key, groups.length);
-      groups.push({ key, title: item.projectId ? projectName(item.projectId) : 'Studio', items: [] });
+      groups.push({ key, title: item.projectId ? projectName(item.projectId) : t('Studio'), items: [] });
     }
     groups[seen.get(key)].items.push(item);
   });
@@ -49,24 +49,24 @@ export default function Updates() {
   return (
     <div className="screen">
       <header className="top">
-        <h1>{t('updates')}<span>What changed in your projects</span></h1>
-        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fupdates" aria-label="Profile">
+        <h1>{t('updates')}<span>{t('What changed in your projects')}</span></h1>
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fupdates" aria-label={t('Profile')}>
           <Avatar person={person} size="sm" />
         </Link>
       </header>
       <div className="body canvas proj hub">
-        <p className="note">The record of what already changed. Work that needs you stays on Today.</p>
+        <p className="note">{t('The record of what already changed. Work that needs you stays on Today.')}</p>
         {list.length > 6 && (
           <label className="search">
             <Icon name="search" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search updates" aria-label="Search updates" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('Search updates')} aria-label={t('Search updates')} />
           </label>
         )}
         {kinds.length > 1 && (
-          <div className="upd-kinds" role="tablist" aria-label="Update type">
-            <button type="button" aria-pressed={kind === 'all'} onClick={() => setKind('all')}>All</button>
+          <div className="upd-kinds" role="tablist" aria-label={t('Update type')}>
+            <button type="button" aria-pressed={kind === 'all'} onClick={() => setKind('all')}>{t('All')}</button>
             {kinds.map((item) => (
-              <button key={item} type="button" aria-pressed={kind === item} onClick={() => setKind(item)}>{KIND[item] || item}</button>
+              <button key={item} type="button" aria-pressed={kind === item} onClick={() => setKind(item)}>{KIND()[item] || item}</button>
             ))}
           </div>
         )}
@@ -76,7 +76,7 @@ export default function Updates() {
             {group.items.map((item) => {
               const inner = (
                 <div>
-                  <small>{KIND[item.kind] || item.kind} · {fmtD(item.at)}</small>
+                  <small>{KIND()[item.kind] || item.kind} · {fmtD(item.at)}</small>
                   <b>{item.title}</b>
                   {item.detail ? <span>{item.detail}</span> : null}
                 </div>
@@ -89,8 +89,8 @@ export default function Updates() {
             })}
           </section>
         ))}
-        {list.length > 0 && !shown.length && <div className="empty"><h3>No update matches</h3></div>}
-        {!list.length && <div className="empty"><h3>Nothing has changed yet</h3><p>Office answers, drawing issues and decisions will land here.</p></div>}
+        {list.length > 0 && !shown.length && <div className="empty"><h3>{t('No update matches')}</h3></div>}
+        {!list.length && <div className="empty"><h3>{t('Nothing has changed yet')}</h3><p>{t('Office answers, drawing issues and decisions will land here.')}</p></div>}
       </div>
     </div>
   );

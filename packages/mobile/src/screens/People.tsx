@@ -11,15 +11,16 @@ import { useStyles } from '../platform/theme';
 import {
   state, svc, user, me, staff, PEOPLE, viewAs, phoneOf, firstName, fmtD, TODAY, persist, render, myThreads, postMessage, can, useStore, core,
 } from '../store';
+import { t, getLang, setLang, LANGS } from '../../../frontend/src/shared/i18n';
 
 const { hh } = core as any;
 const db = (): any => state.db;
 
 const ORDER = ['partner', 'site_manager', 'designer', 'hr', 'contractor', 'client'];
-const LABEL: Record<string, string> = {
-  partner: 'Partners', site_manager: 'Site managers', designer: 'Design team',
-  hr: 'Office', contractor: 'Contractors and vendors', client: 'Clients',
-};
+const LABEL = (): Record<string, string> => ({
+  partner: t('Partners'), site_manager: t('Site managers'), designer: t('Design team'),
+  hr: t('Office'), contractor: t('Contractors and vendors'), client: t('Clients'),
+});
 
 const ChipStatus = ({ children }: { children: React.ReactNode }) => {
   const s = useStyles((c) => ({ t: { color: c.ink2, fontSize: 13, fontWeight: '700' } }));
@@ -30,15 +31,15 @@ export function Who() {
   useStore();
   const navigate = useNavigate();
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
-      <Note>This changes whose records you see. It does not change the desktop login.</Note>
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('Switch person')} sub={t('Try the field app as someone else')}>
+      <Note>{t('This changes whose records you see. It does not change the desktop login.')}</Note>
       {PEOPLE.map(({ id, hint }: any) => {
         const u = user(id);
         return (
           <Row key={id} label={u.name} onPress={() => { viewAs(id); navigate('/mobile/chats'); }}>
             <Avatar person={u} />
-            <RowCopy title={u.name} sub={`${u.title} · ${hint}`} />
-            {state.userId === id ? <ChipStatus>You</ChipStatus> : null}
+            <RowCopy title={u.name} sub={`${u.title} · ${t(hint)}`} />
+            {state.userId === id ? <ChipStatus>{t('You')}</ChipStatus> : null}
           </Row>
         );
       })}
@@ -57,10 +58,10 @@ export function People() {
     if (employee) return true;
     return ['partner', 'site_manager'].includes(u.role) || svc.projects().some((p: any) => (p.teamIds || []).includes(u.id));
   });
-  const groups = ORDER.map((role) => [LABEL[role], list.filter((u: any) => u.role === role)] as [string, any[]]).filter(([, us]) => us.length);
+  const groups = ORDER.map((role) => [LABEL()[role], list.filter((u: any) => u.role === role)] as [string, any[]]).filter(([, us]) => us.length);
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
-      <SearchBox value={q} onChangeText={setQ} placeholder="Search people" />
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('People')} sub={t('Tap the phone to call')} bare>
+      <SearchBox value={q} onChangeText={setQ} placeholder={t('Search people')} />
       {groups.map(([name, us]) => (
         <View key={name}>
           <Sect>{name}</Sect>
@@ -72,14 +73,14 @@ export function People() {
               <Row key={u.id}>
                 <Avatar person={u} />
                 <RowCopy title={u.name} sub={`${vendor ? vendor.trade || vendor.name : u.title} · ${phone}`} />
-                {dm ? <IconBtn name="chat" to={`/mobile/chats/${dm.id}`} label={`Chat with ${firstName(u.id)}`} /> : null}
-                <IconBtn name="call" onPress={() => openExternal(`tel:${phone.replace(/\s/g, '')}`)} label={`Call ${firstName(u.id)}`} />
+                {dm ? <IconBtn name="chat" to={`/mobile/chats/${dm.id}`} label={t('Chat with {0}', firstName(u.id))} /> : null}
+                <IconBtn name="call" onPress={() => openExternal(`tel:${phone.replace(/\s/g, '')}`)} label={t('Call {0}', firstName(u.id))} />
               </Row>
             );
           })}
         </View>
       ))}
-      {!groups.length && <Empty title="No one matches" />}
+      {!groups.length && <Empty title={t('No one matches')} />}
     </Page>
   );
 }
@@ -117,20 +118,20 @@ export function Holidays() {
     end: { alignItems: 'flex-end', gap: 4 },
   }));
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={staff() ? t('Holidays and leave') : t('Holidays')} sub={t('Office calendar')} bare>
       {pending.length > 0 && (
         <View>
-          <Sect>Leave requests</Sect>
+          <Sect>{t('Leave requests')}</Sect>
           {pending.map((l: any) => (
             <View key={l.id} style={{ paddingHorizontal: 14 }}>
               <DayBlock
-                title={`${user(l.userId).name} · ${l.days} day${l.days > 1 ? 's' : ''}`}
+                title={`${user(l.userId).name} · ${l.days > 1 ? t('{0} days', l.days) : t('{0} day', l.days)}`}
                 lines={[`${l.type} · ${fmtD(l.from)} to ${fmtD(l.to)} · ${l.reason}`]}
               >
                 <View style={s.acts}>
-                  <Pressable style={s.btn} onPress={() => { svc.decideLeave(l.id, true); render(); }} accessibilityRole="button"><Text style={s.btnT}>Approve</Text></Pressable>
-                  <Pressable style={[s.btn, s.quiet]} onPress={() => { svc.decideLeave(l.id, false); render(); }} accessibilityRole="button"><Text style={[s.btnT, s.quietT]}>Decline</Text></Pressable>
-                  <Link to={`/mobile/standin/${l.userId}?leave=${l.id}`} style={[s.btn, s.quiet]}><Text style={[s.btnT, s.quietT]}>Who covers?</Text></Link>
+                  <Pressable style={s.btn} onPress={() => { svc.decideLeave(l.id, true); render(); }} accessibilityRole="button"><Text style={s.btnT}>{t('Approve')}</Text></Pressable>
+                  <Pressable style={[s.btn, s.quiet]} onPress={() => { svc.decideLeave(l.id, false); render(); }} accessibilityRole="button"><Text style={[s.btnT, s.quietT]}>{t('Decline')}</Text></Pressable>
+                  <Link to={`/mobile/standin/${l.userId}?leave=${l.id}`} style={[s.btn, s.quiet]}><Text style={[s.btnT, s.quietT]}>{t('Who covers?')}</Text></Link>
                 </View>
               </DayBlock>
             </View>
@@ -139,17 +140,17 @@ export function Holidays() {
       )}
       {staff() && (
         <View>
-          <Sect>My leave</Sect>
+          <Sect>{t('My leave')}</Sect>
           {mine.length ? mine.map((l: any) => (
             <DayRow
-              key={l.id} date={l.from} title={`${l.type} · ${l.days} day${l.days > 1 ? 's' : ''}`}
-              detail={l.from === l.to ? fmtD(l.from) : `${fmtD(l.from)} to ${fmtD(l.to)} · ${l.reason}`}
-              extra={<View style={s.end}><ChipStatus>{l.status}</ChipStatus><LinkText to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</LinkText></View>}
+              key={l.id} date={l.from} title={`${l.type} · ${l.days > 1 ? t('{0} days', l.days) : t('{0} day', l.days)}`}
+              detail={l.from === l.to ? fmtD(l.from) : t('{0} to {1} · {2}', fmtD(l.from), fmtD(l.to), l.reason)}
+              extra={<View style={s.end}><ChipStatus>{l.status}</ChipStatus><LinkText to={`/mobile/standin/${l.userId}?leave=${l.id}`}>{t('Who covers?')}</LinkText></View>}
             />
-          )) : <Empty title="Nothing planned">Ask for leave in the studio chat.</Empty>}
+          )) : <Empty title={t('Nothing planned')}>{t('Ask for leave in the studio chat.')}</Empty>}
         </View>
       )}
-      <Sect>Holidays</Sect>
+      <Sect>{t('Holidays')}</Sect>
       {hol.map((h: any) => (
         <DayRow
           key={h.date + h.name} date={h.date} title={h.name}
@@ -158,7 +159,7 @@ export function Holidays() {
       ))}
       {team.length > 0 && (
         <View>
-          <Sect>Who is away</Sect>
+          <Sect>{t('Who is away')}</Sect>
           {team.map((l: any) => (
             <DayRow key={l.id} date={l.from} title={firstName(l.userId)} detail={`${l.from === l.to ? fmtD(l.from) : `${fmtD(l.from)} to ${fmtD(l.to)}`} · ${l.type}`} />
           ))}
@@ -172,13 +173,13 @@ export function Punches() {
   useStore();
   const month = svc.punches();
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('Punch history')} sub={`${month.days === 1 ? t('{0} day', month.days) : t('{0} days', month.days)} · ${t('{0} late', month.late)} · ${month.hours}h`}>
       {month.rows.map((r: any) => (
         <Row key={r.date + r.in}>
           <RowCopy title={`${fmtD(r.date)}${r.late ? ' · late' : ''}`} sub={`${r.in}–${r.out || '—'} · ${r.site}`} />
         </Row>
       ))}
-      {!month.rows.length && <Empty title="No punches this month" />}
+      {!month.rows.length && <Empty title={t('No punches this month')} />}
     </Page>
   );
 }
@@ -187,14 +188,14 @@ export function Reviews() {
   useStore();
   const rows = svc.reviews(state.userId);
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('My reviews')} sub={t('Monthly score, strengths and growth')}>
       {rows.map((r: any) => (
         <DayBlock
           key={r.id} small={`${r.month} · ${r.score}/5 · ${user(r.by).name}`} title={r.reason}
           lines={[`Strengths: ${r.strengths.join(', ')}`, `Grow: ${r.growth}`]}
         />
       ))}
-      {!rows.length && <Empty title="No review for you yet" />}
+      {!rows.length && <Empty title={t('No review for you yet')} />}
     </Page>
   );
 }
@@ -213,7 +214,7 @@ export function Notice() {
     tOn: { color: c.accentInk },
   }));
   if (state.role !== 'partner') {
-    return <Page board back="/mobile/profile" backLabel="Profile" title="Notice"><Empty title="Only a partner can send a notice" /></Page>;
+    return <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('Notice')}><Empty title={t('Only a partner can send a notice')} /></Page>;
   }
   function send() {
     const value = text.trim();
@@ -222,8 +223,8 @@ export function Notice() {
     navigate('/mobile/chats');
   }
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
-      <Note>Goes to every project chat you are in, marked as a notice.</Note>
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('Notice to everyone')} sub={t('{0} project chats', threads.length)}>
+      <Note>{t('Goes to every project chat you are in, marked as a notice.')}</Note>
       <View style={chips.wrap}>
         {ideas.map((idea) => (
           <Pressable key={idea} style={[chips.chip, text === idea && chips.on]} onPress={() => setText(idea)} accessibilityRole="button" accessibilityState={{ selected: text === idea }}>
@@ -232,8 +233,8 @@ export function Notice() {
         ))}
       </View>
       <View style={{ gap: 10, marginTop: 12 }}>
-        <Field label="Message" value={text} onChangeText={setText} multiline />
-        <Primary onPress={send}>{`Send to ${threads.length} chats`}</Primary>
+        <Field label={t('Message')} value={text} onChangeText={setText} multiline />
+        <Primary onPress={send}>{t('Send to {0} chats', threads.length)}</Primary>
       </View>
     </Page>
   );
@@ -245,9 +246,9 @@ function ChoiceRow({ label, on, onPress }: { label: string; on: boolean; onPress
 
 export function Appearance() {
   useStore();
-  const options = [['system', 'Phone'], ['light', 'Light'], ['dark', 'Dark']];
+  const options = [['system', t('Phone')], ['light', t('Light')], ['dark', t('Dark')]];
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="Appearance">
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('Appearance')}>
       {options.map(([id, label]) => (
         <ChoiceRow key={id} label={label} on={state.theme === id} onPress={() => { state.theme = id; persist(); render(); }} />
       ))}
@@ -257,14 +258,12 @@ export function Appearance() {
 
 export function Language() {
   useStore();
-  const current = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('field-lang')) || 'English';
-  const langs = ['English', 'हिन्दी', 'ગુજરાતી'];
-  const [, setTick] = useState(current);
+  const current = getLang();
   return (
-    <Page board back="/mobile/profile" backLabel="Profile" title="Language">
-      <Note>Menus and tabs only. Write or talk in any language.</Note>
-      {langs.map((lang) => (
-        <ChoiceRow key={lang} label={lang} on={current === lang} onPress={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }} />
+    <Page board back="/mobile/profile" backLabel={t('Profile')} title={t('Language')}>
+      <Note>{t('Menus and tabs only. Write or talk in any language.')}</Note>
+      {LANGS.map((lang) => (
+        <ChoiceRow key={lang} label={lang} on={current === lang} onPress={() => setLang(lang)} />
       ))}
     </Page>
   );
@@ -315,7 +314,7 @@ export function Book() {
     setDone('');
     const start = hour + half;
     const row = {
-      title: title.trim() || (meet ? 'Client meeting' : 'Room booking'),
+      title: title.trim() || (meet ? t('Client meeting') : t('Room booking')),
       purpose,
       date,
       start,
@@ -335,42 +334,42 @@ export function Book() {
       setSlots([]);
       render();
       setDone(result.pending
-        ? `Asked for ${fmtD(date)} ${hh(start)}. The studio will confirm.`
-        : `Booked ${fmtD(date)} ${hh(start)}.`);
+        ? t('Asked for {0} {1}. The studio will confirm.', fmtD(date), hh(start))
+        : t('Booked {0} {1}.', fmtD(date), hh(start)));
     } catch (err: any) {
-      setError(err.message === 'forbidden' ? 'You cannot book from this login.' : err.message);
+      setError(err.message === 'forbidden' ? t('You cannot book from this login.') : t(err.message));
     }
   }
 
   if (!can('booking', 'w')) {
-    return <Page board back="/mobile/today" backLabel="Today" title="Booking"><Empty title="Booking isn’t available for this login" /></Page>;
+    return <Page board back="/mobile/today" backLabel={t('Today')} title={t('Booking')}><Empty title={t('Booking isn’t available for this login')} /></Page>;
   }
 
   return (
     <Page
       back={from && from.startsWith('/mobile/') ? from : '/mobile/today'}
-      backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Today'}
-      title={meet ? 'Book a meeting' : `Book the ${room.toLowerCase()}`}
+      backLabel={from && from.startsWith('/mobile/') ? backName(from) : t('Today')}
+      title={meet ? t('Book a meeting') : t('Book the {0}', room.toLowerCase())}
     >
-      {meet && <Note>The studio confirms. You get a WhatsApp the day before and one hour before.</Note>}
+      {meet && <Note>{t('The studio confirms. You get a WhatsApp the day before and one hour before.')}</Note>}
       <View style={{ gap: 10, marginTop: 12 }}>
-        <Lab>Day</Lab>
-        <Filters options={days.map((d): [string, string] => [d, d === TODAY ? 'Today' : fmtD(d)])} value={date} onChange={setDate} />
-        <Lab>Time</Lab>
+        <Lab>{t('Day')}</Lab>
+        <Filters options={days.map((d): [string, string] => [d, d === TODAY ? t('Today') : fmtD(d)])} value={date} onChange={setDate} />
+        <Lab>{t('Time')}</Lab>
         <Filters options={times.map((h): [string, string] => [String(h), hh(h)])} value={String(hour)} onChange={(v) => setHour(Number(v))} />
         <Filters options={[['0', 'On the hour'], ['0.5', 'Half past']]} value={String(half)} onChange={(v) => setHalf(Number(v))} />
-        <Lab>How long</Lab>
+        <Lab>{t('How long')}</Lab>
         <Filters options={[['0.5', '30 min'], ['1', '1 hour'], ['2', '2 hours']]} value={String(Number(len))} onChange={(v) => setLen(Number(v))} />
-        <Lab>{meet ? 'What kind' : 'Purpose'}</Lab>
-        <Filters options={[['office', meet ? 'Come to the office' : 'Office meeting'], ['video', 'Video call'], ['site', 'Site visit']]} value={purpose} onChange={setPurpose} />
+        <Lab>{meet ? t('What kind') : t('Purpose')}</Lab>
+        <Filters options={[['office', meet ? t('Come to the office') : t('Office meeting')], ['video', t('Video call')], ['site', t('Site visit')]]} value={purpose} onChange={setPurpose} />
         {purpose === 'site' && sites.length > 1 && (
-          <Select label="Which site" value={projectId} options={sites.map((p: any): [string, string] => [p.id, p.name])} onChange={setProjectId} />
+          <Select label={t('Which site')} value={projectId} options={sites.map((p: any): [string, string] => [p.id, p.name])} onChange={setProjectId} />
         )}
-        <Select label="With" value={who} options={people.map((u: any): [string, string] => [u.id, firstName(u.id)])} onChange={setWho} />
-        {!meet && <Field label="What for" value={title} onChangeText={setTitle} placeholder="Jagwani kitchen review" />}
+        <Select label={t('With')} value={who} options={people.map((u: any): [string, string] => [u.id, firstName(u.id)])} onChange={setWho} />
+        {!meet && <Field label={t('What for')} value={title} onChangeText={setTitle} placeholder={t('Jagwani kitchen review')} />}
         {clash && (
           <ViewCard>
-            <CardText strong>Not free</CardText>
+            <CardText strong>{t('Not free')}</CardText>
             <CardText>{clash.msg}</CardText>
             {slots.length ? (
               <Filters
@@ -382,11 +381,11 @@ export function Book() {
                   setDate(slot.date); setHour(Math.floor(slot.start)); setHalf(slot.start % 1); setLen(slot.end - slot.start); setClash(null);
                 }}
               />
-            ) : <CardText>Nothing free in two weeks. Message the studio.</CardText>}
+            ) : <CardText>{t('Nothing free in two weeks. Message the studio.')}</CardText>}
           </ViewCard>
         )}
         {error ? <WarnText>{error}</WarnText> : null}
-        {done ? <NoteText>{done}</NoteText> : <Primary onPress={save}>{meet ? 'Ask for this time' : 'Book'}</Primary>}
+        {done ? <NoteText>{done}</NoteText> : <Primary onPress={save}>{meet ? t('Ask for this time') : t('Book')}</Primary>}
       </View>
     </Page>
   );
@@ -402,26 +401,26 @@ export function StandIn() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   return (
-    <Page board back="/mobile/holidays" backLabel="Holidays" title={`Who can cover ${firstName(userId)}?`} sub="Present today, shares a skill, lightest load first">
+    <Page board back="/mobile/holidays" backLabel={t('Holidays')} title={t('Who can cover {0}?', firstName(userId))} sub={t('Present today, shares a skill, lightest load first')}>
       {list.length ? list.map((row) => (
         <ViewCard key={row.u.id}>
           <CardText strong>{row.u.name}</CardText>
-          <CardText dim>{`${row.u.title} · ${row.load} open task${row.load === 1 ? '' : 's'} · ${row.overlap.join(', ')}`}</CardText>
+          <CardText dim>{`${row.u.title} · ${row.load === 1 ? t('{0} open task', row.load) : t('{0} open tasks', row.load)} · ${row.overlap.join(', ')}`}</CardText>
           {leaveId && can('leave', 'a') && (
             <Primary onPress={() => {
               try {
                 svc.reassignForLeave(leaveId, row.u.id, '');
                 render();
-                setNote(`Tasks reassigned to ${firstName(row.u.id)}.`);
+                setNote(t('Tasks reassigned to {0}.', firstName(row.u.id)));
                 setError('');
-              } catch (err: any) { setError(err.message === 'forbidden' ? 'You cannot reassign this leave.' : err.message); }
-            }}>{`Reassign to ${firstName(row.u.id)}`}</Primary>
+              } catch (err: any) { setError(err.message === 'forbidden' ? t('You cannot reassign this leave.') : t(err.message)); }
+            }}>{t('Reassign to {0}', firstName(row.u.id))}</Primary>
           )}
         </ViewCard>
-      )) : <Empty title="No one qualified is in today" />}
+      )) : <Empty title={t('No one qualified is in today')} />}
       {note ? <NoteText>{note}</NoteText> : null}
       {error ? <WarnText>{error}</WarnText> : null}
-      {!can('leave', 'a') && <Note>A partner or HR names the cover and moves the open tasks.</Note>}
+      {!can('leave', 'a') && <Note>{t('A partner or HR names the cover and moves the open tasks.')}</Note>}
     </Page>
   );
 }

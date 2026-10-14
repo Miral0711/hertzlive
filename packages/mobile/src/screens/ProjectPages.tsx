@@ -15,6 +15,7 @@ import {
   ActBtn, ActRow, B, Chip, DayRow, Empty, Hint, LabeledInput, PrimaryRow, Row, RowSub, RowTitle, Sect, Small,
   StatusEm, Sub, SubmitBtn, ViewCard, WarnText,
 } from './projectKit';
+import { t } from '../../../frontend/src/shared/i18n';
 
 const errMsg = (e: any) => (e && e.message) || String(e);
 
@@ -28,7 +29,7 @@ export function WorkRow({ item, onDone, first }: { item: any; onDone: (id: strin
   );
   if (item.to) return <DayRow to={item.to} first={first}>{body}</DayRow>;
   if (item.taskId) {
-    return <DayRow first={first} right={<ActBtn label="Done" onPress={() => onDone(item.taskId)} />}>{body}</DayRow>;
+    return <DayRow first={first} right={<ActBtn label={t('Done')} onPress={() => onDone(item.taskId)} />}>{body}</DayRow>;
   }
   return <DayRow first={first}>{body}</DayRow>;
 }
@@ -43,20 +44,20 @@ export function finishTask(taskId: string) {
 }
 
 function Missing({ id }: { id?: string }) {
-  return <Page sheet back={`/mobile/projects/${id || ''}`} title="Project"><Empty title="This project isn’t available" /></Page>;
+  return <Page sheet back={`/mobile/projects/${id || ''}`} title={t('Project')}><Empty title={t('This project isn’t available')} /></Page>;
 }
 
 function materialFace(status: string) {
-  if (status === 'approved') return { label: 'Approved', tone: 'ok' as const };
-  if (status === 'client_pending') return { label: 'Needs a decision', tone: 'open' as const };
-  if (status === 'rejected') return { label: 'Not this one', tone: 'late' as const };
-  if (status === 'internal_review') return { label: 'In review', tone: '' as const };
-  return { label: (status || 'Status not recorded').replace(/_/g, ' '), tone: '' as const };
+  if (status === 'approved') return { label: t('Approved'), tone: 'ok' as const };
+  if (status === 'client_pending') return { label: t('Needs a decision'), tone: 'open' as const };
+  if (status === 'rejected') return { label: t('Not this one'), tone: 'late' as const };
+  if (status === 'internal_review') return { label: t('In review'), tone: '' as const };
+  return { label: status ? status.replace(/_/g, ' ') : t('Status not recorded'), tone: '' as const };
 }
 
 function materialsLead(rows: any[]) {
   const waiting = rows.filter((m) => m.status === 'client_pending').length;
-  if (!waiting) return 'Every shared sample has a decision.';
+  if (!waiting) return t('Every shared sample has a decision.');
   if (state.role === 'client') {
     return waiting === 1 ? '1 sample needs your decision.' : `${waiting} samples need your decision.`;
   }
@@ -97,11 +98,11 @@ export function Materials() {
   }));
   if (!project) return <Missing id={projectId} />;
   if (!can('material', 'r')) {
-    return <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials"><Empty title="Materials aren’t available for this login" /></Page>;
+    return <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Materials')}><Empty title={t('Materials aren’t available for this login')} /></Page>;
   }
   return (
-    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel="Project" title="Materials" sub={project.name}>
-      {rows.length ? <Text style={s.lead}>{materialsLead(rows)}</Text> : <Hint>Samples and decisions shared with you.</Hint>}
+    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Materials')} sub={project.name}>
+      {rows.length ? <Text style={s.lead}>{materialsLead(rows)}</Text> : <Hint>{t('Samples and decisions shared with you.')}</Hint>}
       {rows.map((m: any) => {
         const face = materialFace(m.status);
         const tone = face.tone === 'ok' ? tones.okBg : face.tone === 'open' ? tones.openBg : face.tone === 'late' ? tones.lateBg : null;
@@ -114,12 +115,12 @@ export function Materials() {
                 <Text style={s.name}>{m.name}</Text>
                 <View style={[s.pill, tone]}><Text style={[s.pillT, toneT]}>{face.label}</Text></View>
               </View>
-              <Text style={s.vendor}>{m.vendor || 'Supplier not recorded'}</Text>
-              {m.status === 'client_pending' && staff() && project.clientId ? <Text style={s.wait}>Waiting on {firstName(project.clientId)}</Text> : null}
+              <Text style={s.vendor}>{m.vendor || t('Supplier not recorded')}</Text>
+              {m.status === 'client_pending' && staff() && project.clientId ? <Text style={s.wait}>{t('Waiting on {0}', firstName(project.clientId))}</Text> : null}
               {m.status === 'client_pending' && state.role === 'client' ? (
                 <View style={s.acts}>
-                  <Pressable style={s.approve} onPress={() => { svc.approveMaterial(m.id, true); render(); }} accessibilityRole="button"><Text style={s.approveT}>Approve</Text></Pressable>
-                  <Pressable style={s.quiet} onPress={() => { svc.approveMaterial(m.id, false); render(); }} accessibilityRole="button"><Text style={s.quietT}>Not this one</Text></Pressable>
+                  <Pressable style={s.approve} onPress={() => { svc.approveMaterial(m.id, true); render(); }} accessibilityRole="button"><Text style={s.approveT}>{t('Approve')}</Text></Pressable>
+                  <Pressable style={s.quiet} onPress={() => { svc.approveMaterial(m.id, false); render(); }} accessibilityRole="button"><Text style={s.quietT}>{t('Not this one')}</Text></Pressable>
                 </View>
               ) : null}
             </View>
@@ -127,9 +128,9 @@ export function Materials() {
         );
       })}
       {svc.assistKinds().includes('compare') && rows.length >= 2 ? (
-        <Link to={`/mobile/projects/${projectId}/assist?kind=compare`} style={s.compare}><Text style={s.compareT}>Compare materials</Text></Link>
+        <Link to={`/mobile/projects/${projectId}/assist?kind=compare`} style={s.compare}><Text style={s.compareT}>{t('Compare materials')}</Text></Link>
       ) : null}
-      {!rows.length && <Empty title="No materials shared yet" />}
+      {!rows.length && <Empty title={t('No materials shared yet')} />}
     </Page>
   );
 }
@@ -157,8 +158,8 @@ export function Contacts() {
   }));
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel="Project" title="People" sub={project.name}>
-      <Text style={s.lead}>People in this project.</Text>
+    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('People')} sub={project.name}>
+      <Text style={s.lead}>{t('People in this project.')}</Text>
       {groups.filter((g: any) => g.people.length).map((g: any, gi: number) => (
         <View key={g.name}>
           <Text style={[s.sect, gi > 0 ? { marginTop: 18 } : { marginTop: 0 }]}>{g.name}</Text>
@@ -174,16 +175,16 @@ export function Contacts() {
                 <View style={s.copy}>
                   <Text style={s.name}>{u.name}</Text>
                   {u.title ? <Text style={s.title}>{u.title}</Text> : null}
-                  {u.last ? <Text style={s.when}>Last active {fmtD(u.last)}</Text> : null}
+                  {u.last ? <Text style={s.when}>{t('Last active {0}', fmtD(u.last))}</Text> : null}
                   {known ? (
                     <View style={s.acts}>
                       {dm ? (
-                        <Link to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`} style={s.btn} accessibilityLabel={`Message ${u.name}`}>
-                          <Text style={s.btnT}>Message</Text>
+                        <Link to={`/mobile/chats/${dm.id}?from=${encodeURIComponent(`/mobile/projects/${projectId}/people`)}`} style={s.btn} accessibilityLabel={t('Message {0}', u.name)}>
+                          <Text style={s.btnT}>{t('Message')}</Text>
                         </Link>
                       ) : null}
-                      <Pressable style={[s.btn, s.quiet]} onPress={() => openExternal(`tel:${phoneOf(person).replace(/\s/g, '')}`)} accessibilityRole="button" accessibilityLabel={`Call ${u.name}`}>
-                        <Text style={[s.btnT, s.quietT]}>Call</Text>
+                      <Pressable style={[s.btn, s.quiet]} onPress={() => openExternal(`tel:${phoneOf(person).replace(/\s/g, '')}`)} accessibilityRole="button" accessibilityLabel={t('Call {0}', u.name)}>
+                        <Text style={[s.btnT, s.quietT]}>{t('Call')}</Text>
                       </Pressable>
                     </View>
                   ) : null}
@@ -193,7 +194,7 @@ export function Contacts() {
           })}
         </View>
       ))}
-      {!groups.some((g: any) => g.people.length) && <Empty title="No people recorded" />}
+      {!groups.some((g: any) => g.people.length) && <Empty title={t('No people recorded')} />}
     </Page>
   );
 }
@@ -205,10 +206,10 @@ export function Attention() {
   const work = project ? projectNeeds(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Needs attention" sub={project.name}>
-      <Hint>Your actions and waiting items for this project. Shared with Today.</Hint>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Needs attention')} sub={project.name}>
+      <Hint>{t('Your actions and waiting items for this project. Shared with Today.')}</Hint>
       {work.map((item: any, i: number) => <WorkRow key={item.key} item={item} onDone={finishTask} first={i === 0} />)}
-      {!work.length && <Empty title="Nothing needs you here" />}
+      {!work.length && <Empty title={t('Nothing needs you here')} />}
     </Page>
   );
 }
@@ -219,7 +220,7 @@ export function Changes() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}`;
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Project';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Project');
   const project = projectOf(projectId);
   const rows = project ? svc.projectUpdates({ projectId }) : [];
   const pending = project && state.role === 'client'
@@ -259,18 +260,18 @@ export function Changes() {
     render();
   }
   const toneFor = (u: any) => (u.kind === 'drawing' ? 'kind' : /short/i.test(u.title) ? 'late' : u.kind === 'delivery' || u.kind === 'approval' ? 'ok' : '');
-  const labelFor = (kind: string) => (kind === 'delivery' ? 'Delivery' : kind === 'drawing' ? 'Drawing' : kind === 'approval' ? 'Approval' : kind === 'answer' ? 'Answer' : kind);
+  const labelFor = (kind: string) => (kind === 'delivery' ? t('Delivery') : kind === 'drawing' ? t('Drawing') : kind === 'approval' ? t('Approval') : kind === 'answer' ? t('Answer') : kind);
   return (
-    <Page sheet board back={back} backLabel={backLabel} title="Important changes" sub={project.name}>
-      <Text style={s.lead}>Recorded changes with their original sources.</Text>
+    <Page sheet board back={back} backLabel={backLabel} title={t('Important changes')} sub={project.name}>
+      <Text style={s.lead}>{t('Recorded changes with their original sources.')}</Text>
       {pending.map((c: any) => (
         <View key={c.id} style={s.card}>
-          <View style={s.meta}><View style={[s.pill, tones.open]}><Text style={[s.pillT, tones.openT]}>Your approval</Text></View><Text style={s.date}>{c.no}</Text></View>
+          <View style={s.meta}><View style={[s.pill, tones.open]}><Text style={[s.pillT, tones.openT]}>{t('Your approval')}</Text></View><Text style={s.date}>{c.no}</Text></View>
           <Text style={s.title}>{c.title}</Text>
           <Text style={s.detail}>{c.reason}</Text>
           <View style={s.acts}>
-            <Pressable style={s.btn} onPress={() => decide(c.id, true)} accessibilityRole="button"><Text style={s.btnT}>Approve</Text></Pressable>
-            <Pressable style={[s.btn, s.quietBtn]} onPress={() => decide(c.id, false)} accessibilityRole="button"><Text style={[s.btnT, s.quietBtnT]}>Decline</Text></Pressable>
+            <Pressable style={s.btn} onPress={() => decide(c.id, true)} accessibilityRole="button"><Text style={s.btnT}>{t('Approve')}</Text></Pressable>
+            <Pressable style={[s.btn, s.quietBtn]} onPress={() => decide(c.id, false)} accessibilityRole="button"><Text style={[s.btnT, s.quietBtnT]}>{t('Decline')}</Text></Pressable>
           </View>
         </View>
       ))}
@@ -298,11 +299,11 @@ export function Changes() {
             </View>
             <Text style={s.title}>{u.title}</Text>
             <Text style={s.detail}>{u.detail}</Text>
-            {to ? <Link to={to} style={s.btn}><Text style={s.btnT}>Open source</Text></Link> : <Text style={s.quiet}>No conversation recorded for this.</Text>}
+            {to ? <Link to={to} style={s.btn}><Text style={s.btnT}>{t('Open source')}</Text></Link> : <Text style={s.quiet}>{t('No conversation recorded for this.')}</Text>}
           </View>
         );
       })}
-      {!rows.length && !pending.length && <Empty title="No recorded changes" />}
+      {!rows.length && !pending.length && <Empty title={t('No recorded changes')} />}
     </Page>
   );
 }
@@ -313,7 +314,7 @@ export function Refs() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}`;
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Project';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Project');
   const project = projectOf(projectId);
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
@@ -342,29 +343,29 @@ export function Refs() {
     } catch (err) { setError(errMsg(err)); }
   }
   return (
-    <Page sheet board back={back} backLabel={backLabel} title="References" sub={project.name}>
-      <Text style={s.lead}>Client references and inspiration links.</Text>
+    <Page sheet board back={back} backLabel={backLabel} title={t('References')} sub={project.name}>
+      <Text style={s.lead}>{t('Client references and inspiration links.')}</Text>
       {rows.map((r: any) => (
         <View key={r.id} style={s.card}>
           <Text style={s.title}>{r.title || r.url}</Text>
           <Text style={s.detail}>{r.src}{r.room ? ` · ${r.room}` : ''}</Text>
           <View style={s.acts}>
-            <Pressable style={s.btn} onPress={() => openExternal(r.url)} accessibilityRole="link" accessibilityLabel={`Open ${r.title || r.url}`}><Text style={s.btnT}>Open</Text></Pressable>
+            <Pressable style={s.btn} onPress={() => openExternal(r.url)} accessibilityRole="link" accessibilityLabel={t('Open {0}', r.title || r.url)}><Text style={s.btnT}>{t('Open')}</Text></Pressable>
             {state.role !== 'client' && !r.promoted && can('moodboard', 'w') ? (
-              <Pressable style={[s.btn, s.quietBtn]} onPress={() => { svc.promoteRef(r.id); render(); }} accessibilityRole="button"><Text style={[s.btnT, s.quietBtnT]}>Moodboard</Text></Pressable>
-            ) : r.promoted ? <View style={s.pill}><Text style={s.pillT}>On moodboard</Text></View> : null}
+              <Pressable style={[s.btn, s.quietBtn]} onPress={() => { svc.promoteRef(r.id); render(); }} accessibilityRole="button"><Text style={[s.btnT, s.quietBtnT]}>{t('Moodboard')}</Text></Pressable>
+            ) : r.promoted ? <View style={s.pill}><Text style={s.pillT}>{t('On moodboard')}</Text></View> : null}
           </View>
         </View>
       ))}
       {can('ref', 'w') && (
         <View style={s.form}>
-          <LabeledInput label="Link" value={url} onChangeText={setUrl} placeholder="https://" />
-          <LabeledInput label="Title" value={title} onChangeText={setTitle} />
+          <LabeledInput label={t('Link')} value={url} onChangeText={setUrl} placeholder="https://" />
+          <LabeledInput label={t('Title')} value={title} onChangeText={setTitle} />
           {error ? <WarnText>{error}</WarnText> : null}
-          <SubmitBtn label="Add a link" onPress={add} />
+          <SubmitBtn label={t('Add a link')} onPress={add} />
         </View>
       )}
-      {!rows.length && <Empty title="No references saved yet" />}
+      {!rows.length && <Empty title={t('No references saved yet')} />}
     </Page>
   );
 }
@@ -378,7 +379,7 @@ export function Intake() {
   const rows = project ? svc.intake(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Client data checklist" sub={project.name}>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Client data checklist')} sub={project.name}>
       {rows.map((i: any) => (
         <Row
           key={i.id}
@@ -386,10 +387,10 @@ export function Intake() {
             <View style={{ alignItems: 'flex-end', gap: 2 }}>
               <Chip>{i.status}</Chip>
               {i.status === 'missing' && can('intake', 'w') ? (
-                <ActBtn label="Ask client" quiet onPress={() => { try { svc.askIntake(i.id); render(); } catch (err) { setError(errMsg(err)); } }} />
+                <ActBtn label={t('Ask client')} quiet onPress={() => { try { svc.askIntake(i.id); render(); } catch (err) { setError(errMsg(err)); } }} />
               ) : null}
               {state.role === 'client' && i.status !== 'received' ? (
-                <ActBtn label="Upload" quiet onPress={() => { svc.receiveIntake(i.id, 'Uploaded from phone'); render(); }} />
+                <ActBtn label={t('Upload')} quiet onPress={() => { svc.receiveIntake(i.id, 'Uploaded from phone'); render(); }} />
               ) : null}
             </View>
           )}
@@ -401,11 +402,11 @@ export function Intake() {
       {error ? <WarnText>{error}</WarnText> : null}
       {can('intake', 'w') && (
         <View style={{ gap: 10, marginTop: 12 }}>
-          <LabeledInput label="New item" value={item} onChangeText={setItem} a11y="Checklist item" />
-          <SubmitBtn label="Add item" onPress={() => { try { svc.addIntake(projectId, item); setItem(''); render(); } catch (err) { setError(errMsg(err)); } }} />
+          <LabeledInput label={t('New item')} value={item} onChangeText={setItem} a11y={t('Checklist item')} />
+          <SubmitBtn label={t('Add item')} onPress={() => { try { svc.addIntake(projectId, item); setItem(''); render(); } catch (err) { setError(errMsg(err)); } }} />
         </View>
       )}
-      {!rows.length && <Empty title="No checklist items yet" />}
+      {!rows.length && <Empty title={t('No checklist items yet')} />}
     </Page>
   );
 }
@@ -433,8 +434,8 @@ export function DrawingIndex() {
   }));
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel="Project" title="Drawing index" sub={project.name}>
-      <Text style={s.lead}>Planned sheets per stage. Struck through once finalised.</Text>
+    <Page sheet board back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Drawing index')} sub={project.name}>
+      <Text style={s.lead}>{t('Planned sheets per stage. Struck through once finalised.')}</Text>
       {stages.map((stage, si) => (
         <View key={stage as string}>
           <Text style={[s.sect, si === 0 ? { marginTop: 0 } : { marginTop: 18 }]}>{stage as string}</Text>
@@ -445,9 +446,9 @@ export function DrawingIndex() {
               {r.done ? <View style={s.pill}><Text style={s.pillT}>{r.how}</Text></View> : null}
               {!r.done && can('drawing', 'w') ? (
                 <Pressable style={s.btn} accessibilityRole="button" onPress={() => {
-                  if (!reason.trim()) { setError('Say why this is finalised.'); return; }
+                  if (!reason.trim()) { setError(t('Say why this is finalised.')); return; }
                   try { svc.finaliseDrawing(r.id, reason.trim()); setError(''); render(); } catch (err) { setError(errMsg(err)); }
-                }}><Text style={s.btnT}>Finalise</Text></Pressable>
+                }}><Text style={s.btnT}>{t('Finalise')}</Text></Pressable>
               ) : null}
             </View>
           ))}
@@ -455,11 +456,11 @@ export function DrawingIndex() {
       ))}
       {can('drawing', 'w') && (
         <View style={s.form}>
-          <LabeledInput label="Reason when you finalise" value={reason} onChangeText={setReason} a11y="Finalise reason" />
+          <LabeledInput label={t('Reason when you finalise')} value={reason} onChangeText={setReason} a11y={t('Finalise reason')} />
         </View>
       )}
       {error ? <WarnText>{error}</WarnText> : null}
-      {!rows.length && <Empty title="No drawing index yet" />}
+      {!rows.length && <Empty title={t('No drawing index yet')} />}
     </Page>
   );
 }
@@ -470,7 +471,7 @@ export function Drawing() {
   const [params] = useSearchParams();
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : `/mobile/projects/${projectId}/drawings`;
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Drawings';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Drawings');
   const no = decodeURIComponent(drawingNo || '');
   const project = projectOf(projectId);
   const drawing = (project?.drawings || []).find((d: any) => d.no === no);
@@ -490,21 +491,21 @@ export function Drawing() {
   const hereSelf = `/mobile/projects/${projectId}/drawings/${encodeURIComponent(drawing.no)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
     <Page sheet back={back} backLabel={backLabel} title={drawing.name} sub={project.name}>
-      <Hint>Check the revision and purpose before anyone builds from it. This demo does not attach the original file.</Hint>
+      <Hint>{t('Check the revision and purpose before anyone builds from it. This demo does not attach the original file.')}</Hint>
       <ViewCard>
         <View style={s.rev}><Text style={s.revT}>{drawing.rev}</Text></View>
         <B>{drawing.no}</B>
-        <StatusEm ok={drawing.status === 'Issued for construction'}>{drawing.status || 'Purpose not recorded'}</StatusEm>
-        <Text style={s.p}>{drawing.date ? `Dated ${fmtD(drawing.date)}` : 'Date not recorded'}{drawing.by ? ` · ${firstName(drawing.by)}` : ''}</Text>
+        <StatusEm ok={drawing.status === 'Issued for construction'}>{drawing.status || t('Purpose not recorded')}</StatusEm>
+        <Text style={s.p}>{drawing.date ? t('Dated {0}', fmtD(drawing.date)) : t('Date not recorded')}{drawing.by ? ` · ${firstName(drawing.by)}` : ''}</Text>
         <ActBtn
-          label={saved ? 'Saved on this phone' : 'Save on this phone'}
+          label={saved ? t('Saved on this phone') : t('Save on this phone')}
           quiet
           onPress={() => { rememberPhoneDrawing(projectId, drawing.no, true); render(); }}
         />
       </ViewCard>
       {related.length > 0 && (
         <View>
-          <Sect>Open on this sheet</Sect>
+          <Sect>{t('Open on this sheet')}</Sect>
           {related.map((issue: any) => (
             <Row key={issue.id} to={`/mobile/issues/${issue.id}?from=${encodeURIComponent(hereSelf)}`} right={<Icon name="chev" />}>
               <RowTitle>{issue.title}</RowTitle>
@@ -515,7 +516,7 @@ export function Drawing() {
       )}
       {svc.assistKinds().includes('ask') && (
         <DayRow to={`/mobile/projects/${projectId}/assist?kind=ask&drawing=${encodeURIComponent(drawing.no)}&q=${encodeURIComponent(`What is open on drawing ${drawing.no}?`)}&from=${encodeURIComponent(hereSelf)}`}>
-          <B>Ask about this sheet</B>
+          <B>{t('Ask about this sheet')}</B>
           <Sub>{drawing.no}</Sub>
         </DayRow>
       )}
@@ -533,25 +534,25 @@ export function Share() {
   const links: any[] = project ? svc.shareLinks(projectId) : [];
   if (!project) return <Missing id={projectId} />;
   return (
-    <Page sheet back={`/mobile/projects/${projectId}`} backLabel="Project" title="Share a link" sub={project.name}>
-      <Hint>An expiring web link. Anyone with the link can view until it expires.</Hint>
+    <Page sheet back={`/mobile/projects/${projectId}`} backLabel={t('Project')} title={t('Share a link')} sub={project.name}>
+      <Hint>{t('An expiring web link. Anyone with the link can view until it expires.')}</Hint>
       {can('share', 'w') && (
         <View style={{ gap: 10, marginTop: 12 }}>
-          <LabeledInput label="What you are sharing" value={label} onChangeText={setLabel} a11y="Share label" />
-          <SubmitBtn label="Create a 7-day link" onPress={() => {
+          <LabeledInput label={t('What you are sharing')} value={label} onChangeText={setLabel} a11y={t('Share label')} />
+          <SubmitBtn label={t('Create a 7-day link')} onPress={() => {
             try { setMade(svc.createShare({ projectId, label, days: 7 })); setError(''); render(); } catch (err) { setError(errMsg(err)); }
           }} />
         </View>
       )}
       {error ? <WarnText>{error}</WarnText> : null}
-      {made ? <Hint>Link ready until {fmtD(made.expires)} · {svc.shareUrl(made)}</Hint> : null}
+      {made ? <Hint>{t('Link ready until {0} · {1}', fmtD(made.expires), svc.shareUrl(made))}</Hint> : null}
       {links.map((l) => (
         <Row
           key={l.id}
-          right={l.status === 'active' ? <ActBtn label="Revoke" quiet onPress={() => { try { svc.revokeShare(l.id); render(); } catch (err) { setError(errMsg(err)); } }} /> : null}
+          right={l.status === 'active' ? <ActBtn label={t('Revoke')} quiet onPress={() => { try { svc.revokeShare(l.id); render(); } catch (err) { setError(errMsg(err)); } }} /> : null}
         >
           <RowTitle>{l.label}</RowTitle>
-          <RowSub>{l.status} · until {fmtD(l.expires)} · {l.views} views</RowSub>
+          <RowSub>{t('{0} · until {1} · {2} views', l.status, fmtD(l.expires), l.views)}</RowSub>
         </Row>
       ))}
     </Page>

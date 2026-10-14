@@ -8,6 +8,7 @@ import { ThreadAvatar } from './faces';
 import {
   photoItems, projectName, fmtDT, user, myThreads, threadTitle, audience, postMessage, svc, can, render,
 } from './model';
+import { t } from '../shared/i18n';
 
 function photoSearch(projectId, from) {
   const q = new URLSearchParams();
@@ -23,16 +24,16 @@ export function Photos() {
   const projectId = params.get('project') || '';
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : (projectId ? `/mobile/projects/${projectId}` : '/mobile/projects');
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Back';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Back');
   const [filter, setFilter] = useState('all');
   const all = photoItems(projectId);
   const kinds = [...new Set(all.map((i) => i.kind))];
   const items = all.filter((i) => filter === 'all' || i.kind === filter);
 
   return (
-    <Page back={back} backLabel={backLabel} title="Photos" sub={`${projectId ? projectName(projectId) : 'All projects'} · ${all.length} filed`}>
+    <Page back={back} backLabel={backLabel} title={t('Photos')} sub={t('{0} · {1} filed', projectId ? projectName(projectId) : t('All projects'), all.length)}>
       <div className="filters">
-        <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
+        <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>{t('All')}</button>
         {kinds.map((k) => (
           <button type="button" key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{k}</button>
         ))}
@@ -42,12 +43,12 @@ export function Photos() {
           {items.map((i) => (
             <Link key={i.id} to={`/mobile/photos/${i.id}${photoSearch(projectId, from)}`} aria-label={i.title}>
               {i.dataUrl ? <img className="shot" src={i.dataUrl} alt="" /> : <Swatch hue={i.hue} seed={i.seed} />}
-              <b>{i.markupOf ? 'Marked up' : i.kind}</b>
+              <b>{i.markupOf ? t('Marked up') : i.kind}</b>
               <span>{[projectName(i.projectId).split(' ')[0], i.room].filter(Boolean).join(' · ') || i.src}</span>
             </Link>
           ))}
         </div>
-      ) : <div className="empty"><h3>Nothing here yet</h3><p>Photos you send in chat land here, sorted by project and room.</p></div>}
+      ) : <div className="empty"><h3>{t('Nothing here yet')}</h3><p>{t('Photos you send in chat land here, sorted by project and room.')}</p></div>}
     </Page>
   );
 }
@@ -60,32 +61,32 @@ export function Photo() {
   const from = params.get('from');
   const item = photoItems(projectId).find((x) => x.id === photoId);
   if (!item) {
-    return <Page back="/mobile/photos" title="Photo"><div className="empty"><h3>This photo isn’t available</h3></div></Page>;
+    return <Page back="/mobile/photos" title={t('Photo')}><div className="empty"><h3>{t('This photo isn’t available')}</h3></div></Page>;
   }
   const back = `/mobile/photos${photoSearch(projectId, from)}`;
   return (
-    <Page back={back} backLabel="Photos" title={item.kind} sub={`${item.src} · ${fmtDT(item.at)}`}>
+    <Page back={back} backLabel={t('Photos')} title={item.kind} sub={`${item.src} · ${fmtDT(item.at)}`}>
       <div className="view-card">
         {item.dataUrl ? <img className="shot" src={item.dataUrl} alt="" /> : <Swatch hue={item.hue} seed={item.seed} />}
         <p>{item.title}</p>
         <dl className="kv">
-          <dt>Project</dt><dd>{projectName(item.projectId) || 'Not set'}</dd>
-          <dt>Room</dt><dd>{item.room || 'Not set'}</dd>
-          <dt>Type</dt><dd>{item.kind}</dd>
-          {item.by ? <><dt>From</dt><dd>{user(item.by).name}</dd></> : null}
-          {item.filing?.drawing ? <><dt>Drawing</dt><dd>{item.filing.drawing}</dd></> : null}
-          {item.decided ? <><dt>Status</dt><dd>Decided · on moodboard</dd></> : null}
+          <dt>{t('Project')}</dt><dd>{projectName(item.projectId) || t('Not set')}</dd>
+          <dt>{t('Room')}</dt><dd>{item.room || t('Not set')}</dd>
+          <dt>{t('Type')}</dt><dd>{item.kind}</dd>
+          {item.by ? <><dt>{t('From')}</dt><dd>{user(item.by).name}</dd></> : null}
+          {item.filing?.drawing ? <><dt>{t('Drawing')}</dt><dd>{item.filing.drawing}</dd></> : null}
+          {item.decided ? <><dt>{t('Status')}</dt><dd>{t('Decided · on moodboard')}</dd></> : null}
         </dl>
         {item.msgId ? (
           <>
-            <Link className="primary" to={`/mobile/chats/${item.threadId}/messages/${item.msgId}`}>Change project or room</Link>
-            <Link className="ghost" to={`/mobile/chats/${item.threadId}`}>Open the chat</Link>
+            <Link className="primary" to={`/mobile/chats/${item.threadId}/messages/${item.msgId}`}>{t('Change project or room')}</Link>
+            <Link className="ghost" to={`/mobile/chats/${item.threadId}`}>{t('Open the chat')}</Link>
           </>
         ) : null}
         {!item.msgId && (item.kind === 'Photo' || item.kind === 'Video') && can('feed', 'w') ? (
-          <Link className="primary" to={`/mobile/photos/${item.id}/markup${photoSearch(projectId, from)}`}>Mark up</Link>
+          <Link className="primary" to={`/mobile/photos/${item.id}/markup${photoSearch(projectId, from)}`}>{t('Mark up')}</Link>
         ) : null}
-        {item.markupOf ? <Link className="ghost" to={`/mobile/photos/${item.markupOf}`}>View original</Link> : null}
+        {item.markupOf ? <Link className="ghost" to={`/mobile/photos/${item.markupOf}`}>{t('View original')}</Link> : null}
       </div>
     </Page>
   );
@@ -109,17 +110,17 @@ export function Markup() {
       render();
       navigate(`/mobile/photos/${rec.id}`);
     } catch (err) {
-      setError(err.message || 'Could not save the markup.');
+      setError(t(err.message) || t('Could not save the markup.'));
     }
   }
 
   return (
-    <Page back={`/mobile/photos/${photoId}${photoSearch(projectId, from)}`} backLabel="Photo" title="Mark up" sub={item?.title}>
-      <Note>The original photo stays as it is. This saves a new marked copy.</Note>
+    <Page back={`/mobile/photos/${photoId}${photoSearch(projectId, from)}`} backLabel={t('Photo')} title={t('Mark up')} sub={item?.title}>
+      <Note>{t('The original photo stays as it is. This saves a new marked copy.')}</Note>
       <form className="stack" onSubmit={save}>
-        <label>Note<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+        <label>{t('Note')}<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
         {error ? <p className="warn-text">{error}</p> : null}
-        <button className="primary" type="submit">Save marked copy</button>
+        <button className="primary" type="submit">{t('Save marked copy')}</button>
       </form>
     </Page>
   );
@@ -156,7 +157,7 @@ export function Camera() {
         if (videoRef.current) videoRef.current.srcObject = next;
         setLive(true);
       })
-      .catch(() => setCamNote('The camera did not open. Choose a photo from this device, or send the sample.'));
+      .catch(() => setCamNote(t('The camera did not open. Choose a photo from this device, or send the sample.')));
     return () => {
       cancelled = true;
       stream?.getTracks().forEach((track) => track.stop());
@@ -194,11 +195,11 @@ export function Camera() {
 
   function goesTo(thread) {
     const name = threadTitle(thread);
-    if (thread.kind === 'client') return `The client group for ${name} will see this photo.`;
-    if (thread.kind === 'internal') return `The office chat for ${name} will see this. The client will not.`;
-    if (thread.kind === 'site') return `The site team for ${name} will see this photo.`;
-    if (thread.kind === 'group') return `${thread.name} will see this photo.`;
-    return `${name} will see this photo.`;
+    if (thread.kind === 'client') return t('The client group for {0} will see this photo.', name);
+    if (thread.kind === 'internal') return t('The office chat for {0} will see this. The client will not.', name);
+    if (thread.kind === 'site') return t('The site team for {0} will see this photo.', name);
+    if (thread.kind === 'group') return t('{0} will see this photo.', thread.name);
+    return t('{0} will see this photo.', name);
   }
 
   function send() {
@@ -232,38 +233,38 @@ export function Camera() {
   return (
     <Page
       back={backTo}
-      backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Chats'}
-      title={shot ? 'Send this photo' : 'Camera'}
+      backLabel={from && from.startsWith('/mobile/') ? backName(from) : t('Chats')}
+      title={shot ? t('Send this photo') : t('Camera')}
       bare
       footer={shot ? (
         <div className="cam-dock">
-          <p>{chosen ? goesTo(chosen) : 'Tap a chat below, then send.'}</p>
-          <button type="button" className="primary" disabled={!dest} onClick={send}>Send</button>
+          <p>{chosen ? goesTo(chosen) : t('Tap a chat below, then send.')}</p>
+          <button type="button" className="primary" disabled={!dest} onClick={send}>{t('Send')}</button>
         </div>
       ) : null}
     >
-      {shot ? <img className="cam-preview" src={shot} alt="What you are about to send" /> : (
+      {shot ? <img className="cam-preview" src={shot} alt={t('What you are about to send')} /> : (
         <video className="cam-view" ref={videoRef} autoPlay playsInline muted />
       )}
       {!shot && (
         <div className="stack cam-start">
-          {live ? <button type="button" className="primary" onClick={capture}>Take photo</button> : <p className="note">{camNote || 'The camera is opening.'}</p>}
-          <label className="ghost file-pick">Choose a photo<input type="file" accept="image/*" onChange={onFile} /></label>
-          <button type="button" className="text-btn" onClick={() => { setShot('/images/p01.jpg'); setEditing(true); }}>Use a sample photo</button>
+          {live ? <button type="button" className="primary" onClick={capture}>{t('Take photo')}</button> : <p className="note">{camNote || t('The camera is opening.')}</p>}
+          <label className="ghost file-pick">{t('Choose a photo')}<input type="file" accept="image/*" onChange={onFile} /></label>
+          <button type="button" className="text-btn" onClick={() => { setShot('/images/p01.jpg'); setEditing(true); }}>{t('Use a sample photo')}</button>
           {live && camNote ? <p className="note">{camNote}</p> : null}
         </div>
       )}
       {shot && (
         <>
           <label className="cam-caption">
-            Add a note
-            <input value={caption} placeholder="Optional" aria-label="Note on the photo" onChange={(e) => setCaption(e.target.value)} />
+            {t('Add a note')}
+            <input value={caption} placeholder={t('Optional')} aria-label={t('Note on the photo')} onChange={(e) => setCaption(e.target.value)} />
           </label>
           {preset && chosen ? null : (
             <>
-              <p className="cam-ask">Who should see this?</p>
+              <p className="cam-ask">{t('Who should see this?')}</p>
               <label className="search">
-                <input type="search" value={q} placeholder="Find a chat" aria-label="Find a chat" onChange={(e) => setQ(e.target.value)} />
+                <input type="search" value={q} placeholder={t('Find a chat')} aria-label={t('Find a chat')} onChange={(e) => setQ(e.target.value)} />
               </label>
               {threads.map(({ t }) => (
                 <button type="button" className={`row ${dest === t.id ? 'picked' : ''}`} key={t.id} onClick={() => setDest(t.id)}>
@@ -272,11 +273,11 @@ export function Camera() {
                   <span className="pick" aria-hidden="true">{dest === t.id ? <Icon name="check" /> : null}</span>
                 </button>
               ))}
-              {!threads.length && <div className="empty"><h3>No chat matches</h3></div>}
+              {!threads.length && <div className="empty"><h3>{t('No chat matches')}</h3></div>}
             </>
           )}
-          <button type="button" className="text-btn cam-change" onClick={() => setEditing(true)}>Edit photo</button>
-          <button type="button" className="text-btn cam-change" onClick={() => setShot('')}>Choose a different photo</button>
+          <button type="button" className="text-btn cam-change" onClick={() => setEditing(true)}>{t('Edit photo')}</button>
+          <button type="button" className="text-btn cam-change" onClick={() => setShot('')}>{t('Choose a different photo')}</button>
         </>
       )}
     </Page>
@@ -287,7 +288,7 @@ export function Portfolio() {
   useStore();
   const list = svc.portfolio();
   return (
-    <Page back="/mobile/projects" backLabel="Projects" title="Studio portfolio" sub="Completed work">
+    <Page back="/mobile/projects" backLabel={t('Projects')} title={t('Studio portfolio')} sub={t('Completed work')}>
       {list.map((x) => (
         <article key={x.id} className="view-card">
           <Swatch hue={x.hue} seed={x.year} />
@@ -296,7 +297,7 @@ export function Portfolio() {
           <p>{x.blurb}</p>
         </article>
       ))}
-      {!list.length && <div className="empty"><h3>No portfolio projects published yet</h3></div>}
+      {!list.length && <div className="empty"><h3>{t('No portfolio projects published yet')}</h3></div>}
     </Page>
   );
 }

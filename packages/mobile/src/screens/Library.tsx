@@ -17,6 +17,7 @@ import { useStyles, useTheme } from '../platform/theme';
 import {
   photoItems, projectName, fmtDT, user, myThreads, threadTitle, audience, postMessage, svc, can, render, useStore,
 } from '../store';
+import { t } from '../../../frontend/src/shared/i18n';
 
 function photoSearch(projectId?: string, from?: string | null) {
   const q: string[] = [];
@@ -31,7 +32,7 @@ export function Photos() {
   const projectId = params.get('project') || '';
   const from = params.get('from');
   const back = from && from.startsWith('/mobile/') ? from : (projectId ? `/mobile/projects/${projectId}` : '/mobile/projects');
-  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : 'Back';
+  const backLabel = from && from.startsWith('/mobile/') ? backName(from) : t('Back');
   const [filter, setFilter] = useState('all');
   const all = photoItems(projectId);
   const kinds = [...new Set(all.map((i: any) => i.kind))] as string[];
@@ -45,19 +46,19 @@ export function Photos() {
   }));
 
   return (
-    <Page back={back} backLabel={backLabel} title="Photos" sub={`${projectId ? projectName(projectId) : 'All projects'} · ${all.length} filed`}>
+    <Page back={back} backLabel={backLabel} title={t('Photos')} sub={t('{0} · {1} filed', projectId ? projectName(projectId) : t('All projects'), all.length)}>
       <Filters options={[['all', 'All'], ...kinds.map((k): [string, string] => [k, k])]} value={filter} onChange={setFilter} />
       {items.length ? (
         <View style={s.grid}>
           {items.map((i: any) => (
             <Link key={i.id} to={`/mobile/photos/${i.id}${photoSearch(projectId, from)}`} accessibilityLabel={i.title} style={s.card}>
               {i.dataUrl ? <Image source={{ uri: i.dataUrl }} style={s.shot} resizeMode="cover" /> : <Swatch hue={i.hue} seed={i.seed} />}
-              <Text style={s.b}>{i.markupOf ? 'Marked up' : i.kind}</Text>
+              <Text style={s.b}>{i.markupOf ? t('Marked up') : i.kind}</Text>
               <Text style={s.span} numberOfLines={2}>{[projectName(i.projectId).split(' ')[0], i.room].filter(Boolean).join(' · ') || i.src}</Text>
             </Link>
           ))}
         </View>
-      ) : <Empty title="Nothing here yet">Photos you send in chat land here, sorted by project and room.</Empty>}
+      ) : <Empty title={t('Nothing here yet')}>{t('Photos you send in chat land here, sorted by project and room.')}</Empty>}
     </Page>
   );
 }
@@ -71,19 +72,19 @@ export function Photo() {
   const item = photoItems(projectId).find((x: any) => x.id === photoId);
   const s = useStyles((c, t) => ({ shot: { width: '100%', height: 180, marginBottom: 10, borderRadius: 12, backgroundColor: c.surface3 } }));
   if (!item) {
-    return <Page back="/mobile/photos" title="Photo"><Empty title="This photo isn’t available" /></Page>;
+    return <Page back="/mobile/photos" title={t('Photo')}><Empty title={t('This photo isn’t available')} /></Page>;
   }
   const back = `/mobile/photos${photoSearch(projectId, from)}`;
   const rows: [string, string][] = [
-    ['Project', projectName(item.projectId) || 'Not set'],
-    ['Room', item.room || 'Not set'],
-    ['Type', item.kind],
+    [t('Project'), projectName(item.projectId) || t('Not set')],
+    [t('Room'), item.room || t('Not set')],
+    [t('Type'), item.kind],
   ];
   if (item.by) rows.push(['From', user(item.by).name]);
   if (item.filing?.drawing) rows.push(['Drawing', item.filing.drawing]);
   if (item.decided) rows.push(['Status', 'Decided · on moodboard']);
   return (
-    <Page back={back} backLabel="Photos" title={item.kind} sub={`${item.src} · ${fmtDT(item.at)}`}>
+    <Page back={back} backLabel={t('Photos')} title={item.kind} sub={`${item.src} · ${fmtDT(item.at)}`}>
       <ViewCard>
         {item.dataUrl ? <Image source={{ uri: item.dataUrl }} style={s.shot} resizeMode="cover" /> : <Swatch hue={item.hue} seed={item.seed} height={180} />}
         <View style={{ height: 10 }} />
@@ -91,14 +92,14 @@ export function Photo() {
         <Kv rows={rows} />
         {item.msgId ? (
           <>
-            <Primary to={`/mobile/chats/${item.threadId}/messages/${item.msgId}`}>Change project or room</Primary>
-            <Ghost to={`/mobile/chats/${item.threadId}`}>Open the chat</Ghost>
+            <Primary to={`/mobile/chats/${item.threadId}/messages/${item.msgId}`}>{t('Change project or room')}</Primary>
+            <Ghost to={`/mobile/chats/${item.threadId}`}>{t('Open the chat')}</Ghost>
           </>
         ) : null}
         {!item.msgId && (item.kind === 'Photo' || item.kind === 'Video') && can('feed', 'w') ? (
-          <Primary to={`/mobile/photos/${item.id}/markup${photoSearch(projectId, from)}`}>Mark up</Primary>
+          <Primary to={`/mobile/photos/${item.id}/markup${photoSearch(projectId, from)}`}>{t('Mark up')}</Primary>
         ) : null}
-        {item.markupOf ? <Ghost to={`/mobile/photos/${item.markupOf}`}>View original</Ghost> : null}
+        {item.markupOf ? <Ghost to={`/mobile/photos/${item.markupOf}`}>{t('View original')}</Ghost> : null}
       </ViewCard>
     </Page>
   );
@@ -121,17 +122,17 @@ export function Markup() {
       render();
       navigate(`/mobile/photos/${rec.id}`);
     } catch (err: any) {
-      setError(err.message || 'Could not save the markup.');
+      setError(t(err.message) || t('Could not save the markup.'));
     }
   }
 
   return (
-    <Page back={`/mobile/photos/${photoId}${photoSearch(projectId, from)}`} backLabel="Photo" title="Mark up" sub={item?.title}>
-      <Note>The original photo stays as it is. This saves a new marked copy.</Note>
+    <Page back={`/mobile/photos/${photoId}${photoSearch(projectId, from)}`} backLabel={t('Photo')} title={t('Mark up')} sub={item?.title}>
+      <Note>{t('The original photo stays as it is. This saves a new marked copy.')}</Note>
       <View style={{ gap: 10, marginTop: 12 }}>
-        <Field label="Note" value={note} onChangeText={setNote} multiline />
+        <Field label={t('Note')} value={note} onChangeText={setNote} multiline />
         {error ? <WarnText>{error}</WarnText> : null}
-        <Primary onPress={save}>Save marked copy</Primary>
+        <Primary onPress={save}>{t('Save marked copy')}</Primary>
       </View>
     </Page>
   );
@@ -165,7 +166,7 @@ export function Camera() {
 
   useEffect(() => { if (perm && !perm.granted && perm.canAskAgain) askPerm().catch(() => {}); }, [perm?.granted]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (perm && !perm.granted && !perm.canAskAgain) setCamNote('The camera did not open. Choose a photo from this device, or send the sample.');
+    if (perm && !perm.granted && !perm.canAskAgain) setCamNote(t('The camera did not open. Choose a photo from this device, or send the sample.'));
   }, [perm]);
 
   async function capture() {
@@ -173,7 +174,7 @@ export function Camera() {
       const pic = await camRef.current?.takePictureAsync({ quality: 0.72 });
       if (pic?.uri) { setShot(pic.uri); setEditing(true); }
     } catch {
-      setCamNote('The camera did not open. Choose a photo from this device, or send the sample.');
+      setCamNote(t('The camera did not open. Choose a photo from this device, or send the sample.'));
     }
   }
 
@@ -186,7 +187,7 @@ export function Camera() {
       setEditing(true);
       if (!dest && preset) setDest(preset);
     } catch {
-      setCamNote('Could not open your photos.');
+      setCamNote(t('Could not open your photos.'));
     }
   }
 
@@ -197,11 +198,11 @@ export function Camera() {
 
   function goesTo(thread: any) {
     const name = threadTitle(thread);
-    if (thread.kind === 'client') return `The client group for ${name} will see this photo.`;
-    if (thread.kind === 'internal') return `The office chat for ${name} will see this. The client will not.`;
-    if (thread.kind === 'site') return `The site team for ${name} will see this photo.`;
-    if (thread.kind === 'group') return `${thread.name} will see this photo.`;
-    return `${name} will see this photo.`;
+    if (thread.kind === 'client') return t('The client group for {0} will see this photo.', name);
+    if (thread.kind === 'internal') return t('The office chat for {0} will see this. The client will not.', name);
+    if (thread.kind === 'site') return t('The site team for {0} will see this photo.', name);
+    if (thread.kind === 'group') return t('{0} will see this photo.', thread.name);
+    return t('{0} will see this photo.', name);
   }
 
   function send() {
@@ -254,19 +255,19 @@ export function Camera() {
   return (
     <Page
       back={backTo}
-      backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Chats'}
-      title={shot ? 'Send this photo' : 'Camera'}
+      backLabel={from && from.startsWith('/mobile/') ? backName(from) : t('Chats')}
+      title={shot ? t('Send this photo') : t('Camera')}
       bare
       footer={shot ? (
         <View style={s.dock}>
-          <Text style={s.dockP}>{chosen ? goesTo(chosen) : 'Tap a chat below, then send.'}</Text>
-          <View style={{ marginTop: 0 }}><Primary disabled={!dest} onPress={send}>Send</Primary></View>
+          <Text style={s.dockP}>{chosen ? goesTo(chosen) : t('Tap a chat below, then send.')}</Text>
+          <View style={{ marginTop: 0 }}><Primary disabled={!dest} onPress={send}>{t('Send')}</Primary></View>
         </View>
       ) : null}
     >
       {shot ? (
         <View style={s.previewWrap}>
-          <Image source={{ uri: shot }} style={s.preview} resizeMode="cover" accessibilityLabel="What you are about to send" />
+          <Image source={{ uri: shot }} style={s.preview} resizeMode="cover" accessibilityLabel={t('What you are about to send')} />
         </View>
       ) : (
         <View style={s.cam}>
@@ -274,29 +275,29 @@ export function Camera() {
             <CameraView
               ref={camRef} style={{ flex: 1 }} facing="back"
               onCameraReady={() => setLive(true)}
-              onMountError={() => setCamNote('The camera did not open. Choose a photo from this device, or send the sample.')}
+              onMountError={() => setCamNote(t('The camera did not open. Choose a photo from this device, or send the sample.'))}
             />
           ) : null}
         </View>
       )}
       {!shot && (
         <View style={s.start}>
-          {live ? <Primary onPress={capture}>Take photo</Primary> : <Text style={[s.note, { marginTop: 10 }]}>{camNote || 'The camera is opening.'}</Text>}
-          <Pressable style={s.filePick} onPress={pickFile} accessibilityRole="button"><Text style={s.filePickT}>Choose a photo</Text></Pressable>
-          <TextBtn onPress={() => { setShot(sampleUri()); setEditing(true); }}>Use a sample photo</TextBtn>
+          {live ? <Primary onPress={capture}>{t('Take photo')}</Primary> : <Text style={[s.note, { marginTop: 10 }]}>{camNote || t('The camera is opening.')}</Text>}
+          <Pressable style={s.filePick} onPress={pickFile} accessibilityRole="button"><Text style={s.filePickT}>{t('Choose a photo')}</Text></Pressable>
+          <TextBtn onPress={() => { setShot(sampleUri()); setEditing(true); }}>{t('Use a sample photo')}</TextBtn>
           {camNote ? <Text style={s.note}>{camNote}</Text> : null}
         </View>
       )}
       {!!shot && (
         <>
-          <Text style={s.capLab}>Add a note</Text>
-          <TextInput style={s.capInput} value={caption} onChangeText={setCaption} placeholder="Optional" placeholderTextColor={c.ink3} accessibilityLabel="Note on the photo" />
+          <Text style={s.capLab}>{t('Add a note')}</Text>
+          <TextInput style={s.capInput} value={caption} onChangeText={setCaption} placeholder={t('Optional')} placeholderTextColor={c.ink3} accessibilityLabel={t('Note on the photo')} />
           {preset && chosen ? null : (
             <>
-              <Text style={s.ask}>Who should see this?</Text>
+              <Text style={s.ask}>{t('Who should see this?')}</Text>
               <View style={s.search}>
                 <Icon name="search" color={c.ink3} />
-                <TextInput style={s.searchInput} value={q} onChangeText={setQ} placeholder="Find a chat" placeholderTextColor={c.ink3} accessibilityLabel="Find a chat" autoCapitalize="none" />
+                <TextInput style={s.searchInput} value={q} onChangeText={setQ} placeholder={t('Find a chat')} placeholderTextColor={c.ink3} accessibilityLabel={t('Find a chat')} autoCapitalize="none" />
               </View>
               {threads.map(({ t }: any) => (
                 <Row key={t.id} picked={dest === t.id} onPress={() => setDest(t.id)}>
@@ -305,11 +306,11 @@ export function Camera() {
                   <View style={[s.pick, dest === t.id && s.pickOn]}>{dest === t.id ? <Icon name="check" size={14} color={c.accentInk} /> : null}</View>
                 </Row>
               ))}
-              {!threads.length && <Empty title="No chat matches" />}
+              {!threads.length && <Empty title={t('No chat matches')} />}
             </>
           )}
-          <TextBtn accent onPress={() => setEditing(true)}>Edit photo</TextBtn>
-          <TextBtn accent onPress={() => setShot('')}>Choose a different photo</TextBtn>
+          <TextBtn accent onPress={() => setEditing(true)}>{t('Edit photo')}</TextBtn>
+          <TextBtn accent onPress={() => setShot('')}>{t('Choose a different photo')}</TextBtn>
         </>
       )}
     </Page>
@@ -321,7 +322,7 @@ export function Portfolio() {
   const list = svc.portfolio();
   const s = useStyles((c) => ({ sub: { color: c.ink2, fontSize: 16 } }));
   return (
-    <Page back="/mobile/projects" backLabel="Projects" title="Studio portfolio" sub="Completed work">
+    <Page back="/mobile/projects" backLabel={t('Projects')} title={t('Studio portfolio')} sub={t('Completed work')}>
       {list.map((x: any) => (
         <ViewCard key={x.id}>
           <Swatch hue={x.hue} seed={x.year} height={180} />
@@ -331,7 +332,7 @@ export function Portfolio() {
           <CardText>{x.blurb}</CardText>
         </ViewCard>
       ))}
-      {!list.length && <Empty title="No portfolio projects published yet" />}
+      {!list.length && <Empty title={t('No portfolio projects published yet')} />}
     </Page>
   );
 }

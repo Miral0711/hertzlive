@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { state, render, me, parseRoute, applyAgencyTheme, tenantBrand } from '../shared/core.js';
 import { useStore } from '../shared/store';
+import { t } from '../shared/i18n';
 import Icon from '../ui/Icon';
 import { Empty } from '../ui/ui';
 import { DLink, DESKTOP_BASE, href } from './nav';
@@ -22,26 +23,26 @@ function SideNav({ page }) {
     const links = rows.map(([k, l]) => (
       k === 'chats' ? (
         <div key={k} className="group/sub">
-          <SideLink to="#/chats" icon={ICON[k]} current={page === k} caret>{l}</SideLink>
+          <SideLink to="#/chats" icon={ICON[k]} current={page === k} caret>{t(l)}</SideLink>
           <div className={`overflow-hidden transition-[max-height,opacity] duration-150 ${page === 'filing' ? 'max-h-10 opacity-100' : 'max-h-0 opacity-0 group-hover/sub:max-h-10 group-hover/sub:opacity-100 group-focus-within/sub:max-h-10 group-focus-within/sub:opacity-100'}`}>
-            <SideLink to="#/filing" icon="ai" current={page === 'filing'} nested>AI filing review</SideLink>
+            <SideLink to="#/filing" icon="ai" current={page === 'filing'} nested>{t('AI filing review')}</SideLink>
           </div>
         </div>
       ) : (
-        <SideLink key={k} to={`#/${k}`} icon={ICON[k]} current={page === k}>{l}</SideLink>
+        <SideLink key={k} to={`#/${k}`} icon={ICON[k]} current={page === k}>{t(l)}</SideLink>
       )
     ));
     return label === 'Resources' ? (
       <details key={label} className="group" open={keys.includes(page)}>
         <summary className={`${groupLabel} flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden`}>
-          More
+          {t('More')}
           <Icon name="chev" small className="transition group-open:rotate-90" />
         </summary>
         <div className="flex flex-col gap-0.5">{links}</div>
       </details>
     ) : (
       <div key={label} className="flex flex-col gap-0.5">
-        <p className={groupLabel}>{label}</p>
+        <p className={groupLabel}>{t(label)}</p>
         {links}
       </div>
     );
@@ -163,7 +164,7 @@ export default function Shell() {
           <SideNav page={focusedWork ? 'projects' : page} />
           <div className="mt-auto flex flex-col gap-2 border-t border-nav-line pt-3">
             <DLink to="#/settings" className="flex min-h-9 items-center gap-3 rounded-r1 px-3 text-[13.5px] font-medium text-nav-ink no-underline opacity-90 transition hover:bg-nav-hover hover:opacity-100">
-              <Icon name="settings" small /> Settings
+              <Icon name="settings" small /> {t('Settings')}
             </DLink>
             <div className="flex items-center gap-2.5 px-3">
             <span className="inline-grid h-9 w-9 flex-none place-items-center rounded-full bg-nav-active text-xs font-semibold text-nav-active-ink">
@@ -185,10 +186,10 @@ export default function Shell() {
         >
           {(state.storageError || state.desk.draftStorageError) && (
             <div role="alert" className="mb-3.5 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">
-              {state.storageError || state.desk.draftStorageError}
+              {t(state.storageError || state.desk.draftStorageError)}
             </div>
           )}
-          {allowed ? <Page parts={parts.slice(1)} q={q} /> : <Empty>Not available for your role.</Empty>}
+          {allowed ? <Page parts={parts.slice(1)} q={q} /> : <Empty>{t('Not available for your role.')}</Empty>}
         </main>
         {!noChat && <div className="contents max-[1250px]:hidden"><ChatPane /></div>}
       </div>

@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from 'react';
 import { state, svc, messageAttachment } from '../../shared/core.js';
 import { resetHooks } from '../session';
+import { t } from '../../shared/i18n';
 
 const DRAFT_KEY = 'archos-desktop-drafts';
 const READ_KEY = 'archos-desktop-read';
@@ -67,9 +68,9 @@ export function markChatRead(thread) {
 }
 
 export function conversationPreview(m) {
-  if (!m) return 'No messages yet';
-  if (m.deleted) return 'Message deleted';
-  return m.text || messageAttachment(m)?.title || (m.voice ? 'Voice note' : m.transcript || m.link?.title || 'Message');
+  if (!m) return t('No messages yet');
+  if (m.deleted) return t('Message deleted');
+  return m.text || messageAttachment(m)?.title || (m.voice ? t('Voice note') : m.transcript || m.link?.title || t('Message'));
 }
 
 export const conversationThreads = () =>

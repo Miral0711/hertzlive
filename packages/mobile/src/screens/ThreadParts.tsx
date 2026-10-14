@@ -8,8 +8,9 @@ import {
   state, can, svc, toggleReaction, toggleDecision, deleteMessage, hideMessage, editMessage, myThreads, threadTitle,
   audience, postMessage, preview, useStore,
 } from '../store';
+import { t } from '../../../frontend/src/shared/i18n';
 
-const EMOJI: [string, string][] = [['✅', 'Done'], ['👀', 'Review'], ['📝', 'Noted'], ['⭐', 'Mark'], ['⚠️', 'Flag']];
+const EMOJI = (): [string, string][] => ([['✅', t('Done')], ['👀', t('Review')], ['📝', t('Noted')], ['⭐', t('Mark')], ['⚠️', t('Flag')]]);
 
 export function VoiceFallback({ dur = '' }: { src?: string; dur?: string }) {
   const s = useStyles((c) => ({
@@ -19,7 +20,7 @@ export function VoiceFallback({ dur = '' }: { src?: string; dur?: string }) {
     dur: { fontSize: 12, color: c.ink2 },
   }));
   return (
-    <View style={s.row} accessibilityRole="button" accessibilityLabel="Play voice note">
+    <View style={s.row} accessibilityRole="button" accessibilityLabel={t('Play voice note')}>
       <View style={s.go}><Icon name="play" size={14} color={undefined} /></View>
       <View style={s.track} />
       <Text style={s.dur}>{dur}</Text>
@@ -48,16 +49,16 @@ export function ActionsFallback({ thread, message, onReply, onDeleted, onForward
     <Pressable style={s.ghost} onPress={onPress} accessibilityRole="button"><Text style={[s.ghostText, warn && s.warn]}>{label}</Text></Pressable>
   );
   const askDelete = () => {
-    const buttons: any[] = [{ text: 'Delete for me', style: 'destructive', onPress: () => { hideMessage(message); onDeleted?.(); } }];
-    if (mine && !message.deleted) buttons.push({ text: 'Delete for everyone', style: 'destructive', onPress: () => { deleteMessage(message); onDeleted?.(); } });
-    buttons.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert('Delete this message?', undefined, buttons);
+    const buttons: any[] = [{ text: t('Delete for me'), style: 'destructive', onPress: () => { hideMessage(message); onDeleted?.(); } }];
+    if (mine && !message.deleted) buttons.push({ text: t('Delete for everyone'), style: 'destructive', onPress: () => { deleteMessage(message); onDeleted?.(); } });
+    buttons.push({ text: t('Cancel'), style: 'cancel' });
+    Alert.alert(t('Delete this message?'), undefined, buttons);
   };
   return (
     <View>
       {!message.deleted && (
-        <View style={s.emoji} accessibilityRole="toolbar" accessibilityLabel="Reactions">
-          {EMOJI.map(([e, label]) => (
+        <View style={s.emoji} accessibilityRole="toolbar" accessibilityLabel={t('Reactions')}>
+          {EMOJI().map(([e, label]) => (
             <Pressable key={e} style={[s.emojiBtn, message.reactions?.[e]?.includes(state.userId) && s.emojiOn]} accessibilityLabel={label} onPress={() => toggleReaction(message, e)}>
               <Text style={{ fontSize: 16 }}>{e}</Text>
               <Text style={{ fontSize: 11, fontWeight: '600' }}>{label}</Text>
@@ -65,15 +66,15 @@ export function ActionsFallback({ thread, message, onReply, onDeleted, onForward
           ))}
         </View>
       )}
-      {!message.deleted && <Item label="Reply" onPress={onReply} />}
-      {!message.deleted && <Item label="Forward" onPress={onForward} />}
-      <Item label="Delete" warn onPress={askDelete} />
-      {canPin && <Item label={message.decision ? 'Unpin decision' : 'Pin as decision'} onPress={() => toggleDecision(message)} />}
-      {mine && !message.deleted && message.text && !message.voice && !editing && <Item label="Edit" onPress={() => setEditing(true)} />}
+      {!message.deleted && <Item label={t('Reply')} onPress={onReply} />}
+      {!message.deleted && <Item label={t('Forward')} onPress={onForward} />}
+      <Item label={t('Delete')} warn onPress={askDelete} />
+      {canPin && <Item label={message.decision ? t('Unpin decision') : t('Pin as decision')} onPress={() => toggleDecision(message)} />}
+      {mine && !message.deleted && message.text && !message.voice && !editing && <Item label={t('Edit')} onPress={() => setEditing(true)} />}
       {editing && (
         <View>
-          <TextInput style={s.input} multiline value={edit} onChangeText={setEdit} accessibilityLabel="Edit message" />
-          <Pressable style={s.primary} onPress={() => { editMessage(message, edit); setEditing(false); }}><Text style={s.primaryText}>Save</Text></Pressable>
+          <TextInput style={s.input} multiline value={edit} onChangeText={setEdit} accessibilityLabel={t('Edit message')} />
+          <Pressable style={s.primary} onPress={() => { editMessage(message, edit); setEditing(false); }}><Text style={s.primaryText}>{t('Save')}</Text></Pressable>
         </View>
       )}
     </View>
@@ -105,8 +106,8 @@ export function ForwardFallback({ message, onClose, onOpen }: any) {
   return (
     <View style={{ flex: 1 }}>
       <View style={s.top}>
-        <Pressable onPress={onClose} accessibilityLabel="Back to chat" style={{ minHeight: 44, justifyContent: 'center' }}><Icon name="back" /></Pressable>
-        <Text style={s.h1}>Forward to</Text>
+        <Pressable onPress={onClose} accessibilityLabel={t('Back to chat')} style={{ minHeight: 44, justifyContent: 'center' }}><Icon name="back" /></Pressable>
+        <Text style={s.h1}>{t('Forward to')}</Text>
       </View>
       <ScrollView style={{ flex: 1 }}>
         {myThreads().map(({ t: dest }: any) => {
@@ -122,8 +123,8 @@ export function ForwardFallback({ message, onClose, onOpen }: any) {
       </ScrollView>
       {picked.length > 0 && (
         <View style={s.bar}>
-          <Text style={s.b}>{picked.length} selected</Text>
-          <Pressable style={s.send} accessibilityLabel="Forward message" onPress={send}><Icon name="send" color="#fff" /></Pressable>
+          <Text style={s.b}>{t('{0} selected', picked.length)}</Text>
+          <Pressable style={s.send} accessibilityLabel={t('Forward message')} onPress={send}><Icon name="send" color="#fff" /></Pressable>
         </View>
       )}
     </View>
@@ -148,17 +149,17 @@ export function PhotoEditLite({ src, noteLabel, noteRequired, onCancel, onSend }
   return (
     <View style={s.wrap}>
       <View style={s.top}>
-        <Pressable onPress={onCancel} accessibilityLabel="Cancel" style={{ minHeight: 44, justifyContent: 'center' }}><Icon name="x" /></Pressable>
+        <Pressable onPress={onCancel} accessibilityLabel={t('Cancel')} style={{ minHeight: 44, justifyContent: 'center' }}><Icon name="x" /></Pressable>
       </View>
       <Image source={{ uri: src }} style={s.img} resizeMode="contain" />
       <View style={s.foot}>
         <Text style={s.lbl}>{noteLabel}</Text>
-        <TextInput style={s.input} value={note} onChangeText={setNote} accessibilityLabel={noteLabel} placeholder={noteRequired ? '' : 'Optional'} />
+        <TextInput style={s.input} value={note} onChangeText={setNote} accessibilityLabel={noteLabel} placeholder={noteRequired ? '' : t('Optional')} />
         {err ? <Text style={s.warn}>{err}</Text> : null}
         <Pressable style={s.primary} accessibilityRole="button" onPress={() => {
-          if (noteRequired && !note.trim()) { setErr('Add a note first.'); return; }
+          if (noteRequired && !note.trim()) { setErr(t('Add a note first.')); return; }
           onSend(src, note.trim());
-        }}><Text style={s.primaryText}>Send</Text></Pressable>
+        }}><Text style={s.primaryText}>{t('Send')}</Text></Pressable>
       </View>
     </View>
   );

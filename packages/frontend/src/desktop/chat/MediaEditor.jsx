@@ -11,24 +11,25 @@ import './MediaEditor.css';
 import { Btn } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { downscaleImage, loadImage } from './mediaUtils';
+import { t } from '../../shared/i18n';
 
 // Intentional exception: this is the user's own pen/shape ink palette for annotating a photo, not
 // UI chrome — it stays fixed regardless of the app's light/dark theme, same as any paint tool.
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#111827', '#ffffff'];
 const SIZES = [4, 8, 16];
-const QUICK_LABELS = [
-  'Crack', 'Electrical point', 'Plumbing', 'Dimension', 'Defect', 'Change required', 'Material', 'Site instruction',
-];
+const QUICK_LABELS = () => ([
+  t('Crack'), t('Electrical point'), t('Plumbing'), t('Dimension'), t('Defect'), t('Change required'), t('Material'), t('Site instruction'),
+]);
 // [tool key, accessible label/tooltip, icon name]
-const TOOLS = [
-  ['crop', 'Crop', 'crop'],
-  ['rotate', 'Rotate', 'rotate'],
-  ['draw', 'Draw', 'edit'],
-  ['text', 'Text', 'typeT'],
-  ['rect', 'Rectangle', 'rectangle'],
-  ['arrow', 'Arrow', 'arrowdiag'],
-  ['circle', 'Circle', 'circleicon'],
-];
+const TOOLS = () => ([
+  ['crop', t('Crop'), 'crop'],
+  ['rotate', t('Rotate'), 'rotate'],
+  ['draw', t('Draw'), 'edit'],
+  ['text', t('Text'), 'typeT'],
+  ['rect', t('Rectangle'), 'rectangle'],
+  ['arrow', t('Arrow'), 'arrowdiag'],
+  ['circle', t('Circle'), 'circleicon'],
+]);
 
 function toNatural(canvas, clientX, clientY) {
   const r = canvas.getBoundingClientRect();
@@ -306,13 +307,13 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
 
   if (isVideo) {
     return (
-      <Modal title="Send video" wide onClose={onCancel}>
+      <Modal title={t('Send video')} wide onClose={onCancel}>
         {/* bg-black is the same intentional video-letterbox exception as elsewhere in chat. */}
         <video src={videoUrl} controls className="max-h-[60vh] w-full rounded-r1 bg-black" />
-        <p className="mt-2 text-xs text-ink-3">Video editing isn't supported yet - you can preview and send it as-is.</p>
+        <p className="mt-2 text-xs text-ink-3">{t('Video editing isn\'t supported yet - you can preview and send it as-is.')}</p>
         <ModalActions>
-          <Btn onClick={onCancel}>Cancel</Btn>
-          <Btn kind="primary" onClick={sendVideo}>Send</Btn>
+          <Btn onClick={onCancel}>{t('Cancel')}</Btn>
+          <Btn kind="primary" onClick={sendVideo}>{t('Send')}</Btn>
         </ModalActions>
       </Modal>
     );
@@ -321,13 +322,13 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
   const cropping = tool === 'crop';
 
   return (
-    <Modal title="Edit photo" wide onClose={onCancel}>
+    <Modal title={t('Edit photo')} wide onClose={onCancel}>
       {busy || !cur ? (
-        <p className="p-6 text-center text-ink-3">Loading photo…</p>
+        <p className="p-6 text-center text-ink-3">{t('Loading photo…')}</p>
       ) : (
         <>
           <div className="mb-3 flex flex-wrap gap-1.5">
-            {TOOLS.map(([t, label, iconName]) => (
+            {TOOLS().map(([t, label, iconName]) => (
               <Btn
                 key={t} sm icon={iconName}
                 title={label}
@@ -338,16 +339,16 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
                 onClick={() => chooseTool(t)}
               >{label}</Btn>
             ))}
-            <Btn sm icon="undo" title="Undo" aria-label="Undo" onClick={undo} disabled={cropping || index === 0}>Undo</Btn>
-            <Btn sm icon="redo" title="Redo" aria-label="Redo" onClick={redo} disabled={cropping || !history || index >= history.length - 1}>Redo</Btn>
+            <Btn sm icon="undo" title={t('Undo')} aria-label={t('Undo')} onClick={undo} disabled={cropping || index === 0}>{t('Undo')}</Btn>
+            <Btn sm icon="redo" title={t('Redo')} aria-label={t('Redo')} onClick={redo} disabled={cropping || !history || index >= history.length - 1}>{t('Redo')}</Btn>
           </div>
 
           {cropping && (
             // Reserved as soon as the Crop tool is picked (not once a drag starts) so nothing
             // shifts position out from under the cursor mid-drag.
             <div className="mb-2 flex min-h-9 items-center gap-2">
-              <Btn sm onClick={cancelCrop}>Cancel crop</Btn>
-              <Btn sm kind="primary" onClick={applyCrop} disabled={!cropPixels?.width}>Apply crop</Btn>
+              <Btn sm onClick={cancelCrop}>{t('Cancel crop')}</Btn>
+              <Btn sm kind="primary" onClick={applyCrop} disabled={!cropPixels?.width}>{t('Apply crop')}</Btn>
             </div>
           )}
 
@@ -356,7 +357,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
               <div className="flex gap-1.5">
                 {COLORS.map((c) => (
                   <button
-                    key={c} type="button" aria-label={`Color ${c}`} aria-pressed={color === c}
+                    key={c} type="button" aria-label={t('Color {0}', c)} aria-pressed={color === c}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setColor(c)}
                     className={`h-6 w-6 rounded-full border-2 ${color === c ? 'border-accent' : 'border-line-2'}`}
@@ -367,7 +368,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
               <div className="flex gap-1.5">
                 {SIZES.map((s) => (
                   <button
-                    key={s} type="button" aria-label={`Size ${s}`} aria-pressed={size === s}
+                    key={s} type="button" aria-label={t('Size {0}', s)} aria-pressed={size === s}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setSize(s)}
                     className={`grid h-7 w-7 place-items-center rounded-r1 border ${size === s ? 'border-accent bg-accent-soft' : 'border-line-2'}`}
@@ -378,7 +379,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
               </div>
               {tool === 'text' && (
                 <div className="flex flex-wrap gap-1.5">
-                  {QUICK_LABELS.map((l) => (
+                  {QUICK_LABELS().map((l) => (
                     <Btn
                       key={l} sm
                       onMouseDown={(e) => e.preventDefault()}
@@ -422,7 +423,7 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
                     if (e.key === 'Enter') commitPendingText();
                     if (e.key === 'Escape') setTextInput(null);
                   }}
-                  placeholder="Add text…"
+                  placeholder={t('Add text…')}
                   style={{ left: textInput.sx, top: textInput.sy, color }}
                   className="absolute min-w-[120px] rounded border border-line-2 bg-surface px-1.5 py-0.5 text-sm shadow-s2"
                 />
@@ -433,14 +434,14 @@ export default function MediaEditor({ file, kind, onCancel, onSend }) {
       )}
       {!cropping && (
         <label className="mt-3 block">
-          <span className="sr-only">Add a note</span>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note" aria-label="Add a note" className="min-h-11 w-full rounded-full border-0 bg-surface-2 px-4 text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-accent-soft" />
+          <span className="sr-only">{t('Add a note')}</span>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('Add a note')} aria-label={t('Add a note')} className="min-h-11 w-full rounded-full border-0 bg-surface-2 px-4 text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-accent-soft" />
         </label>
       )}
       <ModalActions>
-        <Btn onClick={onCancel}>Cancel</Btn>
-        <Btn onClick={save} disabled={busy || !cur || cropping}>Save</Btn>
-        <Btn kind="primary" onClick={send} disabled={busy || !cur || cropping}>Send</Btn>
+        <Btn onClick={onCancel}>{t('Cancel')}</Btn>
+        <Btn onClick={save} disabled={busy || !cur || cropping}>{t('Save')}</Btn>
+        <Btn kind="primary" onClick={send} disabled={busy || !cur || cropping}>{t('Send')}</Btn>
       </ModalActions>
     </Modal>
   );

@@ -1846,19 +1846,46 @@ export const svc = {
     render();
     return thread;
   },
+  // Who may add people to a conversation: studio staff who are in it (a partner can add to any), for
+  // groups and project conversations. Direct messages and work groups (own member list) are excluded.
+  canInvite(thread) {
+    if (!thread || thread.kind === "dm" || thread.groupType === "work" || !this.chatCreatable()) return false;
+    return (thread.memberIds || []).includes(state.userId) || state.role === "partner";
+  },
+  // A project work group only takes people already on that project ("team"). Everything else, general
+  // groups and a project's own office/client/site conversations, takes any studio staff ("studio").
+  inviteScope(thread) {
+    return thread.kind === "group" && (thread.groupType === "project" || (!thread.groupType && thread.projectId)) ? "team" : "studio";
+  },
+  // The line shown above the list of people to add.
+  inviteHint(thread) {
+    if (this.inviteScope(thread) === "team") return "People on this project.";
+    return thread.projectId ? "People in the studio. Anyone you add joins the project team." : "People in the studio.";
+  },
+  // People who could be added to this conversation, with those already in it left out.
+  invitablePeople(threadId) {
+    const thread = state.db.THREADS.find((t) => t.id === threadId);
+    if (!this.canInvite(thread)) return [];
+    return (this.inviteScope(thread) === "team" ? this.projectChatPeople(thread.projectId) : this.chatPeople()).filter((u) => !(thread.memberIds || []).includes(u.id));
+  },
   inviteToGroup(threadId, userId) {
     if (!this.chatCreatable()) throw new Error("You can’t invite someone.");
-    const thread = state.db.THREADS.find((t) => t.id === threadId && t.kind === "group");
-    if (!thread || !(thread.memberIds || []).includes(state.userId)) throw new Error("Choose a group you belong to.");
+    const thread = state.db.THREADS.find((t) => t.id === threadId && t.kind !== "dm");
+    if (!thread || !((thread.memberIds || []).includes(state.userId) || state.role === "partner")) throw new Error("Choose a group you belong to.");
     if ((thread.memberIds || []).includes(userId)) throw new Error("That person is already in this group.");
-    const projectScoped = thread.groupType === "project" || (!thread.groupType && thread.projectId);
-    const allowed = new Set((projectScoped ? this.projectChatPeople(thread.projectId) : this.chatPeople()).map((u) => u.id));
-    if (!allowed.has(userId)) throw new Error(projectScoped ? "That person isn’t on this project." : "Choose a person from the studio.");
+    const teamOnly = this.inviteScope(thread) === "team";
+    const allowed = new Set((teamOnly ? this.projectChatPeople(thread.projectId) : this.chatPeople()).map((u) => u.id));
+    if (!allowed.has(userId)) throw new Error(teamOnly ? "That person isn’t on this project." : "Choose a person from the studio.");
     const before = thread.memberIds.slice();
+    // Joining a project's own conversation also puts the person on that project's team.
+    const project = !teamOnly && thread.projectId ? state.db.PROJECTS.find((p) => p.id === thread.projectId) : null;
+    const teamBefore = project ? (project.teamIds || []).slice() : null;
     thread.memberIds = [...before, userId];
+    if (project && !teamBefore.includes(userId)) project.teamIds = [...teamBefore, userId];
     this.log(`Invited to ${thread.name}`, "Thread " + thread.id);
     if (!persist()) {
       thread.memberIds = before;
+      if (project) project.teamIds = teamBefore;
       state.db.AUDIT.shift();
       throw new Error("Could not save this invite.");
     }

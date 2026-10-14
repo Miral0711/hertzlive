@@ -1,27 +1,26 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../ui/Icon';
 import { Screen, TopBar, BackButton, backName } from '../ui/frame';
 import { useField } from '../ui/FieldContext';
 import { Avatar, ThreadAvatar } from '../ui/faces';
+import { Empty, Field, IconBtn, Primary, Row, RowCopy, SearchBox, Sect, Select, WarnText } from '../ui/libraryKit';
 import { Link, useNavigate } from '../platform/router';
 import { useStyles, useTheme } from '../platform/theme';
 import {
   myThreads, threadTitle, audience, preview, unreadCount, firstName, fmtT, me, svc, user, phoneOf, state, useStore, t,
 } from '../store';
-import { fmtD } from '../../../frontend/src/shared/core';
-import { filingRules } from '../../../frontend/src/shared/filing';
-import { ANNOUNCEMENTS } from '../../../frontend/src/desktop/data';
 import { openExternal } from '../platform/router';
 import { isProjectAudience, matchesChatFilter, recentChatRows } from '../../../frontend/src/shared/chatExtras';
 
-const CHAT_FILTERS = [
-  ['all', 'All'],
-  ['unread', 'Unread'],
-  ['projects', 'Projects'],
-  ['people', 'People'],
-  ['groups', 'Groups'],
-];
+const CHAT_FILTERS = () => ([
+  ['all', t('All')],
+  ['unread', t('Unread')],
+  ['projects', t('Projects')],
+  ['people', t('People')],
+  ['groups', t('Groups')],
+]);
 
 export default function Chats() {
   useStore();
@@ -29,7 +28,6 @@ export default function Chats() {
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
   const [panel, setPanel] = useState<string | null>(null);
-  const { c } = useTheme();
   const person = me();
   const rows = myThreads();
   const query = q.trim().toLowerCase();
@@ -55,88 +53,110 @@ export default function Chats() {
     if (filter === 'unread' && projectUnread(th, read, rows) < 1) return false;
     return true;
   });
-  const emptyTitle = query ? 'No matches' : filter === 'unread' ? 'No unread chats' : filter === 'projects' ? 'No projects' : filter === 'people' ? 'No people' : filter === 'groups' ? 'No groups' : 'No chats yet';
+  const emptyTitle = query ? t('No matches') : filter === 'unread' ? t('No unread chats') : filter === 'projects' ? t('No projects') : filter === 'people' ? t('No people') : filter === 'groups' ? t('No groups') : t('No chats yet');
 
-  const s = useStyles((c, th) => ({
-    h1: { fontSize: 22, fontWeight: '600', color: c.ink },
+  const s = useStyles((c) => ({
+    h1: { fontSize: 22, lineHeight: 24, fontWeight: '600', color: c.ink },
     h1sub: { fontSize: 13, fontWeight: '500', color: c.ink3 },
-    search: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 14, marginBottom: 6, paddingHorizontal: 12, minHeight: 42, borderRadius: th.radius.r2, backgroundColor: c.surface2 },
-    input: { flex: 1, color: c.ink, fontSize: 16, paddingVertical: 8 },
-    banner: { marginHorizontal: 14, marginVertical: 6, padding: 10, borderRadius: th.radius.r1, backgroundColor: c.warnSoft, color: c.warn },
-    sect: { fontSize: 13, fontWeight: '600', color: c.ink3, textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4 },
-    filters: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 8 },
-    chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: c.surface2 },
+    banner: { paddingTop: 4, paddingHorizontal: 16, paddingBottom: 8, color: c.ink3, fontSize: 12, fontWeight: '500', textAlign: 'center' },
+    filters: { gap: 8, paddingTop: 2, paddingHorizontal: 14, paddingBottom: 8 },
+    chip: { minHeight: 32, paddingVertical: 4, paddingHorizontal: 12, borderRadius: 999, backgroundColor: c.surface2, justifyContent: 'center' },
     chipOn: { backgroundColor: c.accent },
     chipText: { fontSize: 13, fontWeight: '600', color: c.ink2 },
     chipTextOn: { color: c.accentInk },
-    empty: { padding: 32, alignItems: 'center' },
-    emptyH: { fontSize: 17, fontWeight: '600', color: c.ink, marginBottom: 6 },
-    emptyP: { color: c.ink3, textAlign: 'center' },
   }));
 
   return (
     <Screen>
       <TopBar>
-        <Text style={[s.h1, { flex: 1 }]} numberOfLines={1}>
+        <Text style={[s.h1, { flex: 1 }]} numberOfLines={2}>
           {t('chats')}
           {'\n'}
-          <Text style={s.h1sub}>Hertz · {person ? firstName(person.id) : ''}</Text>
+          <Text style={s.h1sub}>{t('Hertz · {0}', person ? firstName(person.id) : '')}</Text>
         </Text>
         {svc.chatCreatable() && (
-          <Pressable accessibilityLabel="New chat" onPress={() => setPanel(panel === 'menu' ? null : 'menu')}>
-            <Icon name="plus" color={c.accent} />
-          </Pressable>
+          <IconBtn name="plus" label={t('New chat')} onPress={() => setPanel(panel === 'menu' ? null : 'menu')} />
         )}
-        <Link to="/mobile/camera" accessibilityLabel="Send a photo"><Icon name="camera" /></Link>
-        <Link to="/mobile/profile?from=%2Fmobile%2Fchats" accessibilityLabel="Profile"><Avatar person={person} size="sm" /></Link>
+        <IconBtn name="camera" to="/mobile/camera" label={t('Send a photo')} />
+        <Link to="/mobile/profile?from=%2Fmobile%2Fchats" accessibilityLabel={t('Profile')}><Avatar person={person} size="sm" /></Link>
       </TopBar>
       <ScrollView keyboardShouldPersistTaps="handled">
-        <View style={s.search}>
-          <Icon name="search" size={18} />
-          <TextInput
-            style={s.input} value={q} onChangeText={setQ} autoCapitalize="none"
-            placeholder="Search messages, photos, projects" accessibilityLabel="Search messages, photos, projects"
-          />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
-          {CHAT_FILTERS.map(([key, label]) => (
+        <SearchBox value={q} onChangeText={setQ} placeholder={t('Search messages, photos, projects')} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters} keyboardShouldPersistTaps="handled">
+          {CHAT_FILTERS().map(([key, label]) => (
             <Pressable key={key} accessibilityRole="button" accessibilityState={{ selected: filter === key }} onPress={() => setFilter(key)} style={[s.chip, filter === key && s.chipOn]}>
               <Text style={filter === key ? s.chipTextOn : s.chipText}>{label}</Text>
             </Pressable>
           ))}
         </ScrollView>
-        {!state.online && <Text style={s.banner}>Your message will send when the network is back.</Text>}
+        {!state.online && <Text style={s.banner}>{t('Your message will send when the network is back.')}</Text>}
         {hits.length > 0 && (
           <View>
-            <Text style={s.sect}>In messages</Text>
+            <Sect>{t('In messages')}</Sect>
             {hits.map((hit: any) => (
               <Row
                 key={`${hit.kind}:${hit.id}`}
                 to={hit.kind === 'project' ? `/mobile/projects/${hit.id}` : hit.threadId ? `/mobile/chats/${hit.threadId}#${hit.msgId}` : '/mobile/people'}
-                title={hit.title} sub={hit.sub}
-              />
+              >
+                <RowCopy title={hit.title} sub={hit.sub} />
+              </Row>
             ))}
           </View>
         )}
         {visible.map(({ t: th, last }: any) => (
           <ChatRow key={th.projectId && isProjectAudience(th) ? `project:${th.projectId}` : th.id} thread={th} last={last} unread={projectUnread(th, read, rows)} draft={drafts[th.id]} />
         ))}
-        <FilingDesk />
         {!visible.length && !hits.length && (
-          <View style={s.empty}>
-            <Text style={s.emptyH}>{emptyTitle}</Text>
-            <Text style={s.emptyP}>{query ? 'Try a word from a message, a project, or a person’s name.' : 'Conversations you belong to will show up here.'}</Text>
-          </View>
+          <Empty title={emptyTitle}>{query ? t('Try a word from a message, a project, or a person’s name.') : t('Conversations you belong to will show up here.')}</Empty>
         )}
       </ScrollView>
-      {panel && <ChatAdd panel={panel} onClose={() => setPanel(null)} />}
+      {panel === 'menu' && <ChatMenu onPick={setPanel} onClose={() => setPanel(null)} />}
+      {panel && panel !== 'menu' && <ChatAdd panel={panel} onClose={() => setPanel(null)} />}
     </Screen>
+  );
+}
+
+// The "+" dropdown: a small menu under the header button, like the prototype's .chat-menu.
+function ChatMenu({ onPick, onClose }: { onPick: (panel: string) => void; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { c, headerH } = useTheme();
+  const s = useStyles((c) => ({
+    menu: { position: 'absolute', right: 8, minWidth: 196, padding: 6, borderWidth: 1, borderColor: c.line, borderRadius: 12, backgroundColor: c.surface, elevation: 8, shadowColor: '#0c1e29', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+    item: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 8 },
+    text: { color: c.ink, fontWeight: '600', fontSize: 16 },
+  }));
+  const items: [string, string][] = [['dm', t('New chat')], ['group', t('Create group')], ['invite', t('Invite a person')]];
+  return (
+    <Modal transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel={t('Close')} />
+      <View style={[s.menu, { top: insets.top + headerH - 4 }]} accessibilityRole="menu">
+        {items.map(([key, label]) => (
+          <Pressable key={key} accessibilityRole="menuitem" style={({ pressed }) => [s.item, pressed && { backgroundColor: c.surface2 }]} onPress={() => onPick(key)}>
+            <Text style={s.text}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </Modal>
+  );
+}
+
+function PersonRow({ u, onPress, picked, selectable }: { u: any; onPress: () => void; picked?: boolean; selectable?: boolean }) {
+  const { c } = useTheme();
+  const s = useStyles((c) => ({
+    pick: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.line2, alignItems: 'center', justifyContent: 'center' },
+    pickOn: { backgroundColor: c.accent, borderColor: c.accent },
+  }));
+  return (
+    <Row onPress={onPress} picked={picked}>
+      <Avatar person={u} />
+      <RowCopy title={u.name} sub={u.title} />
+      {selectable && <View style={[s.pick, picked && s.pickOn]}>{picked ? <Icon name="check" size={14} color={c.accentInk} /> : null}</View>}
+    </Row>
   );
 }
 
 function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState(panel);
   const [name, setName] = useState('');
   const [groupType, setGroupType] = useState('general');
   const [projectId, setProjectId] = useState('');
@@ -147,123 +167,144 @@ function ChatAdd({ panel, onClose }: { panel: string; onClose: () => void }) {
   const projects = svc.projects().filter((p: any) => p && !svc.phoneHides(p.id));
   const mine = svc.myGroups();
   const group = mine.find((t: any) => t.id === groupId) || null;
-  const people = step === 'dm' ? svc.chatPeople()
-    : step === 'group' ? (groupType === 'project' ? svc.projectChatPeople(projectId) : svc.chatPeople())
+  const people = panel === 'dm' ? svc.chatPeople()
+    : panel === 'group' ? (groupType === 'project' ? svc.projectChatPeople(projectId) : svc.chatPeople())
       : group ? (group.groupType === 'project' || (!group.groupType && group.projectId) ? svc.projectChatPeople(group.projectId) : svc.chatPeople()).filter((u: any) => !(group.memberIds || []).includes(u.id))
         : [];
   const needle = q.trim().toLowerCase();
   const shownPeople = people.filter((u: any) => !needle || `${u.name} ${u.title || ''}`.toLowerCase().includes(needle));
   const shownGroups = mine.filter((t: any) => !needle || (t.name || '').toLowerCase().includes(needle));
-  const title = step === 'dm' ? 'New chat' : step === 'group' ? 'Create group' : step === 'invite' ? 'Invite a person' : 'New';
+  const title = panel === 'dm' ? t('New chat') : panel === 'group' ? t('Create group') : t('Invite a person');
   const s = useStyles((c) => ({
-    back: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,30,41,0.4)' },
-    sheet: { maxHeight: '78%', backgroundColor: c.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 },
-    h: { textAlign: 'center', fontWeight: '700', fontSize: 16, color: c.ink, marginBottom: 12 },
-    err: { color: c.crit, fontWeight: '600', marginBottom: 8 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-    name: { color: c.ink, fontWeight: '600' },
-    sub: { color: c.ink3, fontSize: 13 },
-    input: { minHeight: 44, borderWidth: 1, borderColor: c.line, borderRadius: 12, paddingHorizontal: 12, color: c.ink, marginBottom: 10 },
-    types: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-    type: { flex: 1, minHeight: 40, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface2 },
-    typeOn: { backgroundColor: c.accent },
+    stack: { gap: 10 },
+    types: { flexDirection: 'row', gap: 8 },
+    type: { flex: 1, minHeight: 40, borderRadius: 999, borderWidth: 1, borderColor: c.line, alignItems: 'center', justifyContent: 'center', backgroundColor: c.surface2 },
+    typeOn: { backgroundColor: c.accent, borderColor: c.accent },
     typeText: { fontWeight: '600', color: c.ink2 },
     typeTextOn: { color: c.accentInk },
-    go: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent, marginTop: 8 },
-    goText: { color: c.accentInk, fontWeight: '700' },
-    note: { color: c.ink3, marginVertical: 8 },
+    help: { textAlign: 'center', color: c.ink2, fontSize: 14, lineHeight: 19, marginHorizontal: 8 },
+    note: { color: c.ink2, fontSize: 14, fontWeight: '500', paddingVertical: 8, paddingHorizontal: 14 },
   }));
+  const flush = { marginHorizontal: 0, marginTop: 0, marginBottom: 8 };
   function open(thread: any) {
     onClose();
     navigate(`/mobile/chats/${thread.id}`);
   }
+  const search = (label: string, placeholder: string) => <SearchBox style={flush} value={q} onChangeText={setQ} placeholder={placeholder} label={label} />;
+  return (
+    <Sheet title={title} onClose={onClose}>
+      {!!error && <WarnText>{error}</WarnText>}
+      <ScrollView keyboardShouldPersistTaps="handled">
+      {panel === 'dm' && (
+        <>
+          {search(t('Search people'), t('Name or role'))}
+          {shownPeople.map((u: any) => (
+            <PersonRow key={u.id} u={u} onPress={() => { try { open(svc.openDirectChat(u.id)); } catch (e: any) { setError(t(e.message)); } }} />
+          ))}
+          {people.length > 0 && !shownPeople.length && <Text style={s.note}>{t('No matches.')}</Text>}
+        </>
+      )}
+      {panel === 'group' && (
+        <View style={s.stack}>
+          <Field label={t('Group name')} value={name} onChangeText={setName} />
+          <View style={s.types}>
+            <Pressable accessibilityRole="button" style={[s.type, groupType === 'general' && s.typeOn]} onPress={() => { setGroupType('general'); setProjectId(''); setPicked([]); }}><Text style={groupType === 'general' ? s.typeTextOn : s.typeText}>{t('General')}</Text></Pressable>
+            <Pressable accessibilityRole="button" style={[s.type, groupType === 'project' && s.typeOn]} onPress={() => { setGroupType('project'); setPicked([]); }}><Text style={groupType === 'project' ? s.typeTextOn : s.typeText}>{t('Project work')}</Text></Pressable>
+          </View>
+          {groupType === 'project' && (
+            <Select
+              label={t('Project')} value={projectId}
+              options={[['', 'Choose a project'], ...projects.map((p: any): [string, string] => [p.id, p.name])]}
+              onChange={(v) => { setProjectId(v); setPicked([]); }}
+            />
+          )}
+          <Text style={s.help}>{groupType === 'project' ? t('People already on this project.') : t('People in the studio.')}</Text>
+          <View>
+            {search(t('Search people'), t('Name or role'))}
+            {shownPeople.map((u: any) => {
+              const on = picked.includes(u.id);
+              return <PersonRow key={u.id} u={u} selectable picked={on} onPress={() => setPicked((ids) => on ? ids.filter((id) => id !== u.id) : [...ids, u.id])} />;
+            })}
+            {!people.length && <Text style={s.note}>{groupType === 'project' && !projectId ? t('Choose a project first.') : t('No one else is available.')}</Text>}
+            {people.length > 0 && !shownPeople.length && <Text style={s.note}>{t('No matches.')}</Text>}
+          </View>
+          <Primary onPress={() => { try { open(svc.createGroup({ name, groupType, projectId, memberIds: picked })); } catch (e: any) { setError(t(e.message)); } }}>{t('Create group')}</Primary>
+        </View>
+      )}
+      {panel === 'invite' && !group && (mine.length ? (
+        <>
+          {search(t('Search groups'), t('Group name'))}
+          {shownGroups.map((g: any) => (
+            <Row key={g.id} onPress={() => { setGroupId(g.id); setQ(''); setError(''); }}>
+              <ThreadAvatar thread={g} />
+              <RowCopy title={g.name} sub={t('{0} · {1} people', g.groupType === 'project' || g.projectId ? t('Project work') : t('Group'), g.memberIds.length)} />
+            </Row>
+          ))}
+          {!shownGroups.length && <Text style={s.note}>{t('No matches.')}</Text>}
+        </>
+      ) : <Text style={s.note}>{t('Create a group first.')}</Text>)}
+      {panel === 'invite' && group && (people.length ? (
+        <>
+          {search(t('Search people'), t('Name or role'))}
+          {shownPeople.map((u: any) => (
+            <PersonRow key={u.id} u={u} onPress={() => { try { open(svc.inviteToGroup(groupId, u.id)); } catch (e: any) { setError(t(e.message)); } }} />
+          ))}
+          {!shownPeople.length && <Text style={s.note}>{t('No matches.')}</Text>}
+        </>
+      ) : <Text style={s.note}>{t('Everyone available is already in this group.')}</Text>)}
+      </ScrollView>
+    </Sheet>
+  );
+}
+
+// Add people to a group or project conversation from its info screen. Each tap adds that person; the
+// list keeps going until Done.
+export function AddPeopleSheet({ thread, onClose }: { thread: any; onClose: () => void }) {
+  useStore();
+  const [q, setQ] = useState('');
+  const [error, setError] = useState('');
+  const people = svc.invitablePeople(thread.id);
+  const needle = q.trim().toLowerCase();
+  const shown = people.filter((u: any) => !needle || `${u.name} ${u.title || ''}`.toLowerCase().includes(needle));
+  const s = useStyles((c) => ({
+    help: { textAlign: 'center', color: c.ink2, fontSize: 14, lineHeight: 19, marginHorizontal: 8, marginBottom: 8 },
+    note: { color: c.ink2, fontSize: 14, fontWeight: '500', paddingVertical: 8, paddingHorizontal: 14 },
+  }));
+  return (
+    <Sheet title={t('Add people')} onClose={onClose}>
+      {!!error && <WarnText>{error}</WarnText>}
+      <Text style={s.help}>{svc.inviteHint(thread)}</Text>
+      <SearchBox style={{ marginHorizontal: 0, marginTop: 0, marginBottom: 8 }} value={q} onChangeText={setQ} placeholder={t('Name or role')} label={t('Search people')} />
+      <ScrollView keyboardShouldPersistTaps="handled">
+        {shown.map((u: any) => (
+          <PersonRow key={u.id} u={u} onPress={() => { try { svc.inviteToGroup(thread.id, u.id); setError(''); } catch (e: any) { setError(t(e.message)); } }} />
+        ))}
+        {!people.length && <Text style={s.note}>{t('Everyone available is already in this chat.')}</Text>}
+        {people.length > 0 && !shown.length && <Text style={s.note}>{t('No matches.')}</Text>}
+      </ScrollView>
+      <Primary onPress={onClose}>{t('Done')}</Primary>
+    </Sheet>
+  );
+}
+
+// Shared bottom-sheet shell (overlay, grab handle, title) for the chat sheets.
+function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const s = useStyles((c) => ({
+    sheet: { maxHeight: '78%', backgroundColor: c.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 8, paddingHorizontal: 16 },
+    handle: { width: 36, height: 4, borderRadius: 999, backgroundColor: c.line, alignSelf: 'center', marginTop: 4, marginBottom: 12 },
+    h: { textAlign: 'center', fontWeight: '600', fontSize: 16, color: c.ink, marginBottom: 14 },
+  }));
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={s.back} onPress={onClose}>
-        <View style={s.sheet}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(12,30,41,0.4)' }}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel={t('Close')} />
+        <View style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} accessibilityViewIsModal>
+          <View style={s.handle} />
           <Text style={s.h}>{title}</Text>
-          {!!error && <Text style={s.err}>{error}</Text>}
-          <ScrollView>
-            {step === 'menu' && (
-              <>
-                <Pressable onPress={() => { setQ(''); setStep('dm'); }}><Text style={s.name}>New chat</Text></Pressable>
-                <Pressable onPress={() => { setQ(''); setStep('group'); }} style={{ marginTop: 16 }}><Text style={s.name}>Create group</Text></Pressable>
-                <Pressable onPress={() => { setQ(''); setStep('invite'); }} style={{ marginTop: 16 }}><Text style={s.name}>Invite a person</Text></Pressable>
-              </>
-            )}
-            {step === 'dm' && (
-              <>
-                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Name or role" accessibilityLabel="Search people" autoCapitalize="none" />
-                {shownPeople.map((u: any) => (
-                  <Pressable key={u.id} style={s.row} onPress={() => { try { open(svc.openDirectChat(u.id)); } catch (e: any) { setError(e.message); } }}>
-                    <Avatar person={u} size="sm" />
-                    <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
-                  </Pressable>
-                ))}
-                {people.length > 0 && !shownPeople.length && <Text style={s.note}>No matches.</Text>}
-              </>
-            )}
-            {step === 'group' && (
-              <View>
-                <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Group name" accessibilityLabel="Group name" />
-                <View style={s.types}>
-                  <Pressable style={[s.type, groupType === 'general' && s.typeOn]} onPress={() => { setGroupType('general'); setProjectId(''); setPicked([]); }}><Text style={groupType === 'general' ? s.typeTextOn : s.typeText}>General</Text></Pressable>
-                  <Pressable style={[s.type, groupType === 'project' && s.typeOn]} onPress={() => { setGroupType('project'); setPicked([]); }}><Text style={groupType === 'project' ? s.typeTextOn : s.typeText}>Project work</Text></Pressable>
-                </View>
-                {groupType === 'project' && (
-                  <View style={{ marginBottom: 10 }}>
-                    {[{ id: '', name: 'Choose a project' }, ...projects].map((p: any) => (
-                      <Pressable key={p.id || 'none'} onPress={() => { setProjectId(p.id); setPicked([]); }}>
-                        <Text style={[s.sub, projectId === p.id && { color: s.name.color, fontWeight: '700' }]}>{p.name}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-                <Text style={s.note}>{groupType === 'project' ? 'People already on this project.' : 'People in the studio.'}</Text>
-                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Name or role" accessibilityLabel="Search people" autoCapitalize="none" />
-                {shownPeople.map((u: any) => {
-                  const on = picked.includes(u.id);
-                  return (
-                    <Pressable key={u.id} style={s.row} onPress={() => setPicked((ids) => on ? ids.filter((id) => id !== u.id) : [...ids, u.id])}>
-                      <Avatar person={u} size="sm" />
-                      <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
-                      {on && <Icon name="check" size={18} />}
-                    </Pressable>
-                  );
-                })}
-                {people.length > 0 && !shownPeople.length && <Text style={s.note}>No matches.</Text>}
-                <Pressable style={s.go} onPress={() => { try { open(svc.createGroup({ name, groupType, projectId, memberIds: picked })); } catch (e: any) { setError(e.message); } }}>
-                  <Text style={s.goText}>Create group</Text>
-                </Pressable>
-              </View>
-            )}
-            {step === 'invite' && !group && (mine.length ? (
-              <>
-                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Group name" accessibilityLabel="Search groups" autoCapitalize="none" />
-                {shownGroups.map((t: any) => (
-                  <Pressable key={t.id} style={s.row} onPress={() => { setGroupId(t.id); setQ(''); setError(''); }}>
-                    <ThreadAvatar thread={t} size="sm" />
-                    <View style={{ flex: 1 }}><Text style={s.name}>{t.name}</Text><Text style={s.sub}>{t.groupType === 'project' || t.projectId ? 'Project work' : 'Group'} · {t.memberIds.length} people</Text></View>
-                  </Pressable>
-                ))}
-                {!shownGroups.length && <Text style={s.note}>No matches.</Text>}
-              </>
-            ) : <Text style={s.note}>Create a group first.</Text>)}
-            {step === 'invite' && group && (people.length ? (
-              <>
-                <TextInput style={s.input} value={q} onChangeText={setQ} placeholder="Name or role" accessibilityLabel="Search people" autoCapitalize="none" />
-                {shownPeople.map((u: any) => (
-                  <Pressable key={u.id} style={s.row} onPress={() => { try { open(svc.inviteToGroup(groupId, u.id)); } catch (e: any) { setError(e.message); } }}>
-                    <Avatar person={u} size="sm" />
-                    <View style={{ flex: 1 }}><Text style={s.name}>{u.name}</Text><Text style={s.sub}>{u.title}</Text></View>
-                  </Pressable>
-                ))}
-                {!shownPeople.length && <Text style={s.note}>No matches.</Text>}
-              </>
-            ) : <Text style={s.note}>Everyone available is already in this group.</Text>)}
-          </ScrollView>
+          {children}
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -275,78 +316,39 @@ function projectUnread(thread: any, read: Record<string, string>, rows: any[]) {
     .reduce((n, { t }) => n + unreadCount(t.id, read[t.id]), 0);
 }
 
-function FilingDesk() {
-  const rows = svc.threads().flatMap((th: any) => svc.messages(th.id)).map((m: any) => ({ m, f: state.filings[m.id] })).filter((x: any) => x.f);
-  const check = rows.filter((x: any) => x.f.status !== 'filed');
-  const rules = Object.entries(filingRules);
-  const filed = rows.filter((x: any) => x.f.status === 'filed').slice(-5).reverse();
-  const s = useStyles((c) => ({
-    wrap: { margin: 14, padding: 12, borderRadius: 12, backgroundColor: c.surface2 },
-    h: { fontWeight: '700', color: c.ink, marginTop: 8 },
-    p: { color: c.ink2, fontSize: 13 },
-  }));
-  return (
-    <View style={s.wrap}>
-      <Text style={s.h}>Filing and announcements</Text>
-      <Text style={s.p}>How the AI filed chat messages, and what still needs a person to check.</Text>
-      <Text style={s.p}>{rows.length} looked at · {rows.filter((x: any) => x.f.by === 'ai' && x.f.status === 'filed').length} filed by AI · {check.length} need a check · {rows.filter((x: any) => x.f.by === 'user').length} corrected</Text>
-      {check.map((x: any) => (
-        <Link key={x.m.id} to={`/mobile/chats/${x.m.threadId}/messages/${x.m.id}/filing`}><Text style={s.p}>{firstName(x.m.by)} · {(x.m.text || '').slice(0, 80)}</Text></Link>
-      ))}
-      <Text style={s.h}>Rules the AI learned</Text>
-      {rules.length ? rules.map(([k, p]) => <Text key={k} style={s.p}>{firstName(String(k).split('|')[0])} files to {String(p)}</Text>) : <Text style={s.p}>Correct a filing and the AI remembers it for that sender and thread.</Text>}
-      <Text style={s.h}>Announcements</Text>
-      {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => <Text key={i} style={s.p}>{a.text} · {firstName(a.by)} · {fmtD(a.at)}</Text>) : <Text style={s.p}>No announcements.</Text>}
-      <Text style={s.h}>Recently filed</Text>
-      {filed.map((x: any) => <Text key={x.m.id} style={s.p}>{(x.m.text || '').slice(0, 80)}</Text>)}
-    </View>
-  );
-}
-
-function Row({ to, title, sub }: { to: string; title: string; sub?: string }) {
-  const s = useStyles((c) => ({
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
-    b: { color: c.ink, fontWeight: '600' }, sub: { color: c.ink3, fontSize: 13 },
-  }));
-  return (
-    <Link to={to} style={s.row}>
-      <View style={{ flex: 1 }}><Text style={s.b}>{title}</Text><Text style={s.sub}>{sub}</Text></View>
-    </Link>
-  );
-}
-
 function ChatRow({ thread, last, unread, draft }: { thread: any; last: any; unread: number; draft?: string }) {
   const title = threadTitle(thread);
+  const at = last?.at || thread.lastMessageAt;
   const s = useStyles((c) => ({
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
     copy: { flex: 1, minWidth: 0 },
     head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
     title: { color: c.ink, fontSize: 16, fontWeight: unread ? '700' : '600', flexShrink: 1 },
-    time: { color: c.ink3, fontSize: 12 },
-    prev: { color: c.ink2, fontSize: 14 },
-    draft: { color: c.crit },
-    count: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
+    time: { color: c.ink2, fontSize: 14, fontWeight: '500' },
+    prev: { color: c.ink2, fontSize: 14, fontWeight: '500' },
+    draft: { color: c.accent },
+    count: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' },
     countText: { color: c.accentInk, fontSize: 12, fontWeight: '700' },
   }));
   return (
-    <Link to={`/mobile/chats/${thread.id}`} style={s.row}>
+    <Row to={`/mobile/chats/${thread.id}`}>
       <ThreadAvatar thread={thread} />
       <View style={s.copy}>
         <View style={s.head}>
           <Text style={s.title} numberOfLines={1}>{title}</Text>
-          {last && <Text style={s.time}>{fmtT(last.at)}</Text>}
+          {!!at && <Text style={s.time}>{fmtT(at)}</Text>}
         </View>
         <Text style={[s.prev, draft ? s.draft : null]} numberOfLines={1}>
-          {draft ? `Draft: ${draft}` : `${last && last.by && thread.kind !== 'dm' ? `${firstName(last.by)}: ` : ''}${preview(last)}`}
+          {draft ? t('Draft: {0}', draft) : `${last && last.by && thread.kind !== 'dm' ? `${firstName(last.by)}: ` : ''}${preview(last)}`}
         </Text>
       </View>
       {unread > 0 && <View style={s.count}><Text style={s.countText}>{unread}</Text></View>}
-    </Link>
+    </Row>
   );
 }
 
 export function ThreadHeader({ thread, backTo = '/mobile/chats' }: { thread: any; backTo?: string }) {
   const navigate = useNavigate();
+  const { c } = useTheme();
   const otherId = thread.kind === 'dm' ? thread.memberIds.find((id: string) => id !== state.userId) : null;
   const other = otherId ? user(otherId) : null;
   const query = backTo.startsWith('/mobile/') && backTo !== '/mobile/chats' ? `?from=${encodeURIComponent(backTo)}` : '';
@@ -360,7 +362,7 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }: { thread: any
   }));
   return (
     <TopBar style={{ gap: 4, paddingRight: 6 }}>
-      <BackButton to={backTo} label={backName(backTo)} showLabel={false} />
+      <BackButton to={backTo} label={backName(backTo)} showLabel={false} color={c.ink2} />
       <Link to={infoTo} style={s.heading}>
         <ThreadAvatar thread={thread} size="sm" />
         <View style={s.name}>
@@ -368,13 +370,13 @@ export function ThreadHeader({ thread, backTo = '/mobile/chats' }: { thread: any
           <Text style={s.sub} numberOfLines={1}>{audience(thread)}{thread.kind === 'dm' ? '' : ` · ${thread.memberIds.length} ${t('people')}`}</Text>
         </View>
       </Link>
-      <Link to={`/mobile/chats/${thread.id}/call${query}`} accessibilityLabel="Video call"><Icon name="video" /></Link>
+      <Link to={`/mobile/chats/${thread.id}/call${query}`} accessibilityLabel={t('Video call')}><Icon name="video" color={c.ink2} /></Link>
       {other ? (
-        <Pressable onPress={() => openExternal(`tel:${phoneOf(other).replace(/\s/g, '')}`)} accessibilityLabel={`Call ${other.name}`}>
-          <Icon name="call" />
+        <Pressable onPress={() => openExternal(`tel:${phoneOf(other).replace(/\s/g, '')}`)} accessibilityLabel={t('Call {0}', other.name)}>
+          <Icon name="call" color={c.ink2} />
         </Pressable>
       ) : (
-        <Link to={voiceTo} accessibilityLabel="Voice call"><Icon name="call" /></Link>
+        <Link to={voiceTo} accessibilityLabel={t('Voice call')}><Icon name="call" color={c.ink2} /></Link>
       )}
     </TopBar>
   );

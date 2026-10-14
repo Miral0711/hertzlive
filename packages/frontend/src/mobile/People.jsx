@@ -9,19 +9,20 @@ import {
 import { hh } from '../shared/core';
 import { Avatar } from './faces';
 import { Select } from '../ui/ui';
+import { t, getLang, setLang, LANGS } from '../shared/i18n';
 
 const ORDER = ['partner', 'site_manager', 'designer', 'hr', 'contractor', 'client'];
-const LABEL = {
-  partner: 'Partners', site_manager: 'Site managers', designer: 'Design team',
-  hr: 'Office', contractor: 'Contractors and vendors', client: 'Clients',
-};
+const LABEL = () => ({
+  partner: t('Partners'), site_manager: t('Site managers'), designer: t('Design team'),
+  hr: t('Office'), contractor: t('Contractors and vendors'), client: t('Clients'),
+});
 
 export function Who() {
   useStore();
   const navigate = useNavigate();
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Switch person" sub="Try the field app as someone else">
-      <Note>This changes whose records you see. It does not change the desktop login.</Note>
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('Switch person')} sub={t('Try the field app as someone else')}>
+      <Note>{t('This changes whose records you see. It does not change the desktop login.')}</Note>
       {PEOPLE.map(({ id, hint }) => {
         const u = user(id);
         return (
@@ -32,8 +33,8 @@ export function Who() {
             onClick={() => { viewAs(id); navigate('/mobile/chats'); }}
           >
             <Avatar person={u} />
-            <span className="row-copy"><b>{u.name}</b><span>{u.title} · {hint}</span></span>
-            {state.userId === id ? <span className="chip-status">You</span> : null}
+            <span className="row-copy"><b>{u.name}</b><span>{u.title} · {t(hint)}</span></span>
+            {state.userId === id ? <span className="chip-status">{t('You')}</span> : null}
           </button>
         );
       })}
@@ -52,12 +53,12 @@ export function People() {
     if (employee) return true;
     return ['partner', 'site_manager'].includes(u.role) || svc.projects().some((p) => (p.teamIds || []).includes(u.id));
   });
-  const groups = ORDER.map((role) => [LABEL[role], list.filter((u) => u.role === role)]).filter(([, us]) => us.length);
+  const groups = ORDER.map((role) => [LABEL()[role], list.filter((u) => u.role === role)]).filter(([, us]) => us.length);
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="People" sub="Tap the phone to call" bare>
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('People')} sub={t('Tap the phone to call')} bare>
       <label className="search">
         <Icon name="search" />
-        <input type="search" value={q} placeholder="Search people" aria-label="Search people" onChange={(e) => setQ(e.target.value)} />
+        <input type="search" value={q} placeholder={t('Search people')} aria-label={t('Search people')} onChange={(e) => setQ(e.target.value)} />
       </label>
       {groups.map(([name, us]) => (
         <section key={name}>
@@ -70,14 +71,14 @@ export function People() {
               <div className="row" key={u.id}>
                 <Avatar person={u} />
                 <span className="row-copy"><b>{u.name}</b><span>{vendor ? vendor.trade || vendor.name : u.title} · {phone}</span></span>
-                {dm ? <Link className="icon-btn" to={`/mobile/chats/${dm.id}`} aria-label={`Chat with ${firstName(u.id)}`}><Icon name="chat" /></Link> : null}
-                <a className="icon-btn" href={`tel:${phone.replace(/\s/g, '')}`} aria-label={`Call ${firstName(u.id)}`}><Icon name="call" /></a>
+                {dm ? <Link className="icon-btn" to={`/mobile/chats/${dm.id}`} aria-label={t('Chat with {0}', firstName(u.id))}><Icon name="chat" /></Link> : null}
+                <a className="icon-btn" href={`tel:${phone.replace(/\s/g, '')}`} aria-label={t('Call {0}', firstName(u.id))}><Icon name="call" /></a>
               </div>
             );
           })}
         </section>
       ))}
-      {!groups.length && <div className="empty"><h3>No one matches</h3></div>}
+      {!groups.length && <div className="empty"><h3>{t('No one matches')}</h3></div>}
     </Page>
   );
 }
@@ -100,19 +101,19 @@ export function Holidays() {
   const pending = can('leave', 'a') ? (state.db.LEAVES || []).filter((l) => l.status === 'pending') : [];
   const team = staff() ? (state.db.LEAVES || []).filter((l) => l.userId !== state.userId && l.status === 'approved' && l.to >= TODAY).slice(0, 5) : [];
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title={staff() ? 'Holidays and leave' : 'Holidays'} sub="Office calendar" bare>
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={staff() ? t('Holidays and leave') : t('Holidays')} sub={t('Office calendar')} bare>
       {pending.length > 0 && (
         <section>
-          <h2 className="sect">Leave requests</h2>
+          <h2 className="sect">{t('Leave requests')}</h2>
           {pending.map((l) => (
             <div className="day-row" key={l.id}>
               <div>
-                <b>{user(l.userId).name} · {l.days} day{l.days > 1 ? 's' : ''}</b>
-                <span>{l.type} · {fmtD(l.from)} to {fmtD(l.to)} · {l.reason}</span>
+                <b>{user(l.userId).name} · {l.days > 1 ? t('{0} days', l.days) : t('{0} day', l.days)}</b>
+                <span>{t('{0} · {1} to {2} · {3}', l.type, fmtD(l.from), fmtD(l.to), l.reason)}</span>
                 <div className="sheet-acts">
-                  <button type="button" className="sheet-btn" onClick={() => { svc.decideLeave(l.id, true); render(); }}>Approve</button>
-                  <button type="button" className="sheet-btn quiet" onClick={() => { svc.decideLeave(l.id, false); render(); }}>Decline</button>
-                  <Link className="sheet-btn quiet" to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link>
+                  <button type="button" className="sheet-btn" onClick={() => { svc.decideLeave(l.id, true); render(); }}>{t('Approve')}</button>
+                  <button type="button" className="sheet-btn quiet" onClick={() => { svc.decideLeave(l.id, false); render(); }}>{t('Decline')}</button>
+                  <Link className="sheet-btn quiet" to={`/mobile/standin/${l.userId}?leave=${l.id}`}>{t('Who covers?')}</Link>
                 </div>
               </div>
             </div>
@@ -121,21 +122,21 @@ export function Holidays() {
       )}
       {staff() && (
         <section>
-          <h2 className="sect">My leave</h2>
+          <h2 className="sect">{t('My leave')}</h2>
           {mine.length ? mine.map((l) => (
-            <DayRow key={l.id} date={l.from} title={`${l.type} · ${l.days} day${l.days > 1 ? 's' : ''}`} detail={l.from === l.to ? fmtD(l.from) : `${fmtD(l.from)} to ${fmtD(l.to)} · ${l.reason}`} extra={<span className="row-end"><span className={`chip-status${l.status === 'pending' ? ' open' : l.status === 'approved' ? ' ok' : ''}`}>{l.status}</span><Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>Who covers?</Link></span>} />
-          )) : <div className="empty"><h3>Nothing planned</h3><p>Ask for leave in the studio chat.</p></div>}
+            <DayRow key={l.id} date={l.from} title={`${l.type} · ${l.days > 1 ? t('{0} days', l.days) : t('{0} day', l.days)}`} detail={l.from === l.to ? fmtD(l.from) : t('{0} to {1} · {2}', fmtD(l.from), fmtD(l.to), l.reason)} extra={<span className="row-end"><span className={`chip-status${l.status === 'pending' ? ' open' : l.status === 'approved' ? ' ok' : ''}`}>{l.status}</span><Link to={`/mobile/standin/${l.userId}?leave=${l.id}`}>{t('Who covers?')}</Link></span>} />
+          )) : <div className="empty"><h3>{t('Nothing planned')}</h3><p>{t('Ask for leave in the studio chat.')}</p></div>}
         </section>
       )}
       <section>
-        <h2 className="sect">Holidays</h2>
+        <h2 className="sect">{t('Holidays')}</h2>
         {hol.map((h) => (
           <DayRow key={h.date + h.name} date={h.date} title={h.name} detail={`${new Date(`${h.date}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })} · ${h.site ? 'site closed, no labour' : 'office only, site works'}`} />
         ))}
       </section>
       {team.length > 0 && (
         <section>
-          <h2 className="sect">Who is away</h2>
+          <h2 className="sect">{t('Who is away')}</h2>
           {team.map((l) => (
             <DayRow key={l.id} date={l.from} title={firstName(l.userId)} detail={`${l.from === l.to ? fmtD(l.from) : `${fmtD(l.from)} to ${fmtD(l.to)}`} · ${l.type}`} />
           ))}
@@ -149,20 +150,20 @@ export function Punches() {
   useStore();
   const month = svc.punches();
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Punch history" sub={`${month.days} day${month.days === 1 ? '' : 's'} · ${month.late} late · ${month.hours}h`}>
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('Punch history')} sub={`${month.days === 1 ? t('{0} day', month.days) : t('{0} days', month.days)} · ${t('{0} late', month.late)} · ${month.hours}h`}>
       {month.rows.length > 0 && (
         <section>
           {month.rows.map((r) => (
             <div className="row" key={r.date + r.in}>
               <span className="row-copy">
-                <b className={r.late ? 'late' : ''}>{fmtD(r.date)}{r.late ? ' · late' : ''}</b>
+                <b className={r.late ? 'late' : ''}>{fmtD(r.date)}{r.late ? t(' · late') : ''}</b>
                 <span>{r.in}–{r.out || '—'} · {r.site}</span>
               </span>
             </div>
           ))}
         </section>
       )}
-      {!month.rows.length && <div className="empty"><h3>No punches this month</h3></div>}
+      {!month.rows.length && <div className="empty"><h3>{t('No punches this month')}</h3></div>}
     </Page>
   );
 }
@@ -173,38 +174,38 @@ export function MyPerformance() {
   const metrics = can('performance', 'r') ? svc.personMetrics(state.userId, period.id) : null;
   const history = metrics ? svc.pointsHistory(state.userId, period.id) : [];
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="My performance" sub={period.label}>
-      {!metrics && <div className="empty"><h3>Performance isn’t available for this login</h3></div>}
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('My performance')} sub={period.label}>
+      {!metrics && <div className="empty"><h3>{t('Performance isn’t available for this login')}</h3></div>}
       {metrics && (
         <>
-          <div className="day-row"><div><small>{period.label}</small><b>{metrics.performance?.score == null ? 'Not enough evidence' : metrics.performance.partial ? `${metrics.performance.score} · partial` : metrics.performance.score}</b><span>{metrics.performance?.coverage}{metrics.performance?.partial && metrics.performance?.score != null ? ' This is a partial score, not a complete evaluation.' : ''}</span></div></div>
+          <div className="day-row"><div><small>{period.label}</small><b>{metrics.performance?.score == null ? t('Not enough evidence') : metrics.performance.partial ? t('{0} · partial', metrics.performance.score) : metrics.performance.score}</b><span>{metrics.performance?.coverage}{metrics.performance?.partial && metrics.performance?.score != null ? t(' This is a partial score, not a complete evaluation.') : ''}</span></div></div>
           <details className="day-row">
-            <summary>How calculated?</summary>
+            <summary>{t('How calculated?')}</summary>
             <p>{metrics.performance?.formula}</p>
           </details>
           {(metrics.performance?.dimensions || []).map((d) => (
-            <div className="day-row" key={d.id}><div><small>{d.label} · weight {d.weight}</small><b>{d.score == null ? 'Not enough evidence' : d.score}</b><span>{d.formula}</span></div></div>
+            <div className="day-row" key={d.id}><div><small>{t('{0} · weight {1}', d.label, d.weight)}</small><b>{d.score == null ? t('Not enough evidence') : d.score}</b><span>{d.formula}</span></div></div>
           ))}
-          <h2 className="sect">Goals</h2>
+          <h2 className="sect">{t('Goals')}</h2>
           {metrics.goals.filter((g) => g.scope === 'individual').map((g) => (
-            <div className="day-row" key={g.id}><div><small>{g.current == null ? 'Not enough evidence' : `${g.current}% of ${g.target}%`}</small><b>{g.name}</b><span>{g.formula}</span></div></div>
+            <div className="day-row" key={g.id}><div><small>{g.current == null ? t('Not enough evidence') : t('{0}% of {1}%', g.current, g.target)}</small><b>{g.name}</b><span>{g.formula}</span></div></div>
           ))}
-          {!metrics.goals.some((g) => g.scope === 'individual') && <div className="empty"><h3>No goals this period</h3></div>}
-          <h2 className="sect">Recognition</h2>
+          {!metrics.goals.some((g) => g.scope === 'individual') && <div className="empty"><h3>{t('No goals this period')}</h3></div>}
+          <h2 className="sect">{t('Recognition')}</h2>
           {metrics.recognitions.map((r) => (
             <div className="day-row" key={r.id}><div><small>{fmtD(r.at)}</small><b>{r.message}</b></div></div>
           ))}
-          {!metrics.recognitions.length && <div className="empty"><h3>None this period</h3></div>}
-          <h2 className="sect">Achievements</h2>
+          {!metrics.recognitions.length && <div className="empty"><h3>{t('None this period')}</h3></div>}
+          <h2 className="sect">{t('Achievements')}</h2>
           {metrics.achievements.map((a) => (
             <div className="day-row" key={a.id}><div><small>{fmtD(a.earnedAt)} · {a.badge.desc}</small><b>{a.badge.name}</b><span>{a.reason}</span></div></div>
           ))}
-          {!metrics.achievements.length && <div className="empty"><h3>None yet</h3><p>A badge records a rule that was met. It is not a rating or a bonus.</p></div>}
-          <h2 className="sect">Points history</h2>
+          {!metrics.achievements.length && <div className="empty"><h3>{t('None yet')}</h3><p>{t('A badge records a rule that was met. It is not a rating or a bonus.')}</p></div>}
+          <h2 className="sect">{t('Points history')}</h2>
           {history.map((e) => (
             <div className="day-row" key={e.id}><div><small>{fmtD(e.createdAt || e.at)} · {e.reason}</small><b>+{e.points}</b></div></div>
           ))}
-          {!history.length && <div className="empty"><h3>No points this period</h3></div>}
+          {!history.length && <div className="empty"><h3>{t('No points this period')}</h3></div>}
         </>
       )}
     </Page>
@@ -215,19 +216,19 @@ export function Reviews() {
   useStore();
   const rows = svc.reviews(state.userId);
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="My reviews" sub="Monthly score, strengths and growth">
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('My reviews')} sub={t('Monthly score, strengths and growth')}>
       <section>
       {rows.map((r) => (
         <article key={r.id} className="day-row">
           <div>
             <small>{r.month} · {r.score}/5 · {user(r.by).name}</small>
             <b>{r.reason}</b>
-            <span>Strengths: {r.strengths.join(', ')}</span>
-            <span>Grow: {r.growth}</span>
+            <span>{t('Strengths: {0}', r.strengths.join(', '))}</span>
+            <span>{t('Grow: {0}', r.growth)}</span>
           </div>
         </article>
       ))}
-      {!rows.length && <div className="empty"><h3>No review for you yet</h3></div>}
+      {!rows.length && <div className="empty"><h3>{t('No review for you yet')}</h3></div>}
       </section>
     </Page>
   );
@@ -240,7 +241,7 @@ export function Notice() {
   const [text, setText] = useState('');
   const threads = myThreads().filter(({ t }) => t.kind !== 'dm');
   if (state.role !== 'partner') {
-    return <Page board sheet back="/mobile/profile" backLabel="Profile" title="Notice"><div className="empty"><h3>Only a partner can send a notice</h3></div></Page>;
+    return <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('Notice')}><div className="empty"><h3>{t('Only a partner can send a notice')}</h3></div></Page>;
   }
   function send(e) {
     e.preventDefault();
@@ -250,14 +251,14 @@ export function Notice() {
     navigate('/mobile/chats');
   }
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Notice to everyone" sub={`${threads.length} project chats`}>
-      <Note>Goes to every project chat you are in, marked as a notice.</Note>
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('Notice to everyone')} sub={t('{0} project chats', threads.length)}>
+      <Note>{t('Goes to every project chat you are in, marked as a notice.')}</Note>
       <div className="notice-ideas">
         {ideas.map((idea) => <button type="button" key={idea} className={text === idea ? 'on' : ''} onClick={() => setText(idea)}>{idea}</button>)}
       </div>
       <form className="stack" onSubmit={send}>
-        <label>Message<textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} aria-label="Notice" /></label>
-        <button className="primary" type="submit">Send to {threads.length} chats</button>
+        <label>{t('Message')}<textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} aria-label={t('Notice')} /></label>
+        <button className="primary" type="submit">{t('Send to {0} chats', threads.length)}</button>
       </form>
     </Page>
   );
@@ -265,13 +266,13 @@ export function Notice() {
 
 export function Appearance() {
   useStore();
-  const options = [['system', 'Phone'], ['light', 'Light'], ['dark', 'Dark']];
+  const options = [['system', t('Phone')], ['light', t('Light')], ['dark', t('Dark')]];
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Appearance">
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('Appearance')}>
       <section>
         {options.map(([id, label]) => (
           <button type="button" key={id} className="day-row" aria-pressed={state.theme === id} onClick={() => { state.theme = id; persist(); render(); }}>
-            <div><b>{label}</b>{state.theme === id ? <span>Using this</span> : null}</div>
+            <div><b>{label}</b>{state.theme === id ? <span>{t('Using this')}</span> : null}</div>
           </button>
         ))}
       </section>
@@ -281,16 +282,14 @@ export function Appearance() {
 
 export function Language() {
   useStore();
-  const current = sessionStorage.getItem('field-lang') || 'English';
-  const langs = ['English', 'हिन्दी', 'ગુજરાતી'];
-  const [, setTick] = useState(current);
+  const current = getLang();
   return (
-    <Page board sheet back="/mobile/profile" backLabel="Profile" title="Language">
-      <Note>Menus and tabs only. Write or talk in any language.</Note>
+    <Page board sheet back="/mobile/profile" backLabel={t('Profile')} title={t('Language')}>
+      <Note>{t('Menus and tabs only. Write or talk in any language.')}</Note>
       <section>
-        {langs.map((lang) => (
-          <button type="button" key={lang} className="day-row" aria-pressed={current === lang} onClick={() => { sessionStorage.setItem('field-lang', lang); setTick(lang); render(); }}>
-            <div><b>{lang}</b>{current === lang ? <span>Using this</span> : null}</div>
+        {LANGS.map((lang) => (
+          <button type="button" key={lang} className="day-row" aria-pressed={current === lang} onClick={() => setLang(lang)}>
+            <div><b>{lang}</b>{current === lang ? <span>{t('Using this')}</span> : null}</div>
           </button>
         ))}
       </section>
@@ -344,7 +343,7 @@ export function Book() {
     setDone('');
     const start = hour + half;
     const row = {
-      title: title.trim() || (meet ? 'Client meeting' : 'Room booking'),
+      title: title.trim() || (meet ? t('Client meeting') : t('Room booking')),
       purpose,
       date,
       start,
@@ -364,65 +363,65 @@ export function Book() {
       setSlots([]);
       render();
       setDone(result.pending
-        ? `Asked for ${fmtD(date)} ${hh(start)}. The studio will confirm.`
-        : `Booked ${fmtD(date)} ${hh(start)}.`);
+        ? t('Asked for {0} {1}. The studio will confirm.', fmtD(date), hh(start))
+        : t('Booked {0} {1}.', fmtD(date), hh(start)));
     } catch (err) {
-      setError(err.message === 'forbidden' ? 'You cannot book from this login.' : err.message);
+      setError(err.message === 'forbidden' ? t('You cannot book from this login.') : t(err.message));
     }
   }
 
   if (!can('booking', 'w')) {
-    return <Page board back="/mobile/today" backLabel="Today" title="Booking"><div className="empty"><h3>Booking isn’t available for this login</h3></div></Page>;
+    return <Page board back="/mobile/today" backLabel={t('Today')} title={t('Booking')}><div className="empty"><h3>{t('Booking isn’t available for this login')}</h3></div></Page>;
   }
 
   return (
-    <Page board sheet back={from && from.startsWith('/mobile/') ? from : '/mobile/today'} backLabel={from && from.startsWith('/mobile/') ? backName(from) : 'Today'} title={meet ? 'Book a meeting' : `Book the ${room.toLowerCase()}`}>
-      {meet && <Note>The studio confirms. You get a WhatsApp the day before and one hour before.</Note>}
+    <Page board sheet back={from && from.startsWith('/mobile/') ? from : '/mobile/today'} backLabel={from && from.startsWith('/mobile/') ? backName(from) : t('Today')} title={meet ? t('Book a meeting') : t('Book the {0}', room.toLowerCase())}>
+      {meet && <Note>{t('The studio confirms. You get a WhatsApp the day before and one hour before.')}</Note>}
       <form className="stack" onSubmit={save}>
-        <span className="lab">Day</span>
+        <span className="lab">{t('Day')}</span>
         <div className="filters">
-          {days.map((d) => <button type="button" key={d} className={date === d ? 'on' : ''} onClick={() => setDate(d)}>{d === TODAY ? 'Today' : fmtD(d)}</button>)}
+          {days.map((d) => <button type="button" key={d} className={date === d ? 'on' : ''} onClick={() => setDate(d)}>{d === TODAY ? t('Today') : fmtD(d)}</button>)}
         </div>
-        <span className="lab">Time</span>
+        <span className="lab">{t('Time')}</span>
         <div className="filters">
           {times.map((h) => <button type="button" key={h} className={hour === h ? 'on' : ''} onClick={() => setHour(h)}>{hh(h)}</button>)}
         </div>
         <div className="filters">
-          <button type="button" className={half === 0 ? 'on' : ''} onClick={() => setHalf(0)}>On the hour</button>
-          <button type="button" className={half === 0.5 ? 'on' : ''} onClick={() => setHalf(0.5)}>Half past</button>
+          <button type="button" className={half === 0 ? 'on' : ''} onClick={() => setHalf(0)}>{t('On the hour')}</button>
+          <button type="button" className={half === 0.5 ? 'on' : ''} onClick={() => setHalf(0.5)}>{t('Half past')}</button>
         </div>
-        <span className="lab">How long</span>
+        <span className="lab">{t('How long')}</span>
         <div className="filters">
           {[[0.5, '30 min'], [1, '1 hour'], [2, '2 hours']].map(([value, label]) => (
             <button type="button" key={label} className={Number(len) === value ? 'on' : ''} onClick={() => setLen(value)}>{label}</button>
           ))}
         </div>
-        <span className="lab">{meet ? 'What kind' : 'Purpose'}</span>
+        <span className="lab">{meet ? t('What kind') : t('Purpose')}</span>
         <div className="filters">
-          {[['office', meet ? 'Come to the office' : 'Office meeting'], ['video', 'Video call'], ['site', 'Site visit']].map(([value, label]) => (
+          {[['office', meet ? t('Come to the office') : t('Office meeting')], ['video', t('Video call')], ['site', t('Site visit')]].map(([value, label]) => (
             <button type="button" key={value} className={purpose === value ? 'on' : ''} onClick={() => setPurpose(value)}>{label}</button>
           ))}
         </div>
         {purpose === 'site' && sites.length > 1 && (
-          <label>Which site
-            <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Which site">
+          <label>{t('Which site')}
+            <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label={t('Which site')}>
               {sites.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
           </label>
         )}
-        <label>With
-          <Select className="field-select" value={who} onChange={(e) => setWho(e.target.value)} aria-label="With">
+        <label>{t('With')}
+          <Select className="field-select" value={who} onChange={(e) => setWho(e.target.value)} aria-label={t('With')}>
             {people.map((u) => <option key={u.id} value={u.id}>{firstName(u.id)}</option>)}
           </Select>
         </label>
         {!meet && (
-          <label>What for
-            <input value={title} onChange={(e) => setTitle(e.target.value)} aria-label="What for" placeholder="Jagwani kitchen review" />
+          <label>{t('What for')}
+            <input value={title} onChange={(e) => setTitle(e.target.value)} aria-label={t('What for')} placeholder={t('Jagwani kitchen review')} />
           </label>
         )}
         {clash && (
           <div className="view-card">
-            <b>Not free</b>
+            <b>{t('Not free')}</b>
             <p>{clash.msg}</p>
             {slots.length ? (
               <div className="filters">
@@ -432,11 +431,11 @@ export function Book() {
                   </button>
                 ))}
               </div>
-            ) : <p>Nothing free in two weeks. Message the studio.</p>}
+            ) : <p>{t('Nothing free in two weeks. Message the studio.')}</p>}
           </div>
         )}
         {error ? <p className="warn-text">{error}</p> : null}
-        {done ? <p className="note">{done}</p> : <button className="primary" type="submit">{meet ? 'Ask for this time' : 'Book'}</button>}
+        {done ? <p className="note">{done}</p> : <button className="primary" type="submit">{meet ? t('Ask for this time') : t('Book')}</button>}
       </form>
     </Page>
   );
@@ -452,26 +451,26 @@ export function StandIn() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   return (
-    <Page board back="/mobile/holidays" backLabel="Holidays" title={`Who can cover ${firstName(userId)}?`} sub="Present today, shares a skill, lightest load first">
+    <Page board back="/mobile/holidays" backLabel={t('Holidays')} title={t('Who can cover {0}?', firstName(userId))} sub={t('Present today, shares a skill, lightest load first')}>
       {list.length ? list.map((row) => (
         <article className="view-card" key={row.u.id}>
           <b>{row.u.name}</b>
-          <span>{row.u.title} · {row.load} open task{row.load === 1 ? '' : 's'} · {row.overlap.join(', ')}</span>
+          <span>{row.u.title} · {row.load === 1 ? t('{0} open task', row.load) : t('{0} open tasks', row.load)} · {row.overlap.join(', ')}</span>
           {leaveId && can('leave', 'a') && (
             <button type="button" className="primary" onClick={() => {
               try {
                 svc.reassignForLeave(leaveId, row.u.id, '');
                 render();
-                setNote(`Tasks reassigned to ${firstName(row.u.id)}.`);
+                setNote(t('Tasks reassigned to {0}.', firstName(row.u.id)));
                 setError('');
-              } catch (err) { setError(err.message === 'forbidden' ? 'You cannot reassign this leave.' : err.message); }
-            }}>Reassign to {firstName(row.u.id)}</button>
+              } catch (err) { setError(err.message === 'forbidden' ? t('You cannot reassign this leave.') : t(err.message)); }
+            }}>{t('Reassign to {0}', firstName(row.u.id))}</button>
           )}
         </article>
-      )) : <div className="empty"><h3>No one qualified is in today</h3></div>}
+      )) : <div className="empty"><h3>{t('No one qualified is in today')}</h3></div>}
       {note ? <p className="note">{note}</p> : null}
       {error ? <p className="warn-text">{error}</p> : null}
-      {!can('leave', 'a') && <Note>A partner or HR names the cover and moves the open tasks.</Note>}
+      {!can('leave', 'a') && <Note>{t('A partner or HR names the cover and moves the open tasks.')}</Note>}
     </Page>
   );
 }

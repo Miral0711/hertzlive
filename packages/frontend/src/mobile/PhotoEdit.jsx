@@ -3,19 +3,20 @@ import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import Icon from './Icon';
 import { downscaleImage, loadImage } from '../desktop/chat/mediaUtils';
+import { t } from '../shared/i18n';
 
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#111827', '#ffffff'];
 const SIZES = [4, 8, 16];
-const LABELS = ['Crack', 'Electrical point', 'Plumbing', 'Dimension', 'Defect', 'Change required', 'Material', 'Site instruction'];
-const TOOLS = [
-  ['crop', 'Crop', 'crop'],
-  ['rotate', 'Rotate', 'rotate'],
-  ['draw', 'Draw', 'edit'],
-  ['text', 'Text', 'typeT'],
-  ['rect', 'Rectangle', 'rectangle'],
-  ['arrow', 'Arrow', 'arrowdiag'],
-  ['circle', 'Circle', 'circleicon'],
-];
+const LABELS = () => ([t('Crack'), t('Electrical point'), t('Plumbing'), t('Dimension'), t('Defect'), t('Change required'), t('Material'), t('Site instruction')]);
+const TOOLS = () => ([
+  ['crop', t('Crop'), 'crop'],
+  ['rotate', t('Rotate'), 'rotate'],
+  ['draw', t('Draw'), 'edit'],
+  ['text', t('Text'), 'typeT'],
+  ['rect', t('Rectangle'), 'rectangle'],
+  ['arrow', t('Arrow'), 'arrowdiag'],
+  ['circle', t('Circle'), 'circleicon'],
+]);
 
 function toNatural(canvas, clientX, clientY) {
   const r = canvas.getBoundingClientRect();
@@ -69,7 +70,7 @@ function drawOp(ctx, op) {
   }
 }
 
-export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequired = false, initialNote = '', onCancel, onSend }) {
+export default function PhotoEdit({ src, noteLabel = t('Add a caption'), noteRequired = false, initialNote = '', onCancel, onSend }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const strokeRef = useRef(null);
@@ -269,7 +270,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
   const cropping = tool === 'crop';
   function send() {
     const words = note.trim();
-    if (noteRequired && !words) { setNoteError('Write a note before sending.'); return; }
+    if (noteRequired && !words) { setNoteError(t('Write a note before sending.')); return; }
     commitPendingText();
     onSend(flatten(), words);
   }
@@ -279,28 +280,28 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
   return (
     <div className="pedit">
       <header className="pedit-top">
-        <button type="button" aria-label={cropping ? 'Cancel crop' : 'Close'} onClick={cropping ? cancelCrop : onCancel}>
+        <button type="button" aria-label={cropping ? t('Cancel crop') : t('Close')} onClick={cropping ? cancelCrop : onCancel}>
           <Icon name="x" />
         </button>
         {cropping ? (
-          <button type="button" className="round send" aria-label="Apply crop" onClick={applyCrop} disabled={!cropPixels?.width}>
+          <button type="button" className="round send" aria-label={t('Apply crop')} onClick={applyCrop} disabled={!cropPixels?.width}>
             <Icon name="check" />
           </button>
         ) : (
-          <div className="pedit-tools" role="toolbar" aria-label="Photo tools">
-            {TOOLS.map(([key, label, icon]) => (
+          <div className="pedit-tools" role="toolbar" aria-label={t('Photo tools')}>
+            {TOOLS().map(([key, label, icon]) => (
               <button key={key} type="button" aria-label={label} aria-pressed={tool === key} className={tool === key ? 'on' : ''} onClick={() => chooseTool(key)}>
                 <Icon name={icon} />
               </button>
             ))}
-            <button type="button" aria-label="Undo" onClick={() => index > 0 && setIndex(index - 1)} disabled={index === 0}><Icon name="undo" /></button>
-            <button type="button" aria-label="Redo" onClick={() => history && index < history.length - 1 && setIndex(index + 1)} disabled={!history || index >= history.length - 1}><Icon name="redo" /></button>
+            <button type="button" aria-label={t('Undo')} onClick={() => index > 0 && setIndex(index - 1)} disabled={index === 0}><Icon name="undo" /></button>
+            <button type="button" aria-label={t('Redo')} onClick={() => history && index < history.length - 1 && setIndex(index + 1)} disabled={!history || index >= history.length - 1}><Icon name="redo" /></button>
           </div>
         )}
       </header>
       <div className="pedit-stage">
         <div className="pedit-fit">
-        {!cur ? <p>Loading photo…</p> : cropping && cropSrc ? (
+        {!cur ? <p>{t('Loading photo…')}</p> : cropping && cropSrc ? (
           <ReactCrop
             crop={cropSel}
             onChange={(_pixel, percent) => setCropSel(percent)}
@@ -336,8 +337,8 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
               <input
                 autoFocus
                 value={textInput.value}
-                placeholder="Add text"
-                aria-label="Text on the photo"
+                placeholder={t('Add text')}
+                aria-label={t('Text on the photo')}
                 style={{ left: textInput.sx, top: textInput.sy, color }}
                 onChange={(e) => setTextInput({ ...textInput, value: e.target.value })}
                 onKeyDown={(e) => {
@@ -354,10 +355,10 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
         {marking && (
           <div className="pedit-ink">
             {COLORS.map((c) => (
-              <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={color === c} className={color === c ? 'on' : ''} style={{ background: c }} onClick={() => setColor(c)} />
+              <button key={c} type="button" aria-label={t('Color {0}', c)} aria-pressed={color === c} className={color === c ? 'on' : ''} style={{ background: c }} onClick={() => setColor(c)} />
             ))}
             {SIZES.map((s) => (
-              <button key={s} type="button" className={`pedit-size ${size === s ? 'on' : ''}`} aria-label={`Size ${s}`} aria-pressed={size === s} onClick={() => setSize(s)}>
+              <button key={s} type="button" className={`pedit-size ${size === s ? 'on' : ''}`} aria-label={t('Size {0}', s)} aria-pressed={size === s} onClick={() => setSize(s)}>
                 <i style={{ width: s / 1.4, height: s / 1.4 }} />
               </button>
             ))}
@@ -365,15 +366,15 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
         )}
         {tool === 'text' && !cropping && (
           <div className="pedit-labels">
-            {LABELS.map((label) => (
+            {LABELS().map((label) => (
               <button key={label} type="button" onClick={() => (textInput ? setTextInput({ ...textInput, value: label }) : placeText(label))}>{label}</button>
             ))}
           </div>
         )}
         {!cropping && (
           <form className="pedit-send" onSubmit={(e) => { e.preventDefault(); send(); }}>
-            <input value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} aria-label={noteLabel} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
-            <button type="submit" className="round send" aria-label="Send photo" disabled={!cur}><Icon name="send" /></button>
+            <input value={note} placeholder={noteRequired ? noteLabel : t('Add a caption')} aria-label={noteLabel} onChange={(e) => { setNote(e.target.value); setNoteError(''); }} />
+            <button type="submit" className="round send" aria-label={t('Send photo')} disabled={!cur}><Icon name="send" /></button>
           </form>
         )}
         {noteError ? <p className="pedit-error">{noteError}</p> : null}

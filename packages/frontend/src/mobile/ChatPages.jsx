@@ -12,6 +12,7 @@ import { FILE_KINDS, filingLabel } from '../shared/filing';
 import { REACTIONS, siteHasSuggestion } from '../shared/chatExtras';
 import { Avatar, GroupPhotoInput, ThreadAvatar } from './faces';
 import { Select } from '../ui/ui';
+import { t } from '../shared/i18n';
 
 const SAMPLE_MEDIA = {
   site: [
@@ -68,8 +69,9 @@ export function GroupInfo() {
   const [sample, setSample] = useState(null);
   const [tab, setTab] = useState('Photos');
   const [photoError, setPhotoError] = useState('');
+  const [adding, setAdding] = useState(false);
   const thread = svc.thread(threadId);
-  if (!thread) return <Page back="/mobile/chats" title="Chat"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
+  if (!thread) return <Page back="/mobile/chats" title={t('Chat')}><div className="empty"><h3>{t('This chat isn’t available')}</h3></div></Page>;
   const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id);
   const other = thread.kind === 'dm' ? members.find((u) => u.id !== state.userId) : null;
   const muted = svc.chatMuted(threadId);
@@ -88,30 +90,31 @@ export function GroupInfo() {
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   const about = {
     internal: 'Office only. The client never sees this.',
-    client: 'The client is in this conversation.',
+    client: t('The client is in this conversation.'),
     site: 'Notes and photos for the site team.',
-    dm: other ? `${other.title || 'Direct message'} · ${phoneOf(other)}` : 'Direct message',
+    dm: other ? `${other.title || t('Direct message')} · ${phoneOf(other)}` : t('Direct message'),
   }[thread.kind] || audience(thread);
   return (
-    <Page sheet stackTitle back={chatTo} backLabel="Chat" title={threadTitle(thread)} sub={thread.kind === 'dm' ? 'Direct message' : `${audience(thread)} · ${members.length} people`}>
+    <>
+    <Page sheet stackTitle back={chatTo} backLabel={t('Chat')} title={threadTitle(thread)} sub={thread.kind === 'dm' ? t('Direct message') : t('{0} · {1} people', audience(thread), members.length)}>
       <div className="wa-id">
         <ThreadAvatar thread={thread} size="lg" />
         {thread.groupType === 'work' && svc.canManageWork(thread) && (
           <>
-            <GroupPhotoInput className="primary" onPick={(dataUrl) => { try { svc.setWorkPhoto(thread.id, dataUrl); setPhotoError(''); } catch (err) { setPhotoError(err.message); } }} onError={setPhotoError}>
-              {thread.avatar ? 'Change photo' : 'Add photo'}
+            <GroupPhotoInput className="primary" onPick={(dataUrl) => { try { svc.setWorkPhoto(thread.id, dataUrl); setPhotoError(''); } catch (err) { setPhotoError(t(err.message)); } }} onError={setPhotoError}>
+              {thread.avatar ? t('Change photo') : t('Add photo')}
             </GroupPhotoInput>
-            {thread.avatar && <button type="button" className="text-btn" onClick={() => { try { svc.setWorkPhoto(thread.id, ''); setPhotoError(''); } catch (err) { setPhotoError(err.message); } }}>Remove photo</button>}
+            {thread.avatar && <button type="button" className="text-btn" onClick={() => { try { svc.setWorkPhoto(thread.id, ''); setPhotoError(''); } catch (err) { setPhotoError(t(err.message)); } }}>{t('Remove photo')}</button>}
             {photoError ? <p className="warn-text">{photoError}</p> : null}
           </>
         )}
         <b>{threadTitle(thread)}</b>
         <span>{about}</span>
       </div>
-      <h2 className="sect">Media, links and docs</h2>
+      <h2 className="sect">{t('Media, links and docs')}</h2>
       <div className="media-tabs">
         {['Photos', 'Files', 'Links', 'Voice', 'Drawings'].map((k) => (
-          <button type="button" key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setSample(null); }}>{k}</button>
+          <button type="button" key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setSample(null); }}>{t(k)}</button>
         ))}
       </div>
       {sample ? (
@@ -123,7 +126,7 @@ export function GroupInfo() {
       {(tab === 'Photos' || tab === 'Links') && media.length ? (
         <div className="media-strip">
           {media.map((m) => (
-            <Link key={m.id} to={`${chatTo}#${m.id}`} aria-label={m.link?.title || m.text || 'Photo'}>
+            <Link key={m.id} to={`${chatTo}#${m.id}`} aria-label={m.link?.title || m.text || t('Photo')}>
               {m.photo?.dataUrl ? <img src={m.photo.dataUrl} alt="" /> : <Swatch hue={m.photo?.hue ?? m.link?.hue} seed={m.photo?.seed ?? m.link?.seed} />}
             </Link>
           ))}
@@ -137,7 +140,7 @@ export function GroupInfo() {
           ))}
         </div>
       )}
-      {tab !== 'Photos' && tab !== 'Links' && !docs.length && !placeholders.length && <p className="note">Nothing here yet.</p>}
+      {tab !== 'Photos' && tab !== 'Links' && !docs.length && !placeholders.length && <p className="note">{t('Nothing here yet.')}</p>}
       {tab !== 'Photos' && tab !== 'Links' && !docs.length && placeholders.map((item) => (
         <div className="day-row" key={item.title}>
           <div>
@@ -149,65 +152,112 @@ export function GroupInfo() {
       {tab !== 'Photos' && tab !== 'Links' && docs.map((m) => (
         <Link key={m.id} className="day-row" to={`${chatTo}#${m.id}`}>
           <div>
-            <b>{m.voice ? 'Voice note' : 'File'}</b>
-            <span>{m.text || (typeof m.voice === 'string' ? m.voice : m.voice?.dur) || 'Shared in this chat'}</span>
+            <b>{m.voice ? t('Voice note') : t('File')}</b>
+            <span>{m.text || (typeof m.voice === 'string' ? m.voice : m.voice?.dur) || t('Shared in this chat')}</span>
           </div>
         </Link>
       ))}
       {thread.projectId && thread.kind !== 'dm' && thread.groupType !== 'work' && (
         <>
-          <h2 className="sect">Work groups</h2>
-          <p className="note">Private chats. Only the people you add can see one. A work group is not a project task.</p>
-          <Link className="primary" to={`/mobile/chats/${thread.id}/work`}>Create work group</Link>
+          <h2 className="sect">{t('Work groups')}</h2>
+          <p className="note">{t('Private chats. Only the people you add can see one. A work group is not a project task.')}</p>
+          <Link className="primary" to={`/mobile/chats/${thread.id}/work`}>{t('Create work group')}</Link>
           {svc.threads().filter((item) => item.groupType === 'work' && item.projectId === thread.projectId).map((group) => {
             const task = svc.tasks({ projectId: thread.projectId, all: true }).find((item) => item.id === group.taskId);
             const same = task && task.title.trim().toLowerCase() === group.name.trim().toLowerCase();
             return (
               <Link className="row" key={group.id} to={`/mobile/chats/${group.id}`}>
-                <span className="row-copy"><b>{group.name}</b><span>{same ? `Private chat · ${taskStageLabel(task)}` : task ? `For the task “${task.title}”` : 'Private chat'}</span></span>
+                <span className="row-copy"><b>{group.name}</b><span>{same ? t('Private chat · {0}', taskStageLabel(task)) : task ? t('For the task “{0}”', task.title) : t('Private chat')}</span></span>
               </Link>
             );
           })}
-          <h2 className="sect">Tasks</h2>
-          <p className="note">Jobs already on this project. Start a work group only when that job needs its own chat.</p>
+          <h2 className="sect">{t('Tasks')}</h2>
+          <p className="note">{t('Jobs already on this project. Start a work group only when that job needs its own chat.')}</p>
           {svc.tasks({ projectId: thread.projectId, all: true }).filter((task) => !svc.workGroupForTask(task.id)).map((task) => {
             const taken = Boolean(svc.workGroupRecord(task.id));
-            const body = <span className="row-copy"><b>{task.title}</b><span>Task · {taskStageLabel(task)}{taken ? ' · Already has a work group' : ''}</span></span>;
+            const body = <span className="row-copy"><b>{task.title}</b><span>{t('Task ·')}{' '}{taskStageLabel(task)}{taken ? t(' · Already has a work group') : ''}</span></span>;
             return taken
               ? <div className="row" key={task.id}>{body}</div>
               : <Link className="row" key={task.id} to={`/mobile/chats/${thread.id}/work?task=${task.id}`}>{body}</Link>;
           })}
         </>
       )}
-      <h2 className="sect">Options</h2>
+      <h2 className="sect">{t('Options')}</h2>
       <button type="button" className="day-row" onClick={() => {
         svc.setChatMuted(threadId, !muted);
       }}>
         <div>
-          <b>Mute notifications</b>
-          <span>Stops the unread mark on this phone</span>
+          <b>{t('Mute notifications')}</b>
+          <span>{t('Stops the unread mark on this phone')}</span>
         </div>
-        <span className="day-acts">{muted ? 'On' : 'Off'}</span>
+        <span className="day-acts">{muted ? t('On') : t('Off')}</span>
       </button>
       {pinned.map((m) => (
         <Link className="day-row" key={m.id} to={`${chatTo}#${m.id}`}>
           <div>
-            <b>Pinned decision</b>
-            <span>{m.text || 'Decision'}</span>
+            <b>{t('Pinned decision')}</b>
+            <span>{m.text || t('Decision')}</span>
           </div>
         </Link>
       ))}
-      <h2 className="sect">{thread.kind === 'dm' ? 'Contact' : `${members.length} people`}</h2>
+      <h2 className="sect">{thread.kind === 'dm' ? t('Contact') : t('{0} people', members.length)}</h2>
+      {svc.canInvite(thread) && (
+        <button type="button" className="row add-people" onClick={() => setAdding(true)}>
+          <span className="round" aria-hidden="true"><Icon name="plus" /></span>
+          <span className="row-copy"><b>{t('Add people')}</b></span>
+        </button>
+      )}
       {members.map((u) => (
         <div className="day-row" key={u.id}>
           <div className="person-line">
             <Avatar person={u} />
             <span className="row-copy"><b>{u.name}</b><span>{u.title} · {phoneOf(u)}</span></span>
           </div>
-          {u.id !== state.userId ? <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a> : <span className="day-acts">You</span>}
+          {u.id !== state.userId ? <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>{t('Call')}</a> : <span className="day-acts">{t('You')}</span>}
         </div>
       ))}
     </Page>
+    {adding && <AddPeopleSheet thread={thread} onClose={() => setAdding(false)} />}
+    </>
+  );
+}
+
+// Add people to a group or project conversation. Each tap adds that person; the list keeps going until Done.
+function AddPeopleSheet({ thread, onClose }) {
+  const [q, setQ] = useState('');
+  const [error, setError] = useState('');
+  const people = svc.invitablePeople(thread.id);
+  const needle = q.trim().toLowerCase();
+  const shown = people.filter((u) => !needle || `${u.name} ${u.title || ''}`.toLowerCase().includes(needle));
+  function add(userId) {
+    try {
+      svc.inviteToGroup(thread.id, userId);
+      setError('');
+    } catch (e) {
+      setError(t(e.message));
+    }
+  }
+  return (
+    <div className="sheet-back" onClick={onClose} role="presentation">
+      <div className="sheet" role="dialog" aria-label={t('Add people')} onClick={(e) => e.stopPropagation()}>
+        <h2>{t('Add people')}</h2>
+        {error ? <p className="warn-text">{error}</p> : null}
+        <p className="help">{svc.inviteHint(thread)}</p>
+        <label className="search">
+          <Icon name="search" />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Name or role')} aria-label={t('Search people')} />
+        </label>
+        {shown.map((u) => (
+          <button type="button" className="row" key={u.id} onClick={() => add(u.id)}>
+            <Avatar person={u} />
+            <span className="row-copy"><b>{u.name}</b><span>{u.title}</span></span>
+          </button>
+        ))}
+        {!people.length && <p className="note">{t('Everyone available is already in this chat.')}</p>}
+        {people.length > 0 && !shown.length && <p className="note">{t('No matches.')}</p>}
+        <button type="button" className="primary" onClick={onClose}>{t('Done')}</button>
+      </div>
+    </div>
   );
 }
 
@@ -245,7 +295,7 @@ export function WorkGroups() {
     }
   }, [params, navigate, tasks, name]);
   if (!parent || parent.kind === 'dm' || parent.groupType === 'work') {
-    return <Page back="/mobile/chats" title="Work groups"><div className="empty"><h3>This group isn’t available</h3></div></Page>;
+    return <Page back="/mobile/chats" title={t('Work groups')}><div className="empty"><h3>{t('This group isn’t available')}</h3></div></Page>;
   }
   function chooseTask(id) {
     const next = tasks.find((item) => item.id === id);
@@ -262,92 +312,92 @@ export function WorkGroups() {
       const thread = svc.createWorkGroup({ parentGroupId: parent.id, taskId, taskTitle, name, memberIds: picked, avatar: photo });
       navigate(`/mobile/chats/${thread.id}`);
     } catch (e) {
-      setError(e.message);
+      setError(t(e.message));
     }
   }
   function continueNew(e) {
     e.preventDefault();
-    if (!name.trim()) { setError('Give the work group a name.'); return; }
+    if (!name.trim()) { setError(t('Give the work group a name.')); return; }
     const open = taskId && svc.workGroupForTask(taskId);
     if (open) { navigate(`/mobile/chats/${open.id}`); return; }
-    if (taskId && svc.workGroupRecord(taskId)) { setError('This task already has a work group.'); return; }
+    if (taskId && svc.workGroupRecord(taskId)) { setError(t('This task already has a work group.')); return; }
     setError('');
     setStep('people');
   }
-  const title = step === 'review' ? 'Review' : step === 'people' ? 'People' : 'New work group';
+  const title = step === 'review' ? t('Review') : step === 'people' ? t('People') : t('New work group');
   const related = siblings(parent);
   if (step === 'list') {
     return (
       <div className="screen">
         <ThreadHeader thread={parent} />
-        <div className="switcher" role="tablist" aria-label="Conversations in this project">
+        <div className="switcher" role="tablist" aria-label={t('Conversations in this project')}>
           {related.map((item) => (
             <Link key={item.id} role="tab" aria-selected={false} to={`/mobile/chats/${item.id}`}>{audience(item)}</Link>
           ))}
-          <Link role="tab" aria-selected className="on" to={`/mobile/chats/${parent.id}/work`}>Work groups</Link>
+          <Link role="tab" aria-selected className="on" to={`/mobile/chats/${parent.id}/work`}>{t('Work groups')}</Link>
         </div>
         <div className="body canvas">
           {error ? <p className="warn-text">{error}</p> : null}
           <div className="work-board">
-            {svc.canManageWork(parent) && <button type="button" className="primary" onClick={() => { setTaskId(''); setError(''); setStep('task'); }}>New work group</button>}
-            {groups.length > 0 && <p className="work-label">Work groups</p>}
+            {svc.canManageWork(parent) && <button type="button" className="primary" onClick={() => { setTaskId(''); setError(''); setStep('task'); }}>{t('New work group')}</button>}
+            {groups.length > 0 && <p className="work-label">{t('Work groups')}</p>}
             {groups.map((group) => {
               const linked = tasks.find((item) => item.id === group.taskId);
               return (
                 <button type="button" className="row" key={group.id} onClick={() => navigate(`/mobile/chats/${group.id}`)}>
                   <ThreadAvatar thread={group} />
-                  <span className="row-copy"><b>{group.name}</b><span>{linked && linked.title.trim().toLowerCase() !== group.name.trim().toLowerCase() ? `For the task “${linked.title}”` : `Private chat${linked ? ` · ${taskStageLabel(linked)}` : ''}`}</span></span>
+                  <span className="row-copy"><b>{group.name}</b><span>{linked && linked.title.trim().toLowerCase() !== group.name.trim().toLowerCase() ? t('For the task “{0}”', linked.title) : t('Private chat{0}', linked ? ` · ${taskStageLabel(linked)}` : '')}</span></span>
                 </button>
               );
             })}
-            <p className="work-label">Tasks</p>
-            <p className="note">Project jobs that do not have a private chat yet.</p>
+            <p className="work-label">{t('Tasks')}</p>
+            <p className="note">{t('Project jobs that do not have a private chat yet.')}</p>
             {openTasks.map((item) => {
               const taken = Boolean(svc.workGroupRecord(item.id));
               return (
                 <button type="button" className="row" key={item.id} disabled={taken} onClick={() => !taken && chooseTask(item.id)}>
-                  <span className="row-copy"><b>{item.title}</b><span>{taken ? 'Already has a work group' : taskStageLabel(item)}</span></span>
+                  <span className="row-copy"><b>{item.title}</b><span>{taken ? t('Already has a work group') : taskStageLabel(item)}</span></span>
                 </button>
               );
             })}
-            {!openTasks.length && <p className="note">Every task here already has a work group.</p>}
+            {!openTasks.length && <p className="note">{t('Every task here already has a work group.')}</p>}
           </div>
         </div>
       </div>
     );
   }
   return (
-    <Page className="work-flow" stackTitle back={`/mobile/chats/${parent.id}/work`} backLabel="Work groups" title={title} sub={parent.name}>
-      <button type="button" className="work-back" onClick={() => { setError(''); setStep(step === 'review' ? 'people' : 'list'); }}>{step === 'review' ? 'Edit people' : 'Back'}</button>
+    <Page className="work-flow" stackTitle back={`/mobile/chats/${parent.id}/work`} backLabel={t('Work groups')} title={title} sub={parent.name}>
+      <button type="button" className="work-back" onClick={() => { setError(''); setStep(step === 'review' ? 'people' : 'list'); }}>{step === 'review' ? t('Edit people') : t('Back')}</button>
       {error ? <p className="warn-text">{error}</p> : null}
       {step === 'task' && (
         <form className="stack work-review" onSubmit={continueNew}>
-          <p className="help">New work group in {projectName(parent.projectId)}, inside {parent.name}.</p>
+          <p className="help">{t('New work group in {0}, inside {1}.', projectName(parent.projectId), parent.name)}</p>
           <div className="person-line">
             {photo ? <span className="av lg"><img src={photo} alt="" /></span> : <span className="av lg">{(name.trim() || 'W').slice(0, 1).toUpperCase()}</span>}
           </div>
           <GroupPhotoInput className="text-btn" onPick={(dataUrl) => { setPhoto(dataUrl); setError(''); }} onError={setError}>
-            {photo ? 'Change photo' : 'Add photo'}
+            {photo ? t('Change photo') : t('Add photo')}
           </GroupPhotoInput>
-          {photo ? <button type="button" className="text-btn" onClick={() => setPhoto('')}>Remove photo</button> : null}
-          <label>Work group name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Kitchen island installation" /></label>
-          <label>Task
-            <Select className="field-select" aria-label="Task" value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
-              <option value="">New task on this project</option>
+          {photo ? <button type="button" className="text-btn" onClick={() => setPhoto('')}>{t('Remove photo')}</button> : null}
+          <label>{t('Work group name')}<input aria-label={t('Work group name')} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Kitchen island installation')} /></label>
+          <label>{t('Task')}
+            <Select className="field-select" aria-label={t('Task')} value={taskId} onChange={(e) => { setTaskId(e.target.value); setError(''); }}>
+              <option value="">{t('New task on this project')}</option>
               {tasks.map((item) => {
                 const open = svc.workGroupForTask(item.id);
-                return <option key={item.id} value={item.id}>{item.title}{open ? ' · already has a work group' : ''}</option>;
+                return <option key={item.id} value={item.id}>{item.title}{open ? t(' · already has a work group') : ''}</option>;
               })}
             </Select>
           </label>
-          {!taskId && <label>Task name<input aria-label="Task name" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Leave blank to use the work group name" /></label>}
-          <button className="primary" type="submit">Continue</button>
+          {!taskId && <label>{t('Task name')}<input aria-label={t('Task name')} value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder={t('Leave blank to use the work group name')} /></label>}
+          <button className="primary" type="submit">{t('Continue')}</button>
         </form>
       )}
       {step === 'people' && (
-        <form className="stack work-review" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) { setError('Give the work group a name.'); return; } if (!picked.length) { setError('Add at least one person from this group.'); return; } setError(''); setStep('review'); }}>
-          <label>Work group name<input aria-label="Work group name" value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <p className="help">{task ? `Linked to ${task.title}` : `New task: ${taskTitle.trim() || name}`}. Choose people from {parent.name}.</p>
+        <form className="stack work-review" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) { setError(t('Give the work group a name.')); return; } if (!picked.length) { setError(t('Add at least one person from this group.')); return; } setError(''); setStep('review'); }}>
+          <label>{t('Work group name')}<input aria-label={t('Work group name')} value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <p className="help">{task ? t('Linked to {0}', task.title) : t('New task: {0}', taskTitle.trim() || name)}{t('. Choose people from')}{' '}{parent.name}.</p>
           {people.map((u) => {
             const on = picked.includes(u.id);
             return (
@@ -358,8 +408,8 @@ export function WorkGroups() {
               </button>
             );
           })}
-          {!people.length && <p className="note">No one else is in this group.</p>}
-          <button className="primary" type="submit">Review</button>
+          {!people.length && <p className="note">{t('No one else is in this group.')}</p>}
+          <button className="primary" type="submit">{t('Review')}</button>
         </form>
       )}
       {step === 'review' && (
@@ -368,17 +418,17 @@ export function WorkGroups() {
             {photo ? <span className="av"><img src={photo} alt="" /></span> : <span className="av">{(name.trim() || 'W').slice(0, 1).toUpperCase()}</span>}
             <h2>{name}</h2>
             <p>{task?.title || taskTitle.trim() || name}</p>
-            <p className="work-where">{task ? taskStageLabel(task) : 'New task'} · {parent.name}</p>
+            <p className="work-where">{task ? taskStageLabel(task) : t('New task')} · {parent.name}</p>
           </div>
-          <h3>Who can see this</h3>
+          <h3>{t('Who can see this')}</h3>
           {[{ ...user(state.userId), you: true }, ...chosen].map((u) => (
             <div className="work-person" key={u.id}>
               <Avatar person={u} />
-              <span><b>{u.name}</b><span>{u.you ? 'You' : u.title}</span></span>
+              <span><b>{u.name}</b><span>{u.you ? t('You') : u.title}</span></span>
             </div>
           ))}
-          <p className="work-private">Only these people see the messages. The rest of {parent.name} does not.</p>
-          {existing ? <button type="button" className="primary" onClick={() => navigate(`/mobile/chats/${existing.id}`)}>Open work group</button> : <button type="button" className="primary" onClick={create}>Create work group</button>}
+          <p className="work-private">{t('Only these people see the messages. The rest of {0} does not.', parent.name)}</p>
+          {existing ? <button type="button" className="primary" onClick={() => navigate(`/mobile/chats/${existing.id}`)}>{t('Open work group')}</button> : <button type="button" className="primary" onClick={create}>{t('Create work group')}</button>}
         </div>
       )}
     </Page>
@@ -420,7 +470,7 @@ export function VoicePlay({ src, dur = '' }) {
     }).catch(() => setOn(false));
   }
   return (
-    <button type="button" className={`voice-play ${on ? 'on' : ''}`} onPointerDown={(e) => e.stopPropagation()} onClick={play} aria-label={on ? 'Stop voice note' : 'Play voice note'}>
+    <button type="button" className={`voice-play ${on ? 'on' : ''}`} onPointerDown={(e) => e.stopPropagation()} onClick={play} aria-label={on ? t('Stop voice note') : t('Play voice note')}>
       <audio ref={audioRef} className="voice-audio" src={src || undefined} preload="none" onEnded={() => { if (playingNote?.id === id) playingNote = null; setOn(false); }} />
       <span className="voice-go" aria-hidden="true">{on ? <i className="pause" /> : <Icon name="play" />}</span>
       <span className="voice-track" />
@@ -447,7 +497,7 @@ export function Voice() {
     clearInterval(timer.current);
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
-  if (!thread) return <Page back="/mobile/chats" title="Voice"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
+  if (!thread) return <Page back="/mobile/chats" title={t('Voice')}><div className="empty"><h3>{t('This chat isn’t available')}</h3></div></Page>;
 
   const clock = (ms) => {
     const s = Math.max(0, Math.round(ms / 1000));
@@ -480,7 +530,7 @@ export function Voice() {
       rec.start();
       setPhase('recording');
     } catch {
-      setMicNote('The microphone did not open. Allow the microphone, then try again.');
+      setMicNote(t('The microphone did not open. Allow the microphone, then try again.'));
     }
   }
 
@@ -497,18 +547,18 @@ export function Voice() {
   }
 
   return (
-    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Voice note" sub={threadTitle(thread)}>
+    <Page back={`/mobile/chats/${threadId}`} backLabel={t('Chat')} title={t('Voice note')} sub={threadTitle(thread)}>
       {phase === 'idle' && (
         <div className="stack">
-          <Note>Tap once to record. You can listen to it, then send it into this chat.</Note>
-          <button type="button" className="primary" onClick={start}>Tap to record</button>
+          <Note>{t('Tap once to record. You can listen to it, then send it into this chat.')}</Note>
+          <button type="button" className="primary" onClick={start}>{t('Tap to record')}</button>
           {micNote ? <p className="note">{micNote}</p> : null}
         </div>
       )}
       {phase === 'recording' && (
         <div className="stack">
-          <p className="voice-line">Recording · {dur}</p>
-          <button type="button" className="primary" onClick={stop}>Stop</button>
+          <p className="voice-line">{t('Recording · {0}', dur)}</p>
+          <button type="button" className="primary" onClick={stop}>{t('Stop')}</button>
         </div>
       )}
       {phase === 'ready' && (
@@ -519,9 +569,9 @@ export function Voice() {
           navigate(`/mobile/chats/${threadId}`);
         }}>
           <VoicePlay src={audio} dur={dur} />
-          <Note>Tap play to hear the recording, then send it.</Note>
-          <button className="primary" type="submit">Send to this chat</button>
-          <button type="button" className="text-btn" onClick={again}>Record again</button>
+          <Note>{t('Tap play to hear the recording, then send it.')}</Note>
+          <button className="primary" type="submit">{t('Send to this chat')}</button>
+          <button type="button" className="text-btn" onClick={again}>{t('Record again')}</button>
         </form>
       )}
     </Page>
@@ -555,68 +605,68 @@ export function MessageActions({ thread, message, onReply, onDeleted, onForward 
   if (confirmDelete) {
     return (
       <div className="msg-actions">
-        <h2>Delete this message?</h2>
-        <button type="button" className="ghost warn-text" onClick={() => { hideMessage(message); onDeleted?.(); }}>Delete for me</button>
+        <h2>{t('Delete this message?')}</h2>
+        <button type="button" className="ghost warn-text" onClick={() => { hideMessage(message); onDeleted?.(); }}>{t('Delete for me')}</button>
         {mine && !message.deleted && (
-          <button type="button" className="ghost warn-text" onClick={() => { deleteMessage(message); onDeleted?.(); }}>Delete for everyone</button>
+          <button type="button" className="ghost warn-text" onClick={() => { deleteMessage(message); onDeleted?.(); }}>{t('Delete for everyone')}</button>
         )}
-        <button type="button" className="ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+        <button type="button" className="ghost" onClick={() => setConfirmDelete(false)}>{t('Cancel')}</button>
       </div>
     );
   }
   return (
     <div className="msg-actions">
       {!message.deleted && (
-        <div className="emoji-row" role="group" aria-label="Reactions">
+        <div className="emoji-row" role="group" aria-label={t('Reactions')}>
           {REACTIONS.map(([emoji, label]) => (
             <button type="button" key={emoji} className={message.reactions?.[emoji]?.includes(state.userId) ? 'on' : ''} aria-label={label} onClick={() => toggleReaction(message, emoji)}><span aria-hidden="true">{emoji}</span>{label}</button>
           ))}
         </div>
       )}
-      {filing && !message.deleted ? <p className="note">Filed · {filingLabel(filing) || 'this chat'}</p> : null}
-      {!message.deleted && <button type="button" className="ghost" onClick={onReply}>Reply</button>}
-      {!message.deleted && <button type="button" className="ghost" onClick={onForward}>Forward</button>}
-      <button type="button" className="ghost warn-text" onClick={() => setConfirmDelete(true)}>Delete</button>
-      {!message.deleted && <Link className="ghost" to={`/mobile/chats/${thread.id}/messages/${message.id}/filing`}>Change where this is filed</Link>}
-      {message.issueId ? <Link className="ghost" to={`/mobile/issues/${message.issueId}`}>Open linked issue</Link> : null}
+      {filing && !message.deleted ? <p className="note">{t('Filed ·')}{' '}{filingLabel(filing) || t('this chat')}</p> : null}
+      {!message.deleted && <button type="button" className="ghost" onClick={onReply}>{t('Reply')}</button>}
+      {!message.deleted && <button type="button" className="ghost" onClick={onForward}>{t('Forward')}</button>}
+      <button type="button" className="ghost warn-text" onClick={() => setConfirmDelete(true)}>{t('Delete')}</button>
+      {!message.deleted && <Link className="ghost" to={`/mobile/chats/${thread.id}/messages/${message.id}/filing`}>{t('Change where this is filed')}</Link>}
+      {message.issueId ? <Link className="ghost" to={`/mobile/issues/${message.issueId}`}>{t('Open linked issue')}</Link> : null}
       {!message.deleted && thread.projectId && svc.assistKinds().includes('followup') && (message.text || message.transcript) ? (
-        <Link className="ghost" to={`/mobile/assist?kind=followup&message=${message.id}`}>Suggest a follow-up</Link>
+        <Link className="ghost" to={`/mobile/assist?kind=followup&message=${message.id}`}>{t('Suggest a follow-up')}</Link>
       ) : null}
       {!message.deleted && message.photo && svc.assistKinds().includes('concept') ? (
-        <Link className="ghost" to={`/mobile/assist?kind=concept&message=${message.id}&project=${thread.projectId || ''}`}>Finish palette from this photo</Link>
+        <Link className="ghost" to={`/mobile/assist?kind=concept&message=${message.id}&project=${thread.projectId || ''}`}>{t('Finish palette from this photo')}</Link>
       ) : null}
       {canPin && (
-        <button type="button" className="ghost" onClick={() => toggleDecision(message)}>{message.decision ? 'Unpin decision' : 'Pin as decision'}</button>
+        <button type="button" className="ghost" onClick={() => toggleDecision(message)}>{message.decision ? t('Unpin decision') : t('Pin as decision')}</button>
       )}
-      <button type="button" className="ghost" onClick={() => setShowInfo((v) => !v)}>Info · sent, delivered, read</button>
+      <button type="button" className="ghost" onClick={() => setShowInfo((v) => !v)}>{t('Info · sent, delivered, read')}</button>
       {showInfo && (
         <article className="view-card">
-          <p>Sent · {fmtT(message.at)}</p>
-          <p>Delivered · {fmtT(message.at)}</p>
+          <p>{t('Sent · {0}', fmtT(message.at))}</p>
+          <p>{t('Delivered · {0}', fmtT(message.at))}</p>
           {others.map((id) => {
             const person = user(id);
             const read = id.charCodeAt(0) % 3 !== 0;
-            return <p key={id}>{person.name} · {read ? `read ${fmtT(message.at)}` : 'not yet read'}</p>;
+            return <p key={id}>{person.name} · {read ? t('read {0}', fmtT(message.at)) : t('not yet read')}</p>;
           })}
         </article>
       )}
       {!message.deleted && !remindOpen && (
-        <button type="button" className="ghost" onClick={() => setRemindOpen(true)}>Remind me</button>
+        <button type="button" className="ghost" onClick={() => setRemindOpen(true)}>{t('Remind me')}</button>
       )}
       {!message.deleted && remindOpen && (
         <>
-          <button type="button" className="ghost" onClick={() => { svc.addFollowup(message.id, reminderAt('tomorrow')); setReminded('Reminder set for tomorrow at 9am.'); render(); }}>Tomorrow 9am</button>
-          <button type="button" className="ghost" onClick={() => { svc.addFollowup(message.id, reminderAt('monday')); setReminded('Reminder set for Monday at 9am.'); render(); }}>Monday 9am</button>
+          <button type="button" className="ghost" onClick={() => { svc.addFollowup(message.id, reminderAt('tomorrow')); setReminded(t('Reminder set for tomorrow at 9am.')); render(); }}>{t('Tomorrow 9am')}</button>
+          <button type="button" className="ghost" onClick={() => { svc.addFollowup(message.id, reminderAt('monday')); setReminded(t('Reminder set for Monday at 9am.')); render(); }}>{t('Monday 9am')}</button>
         </>
       )}
       {reminded ? <p className="note">{reminded}</p> : null}
       {mine && !message.deleted && message.text && !message.voice && !editing && (
-        <button type="button" className="ghost" onClick={() => setEditing(true)}>Edit</button>
+        <button type="button" className="ghost" onClick={() => setEditing(true)}>{t('Edit')}</button>
       )}
       {mine && !message.deleted && message.text && !message.voice && editing && (
         <form className="stack" onSubmit={(e) => { e.preventDefault(); editMessage(message, edit); setEditing(false); }}>
-          <label>Edit<textarea rows={3} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label="Edit message" /></label>
-          <button className="primary" type="submit">Save</button>
+          <label>{t('Edit')}<textarea rows={3} value={edit} onChange={(e) => setEdit(e.target.value)} aria-label={t('Edit message')} /></label>
+          <button className="primary" type="submit">{t('Save')}</button>
         </form>
       )}
     </div>
@@ -638,8 +688,8 @@ export function ForwardPick({ message, onClose }) {
   return (
     <>
       <header className="top">
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Back to chat"><Icon name="back" /></button>
-        <h1>Forward to</h1>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label={t('Back to chat')}><Icon name="back" /></button>
+        <h1>{t('Forward to')}</h1>
       </header>
       <div className="body">
         {myThreads().map(({ t: dest }) => {
@@ -659,8 +709,8 @@ export function ForwardPick({ message, onClose }) {
       </div>
       {picked.length > 0 && (
         <div className="composer">
-          <span className="row-copy"><b>{picked.length} selected</b></span>
-          <button type="button" className="round send" aria-label="Forward message" onClick={send}><Icon name="send" /></button>
+          <span className="row-copy"><b>{t('{0} selected', picked.length)}</b></span>
+          <button type="button" className="round send" aria-label={t('Forward message')} onClick={send}><Icon name="send" /></button>
         </div>
       )}
     </>
@@ -671,12 +721,12 @@ function SiteReviewBlock({ messageId }) {
   const r = svc.siteUpdateReview(messageId);
   const [error, setError] = useState('');
   if (!r) return null;
-  if (r.applied || r.message?.siteAnswer) return <p className="note">Confirmed records · included in daily log</p>;
+  if (r.applied || r.message?.siteAnswer) return <p className="note">{t('Confirmed records · included in daily log')}</p>;
   if (!siteHasSuggestion(r)) return null;
   const s = r.suggestion;
   return (
     <div className="stack">
-      <p className="note">AI suggestion · demo. Check against the source; only selected records will be saved.</p>
+      <p className="note">{t('AI suggestion · demo. Check against the source; only selected records will be saved.')}</p>
       <button type="button" className="primary" onClick={() => {
         try {
           svc.saveSiteUpdate(messageId, {
@@ -693,8 +743,8 @@ function SiteReviewBlock({ messageId }) {
           });
           setError('');
           render();
-        } catch (err) { setError(err.message); }
-      }}>Confirm selected records</button>
+        } catch (err) { setError(t(err.message)); }
+      }}>{t('Confirm selected records')}</button>
       {error ? <p className="warn-text">{error}</p> : null}
     </div>
   );
@@ -707,12 +757,12 @@ export function MessagePage() {
   const thread = svc.thread(threadId);
   const message = messagesOf(threadId).find((m) => m.id === messageId);
   const [reply, setReply] = useState('');
-  if (!thread || !message) return <Page back={`/mobile/chats/${threadId || ''}`} title="Message"><div className="empty"><h3>This message isn’t available</h3></div></Page>;
+  if (!thread || !message) return <Page back={`/mobile/chats/${threadId || ''}`} title={t('Message')}><div className="empty"><h3>{t('This message isn’t available')}</h3></div></Page>;
   return (
-    <Page back={`/mobile/chats/${threadId}`} backLabel="Chat" title="Message" sub={`${firstName(message.by)} · ${fmtT(message.at)}`}>
+    <Page back={`/mobile/chats/${threadId}`} backLabel={t('Chat')} title={t('Message')} sub={`${firstName(message.by)} · ${fmtT(message.at)}`}>
       <article className="view-card">
-        {message.deleted ? <p className="gone">This message was deleted</p> : <p>{message.text}</p>}
-        {message.edited ? <span>Edited</span> : null}
+        {message.deleted ? <p className="gone">{t('This message was deleted')}</p> : <p>{message.text}</p>}
+        {message.edited ? <span>{t('Edited')}</span> : null}
       </article>
       <SiteReviewBlock messageId={message.id} />
       <MessageActions thread={thread} message={message} onReply={() => document.querySelector('[aria-label="Reply"]')?.focus()} onDeleted={() => navigate(`/mobile/chats/${threadId}`)} onForward={() => navigate(`/mobile/chats/${threadId}`, { state: { forward: message.id } })} />
@@ -723,8 +773,8 @@ export function MessagePage() {
           postMessage(threadId, { text: reply.trim(), replyTo: messageId });
           navigate(`/mobile/chats/${threadId}`);
         }}>
-          <label>Reply<textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} aria-label="Reply" /></label>
-          <button className="primary" type="submit">Send reply</button>
+          <label>{t('Reply')}<textarea rows={3} value={reply} onChange={(e) => setReply(e.target.value)} aria-label={t('Reply')} /></label>
+          <button className="primary" type="submit">{t('Send reply')}</button>
         </form>
       )}
     </Page>
@@ -747,33 +797,33 @@ export function Filing() {
   const [error, setError] = useState('');
   const backTo = params.get('from') === 'chat' ? `/mobile/chats/${threadId}` : `/mobile/chats/${threadId}/messages/${messageId}`;
   return (
-    <Page back={backTo} backLabel={params.get('from') === 'chat' ? 'Chat' : 'Message'} title="Where should this go?">
+    <Page back={backTo} backLabel={params.get('from') === 'chat' ? t('Chat') : t('Message')} title={t('Where should this go?')}>
       <form className="stack" onSubmit={(e) => {
         e.preventDefault();
         try {
           const saved = svc.fileMessage(messageId, { projectId, room: room === 'Not set' ? '' : room, kind, drawing: drawing.trim() || null });
           if (!saved) throw new Error('Filing could not be saved on this device.');
           navigate(backTo);
-        } catch (err) { setError(err.message); }
+        } catch (err) { setError(t(err.message)); }
       }}>
-        <label>Project
-          <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label="Project">
+        <label>{t('Project')}
+          <Select className="field-select" value={projectId} onChange={(e) => setProjectId(e.target.value)} aria-label={t('Project')}>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </label>
-        <label>Room
-          <Select className="field-select" value={room} onChange={(e) => setRoom(e.target.value)} aria-label="Room">
+        <label>{t('Room')}
+          <Select className="field-select" value={room} onChange={(e) => setRoom(e.target.value)} aria-label={t('Room')}>
             {rooms.map((r) => <option key={r}>{r}</option>)}
           </Select>
         </label>
-        <label>What is it
-          <Select className="field-select" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="What is it">
+        <label>{t('What is it')}
+          <Select className="field-select" value={kind} onChange={(e) => setKind(e.target.value)} aria-label={t('What is it')}>
             {kinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </Select>
         </label>
-        <label>Drawing number<input value={drawing} onChange={(e) => setDrawing(e.target.value)} placeholder="HA-2401-A-101" aria-label="Drawing number" /></label>
+        <label>{t('Drawing number')}<input value={drawing} onChange={(e) => setDrawing(e.target.value)} placeholder="HA-2401-A-101" aria-label={t('Drawing number')} /></label>
         {error ? <p className="warn-text">{error}</p> : null}
-        <button className="primary" type="submit">Save filing</button>
+        <button className="primary" type="submit">{t('Save filing')}</button>
       </form>
     </Page>
   );
@@ -789,14 +839,14 @@ export function Issue() {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState('');
   const detail = svc.siteIssueDetails(issueId);
-  if (!detail) return <Page sheet back={back} backLabel={backLabel} title="Issue"><div className="empty"><h3>This issue isn’t available</h3></div></Page>;
+  if (!detail) return <Page sheet back={back} backLabel={backLabel} title={t('Issue')}><div className="empty"><h3>{t('This issue isn’t available')}</h3></div></Page>;
   const { issue } = detail;
   const here = `/mobile/issues/${issueId}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return (
     <Page sheet stackTitle back={back} backLabel={backLabel} title={issue.title} sub={`${issue.status}${issue.due ? ` · reply by ${fmtT(issue.due)}` : ''}`}>
-      <p className="note">{issue.type}{issue.drawing ? ` · ${issue.drawing}` : ''} · raised by {firstName(issue.raisedBy)}</p>
+      <p className="note">{t('{0}{1} · raised by {2}', issue.type, issue.drawing ? ` · ${issue.drawing}` : '', firstName(issue.raisedBy))}</p>
       <section>
-        <h2>Linked site updates</h2>
+        <h2>{t('Linked site updates')}</h2>
         {detail.sources.map((m) => (
           <Link key={m.id} className="day-row" to={`/mobile/chats/${m.threadId}?from=${encodeURIComponent(here)}#${m.id}`}>
             <div>
@@ -805,28 +855,28 @@ export function Issue() {
             </div>
           </Link>
         ))}
-        {!detail.sources.length && <p className="note">No site update linked.</p>}
+        {!detail.sources.length && <p className="note">{t('No site update linked.')}</p>}
       </section>
       <section>
-        <h2>Office answers</h2>
+        <h2>{t('Office answers')}</h2>
         {detail.answers.length ? detail.answers.map((m) => (
           <div key={m.id} className="day-row"><div><b>{firstName(m.by)}</b><span>{m.text}</span></div></div>
-        )) : <p className="note">No answer yet.</p>}
+        )) : <p className="note">{t('No answer yet.')}</p>}
       {detail.canAnswer && (
         <form className="stack" onSubmit={(e) => {
           e.preventDefault();
           try { svc.answerSiteIssue(issueId, answer); setAnswer(''); setError(''); render(); }
-          catch (err) { setError(err.message); }
+          catch (err) { setError(t(err.message)); }
         }}>
-          <label>Office answer<textarea rows={3} value={answer} onChange={(e) => setAnswer(e.target.value)} /></label>
+          <label>{t('Office answer')}<textarea rows={3} value={answer} onChange={(e) => setAnswer(e.target.value)} /></label>
           {error ? <p className="warn-text">{error}</p> : null}
-          <button className="primary" type="submit">Send answer</button>
+          <button className="primary" type="submit">{t('Send answer')}</button>
         </form>
       )}
       {svc.assistKinds().includes('ask') ? (
         <Link className="day-row" to={`/mobile/projects/${issue.projectId}/assist?kind=ask&issue=${issueId}&from=${encodeURIComponent(here)}`}>
-          <b>Summarise this issue</b>
-          <span>From the recorded history</span>
+          <b>{t('Summarise this issue')}</b>
+          <span>{t('From the recorded history')}</span>
         </Link>
       ) : null}
       </section>
@@ -864,10 +914,10 @@ export function Assist() {
   const clientThread = svc.threads().find((t) => t.projectId === pid && t.kind === 'client');
   const clientMessages = clientThread ? messagesOf(clientThread.id).filter((m) => !m.deleted && (m.text || m.transcript)).slice(-12) : [];
   const photos = svc.threads().filter((t) => !pid || t.projectId === pid).flatMap((t) => messagesOf(t.id).filter((m) => m.photo && !m.deleted).map((m) => ({ ...m, threadName: threadTitle(t) })));
-  const title = issueId ? 'Summarise this issue' : drawingNo ? 'Ask about this sheet' : {
-    ask: 'Ask about this project', compare: 'Compare materials', daily: 'Review day report',
-    client: 'Client update', concept: 'Finish palette', followup: 'Suggested follow-up',
-  }[kind] || 'Draft';
+  const title = issueId ? t('Summarise this issue') : drawingNo ? t('Ask about this sheet') : {
+    ask: t('Ask about this project'), compare: t('Compare materials'), daily: t('Review day report'),
+    client: t('Client update'), concept: t('Finish palette'), followup: t('Suggested follow-up'),
+  }[kind] || t('Draft');
 
   const messageThreadId = messageId ? state.db.MESSAGES.find((m) => m.id === messageId)?.threadId : '';
   const backTo = fromPage && fromPage.startsWith('/mobile/')
@@ -884,11 +934,11 @@ export function Assist() {
     const thread = chats.find((t) => t.id === chosen);
     const text = question.trim();
     if (!thread || !text) {
-      setError('Write the question and choose who receives it.');
+      setError(t('Write the question and choose who receives it.'));
       return;
     }
     if (!postMessage(thread.id, { text })) {
-      setError('This conversation is not available to send to.');
+      setError(t('This conversation is not available to send to.'));
       return;
     }
     const backTo = fromPage && fromPage.startsWith('/mobile/') ? fromPage : `/mobile/projects/${pid}`;
@@ -899,11 +949,11 @@ export function Assist() {
     const thread = chats.find((t) => t.id === chosen);
     const text = (result?.text || '').trim();
     if (!thread || !text) {
-      setError('Choose who receives this draft.');
+      setError(t('Choose who receives this draft.'));
       return;
     }
     if (!postMessage(thread.id, { text })) {
-      setError('This conversation is not available to send to.');
+      setError(t('This conversation is not available to send to.'));
       return;
     }
     const backTo = fromPage && fromPage.startsWith('/mobile/') ? fromPage : `/mobile/projects/${pid}`;
@@ -930,7 +980,7 @@ export function Assist() {
       setOptions(next);
       setResult(draft);
       setOwner(draft.proposal?.owners?.[0]?.id || '');
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(t(err.message)); }
   }
 
   async function sendDraft() {
@@ -939,7 +989,7 @@ export function Assist() {
       await svc.sendAssist(kind, options, result.text, result.sources);
       render();
       navigate(`/mobile/chats/${result.destinationThreadId}`);
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(t(err.message)); }
   }
 
   function saveFollowup(e) {
@@ -954,48 +1004,48 @@ export function Assist() {
         reviewedSource: result.sources[0],
       });
       render();
-      setSaved('Follow-up saved. It shows in Today for the person you chose.');
-    } catch (err) { setError(err.message); }
+      setSaved(t('Follow-up saved. It shows in Today for the person you chose.'));
+    } catch (err) { setError(t(err.message)); }
   }
 
   return (
-    <Page className="ask-screen" sheet stackTitle back={backTo} backLabel={issueId ? 'Issue' : drawingNo ? 'Drawing' : messageThreadId ? 'Chat' : 'Back'} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
-      {issueId && !brief && <div className="empty"><h3>This issue isn’t available</h3></div>}
-      {drawingNo && !sheetDrawing && <div className="empty"><h3>This sheet isn’t available</h3></div>}
-      {!allowed && <div className="empty"><h3>This draft isn’t available for you</h3><p>Switch person if you need this action.</p></div>}
+    <Page className="ask-screen" sheet stackTitle back={backTo} backLabel={issueId ? t('Issue') : drawingNo ? t('Drawing') : messageThreadId ? t('Chat') : t('Back')} title={title} sub={issueId ? (brief?.issue?.title || projectName(pid)) : drawingNo ? (sheetDrawing?.name || drawingNo) : projectName(pid)}>
+      {issueId && !brief && <div className="empty"><h3>{t('This issue isn’t available')}</h3></div>}
+      {drawingNo && !sheetDrawing && <div className="empty"><h3>{t('This sheet isn’t available')}</h3></div>}
+      {!allowed && <div className="empty"><h3>{t('This draft isn’t available for you')}</h3><p>{t('Switch person if you need this action.')}</p></div>}
       {allowed && (!issueId || brief) && (!drawingNo || sheetDrawing) && (
         <form className="stack" onSubmit={run}>
-          {issueId && brief && <p className="note">{projectName(brief.issue.projectId)}. This uses the recorded history of this issue only.</p>}
-          {drawingNo && sheetDrawing && <p className="note">{projectName(projectId)} · {drawingNo}. This question is about this sheet.</p>}
+          {issueId && brief && <p className="note">{t('{0}. This uses the recorded history of this issue only.', projectName(brief.issue.projectId))}</p>}
+          {drawingNo && sheetDrawing && <p className="note">{t('{0} · {1}. This question is about this sheet.', projectName(projectId), drawingNo)}</p>}
           {!['daily', 'followup', 'concept'].includes(kind) && !issueId && !drawingNo && (
-            <label>Project
-              <Select className="field-select" value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label="Project">
+            <label>{t('Project')}
+              <Select className="field-select" value={pid} onChange={(e) => { setPid(e.target.value); setPicked({}); }} aria-label={t('Project')}>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </label>
           )}
           {kind === 'daily' && (
-            <label>Site
-              <Select className="field-select" value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label="Site">
+            <label>{t('Site')}
+              <Select className="field-select" value={siteId} onChange={(e) => setSiteId(e.target.value)} aria-label={t('Site')}>
                 {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </Select>
             </label>
           )}
           {kind === 'ask' && !issueId && (
-            <label>Your question<textarea rows={3} value={question} onChange={(e) => setQuestion(e.target.value)} /></label>
+            <label>{t('Your question')}<textarea rows={3} value={question} onChange={(e) => setQuestion(e.target.value)} /></label>
           )}
           {kind === 'ask' && (
             <>
-              <h2>Who receives this</h2>
-              {chats.map((t) => (
-                <button key={t.id} type="button" className={`ask-dest${chosen === t.id ? ' on' : ''}`} aria-pressed={chosen === t.id} onClick={() => setSendTo(t.id)}>
-                  <b>{audience(t)}</b>
-                  <span>{t.name}</span>
-                  {chosen === t.id ? <em>Sending here</em> : null}
+              <h2>{t('Who receives this')}</h2>
+              {chats.map((c) => (
+                <button key={c.id} type="button" className={`ask-dest${chosen === c.id ? ' on' : ''}`} aria-pressed={chosen === c.id} onClick={() => setSendTo(c.id)}>
+                  <b>{audience(c)}</b>
+                  <span>{c.name}</span>
+                  {chosen === c.id ? <em>{t('Sending here')}</em> : null}
                 </button>
               ))}
-              {!chats.length && <p className="note">No conversation you can send this to.</p>}
-              {!issueId && chats.length > 0 && <button type="button" className="primary" onClick={sendQuestion}>Send question</button>}
+              {!chats.length && <p className="note">{t('No conversation you can send this to.')}</p>}
+              {!issueId && chats.length > 0 && <button type="button" className="primary" onClick={sendQuestion}>{t('Send question')}</button>}
             </>
           )}
           {kind === 'compare' && materials.map((m) => (
@@ -1004,7 +1054,7 @@ export function Assist() {
           {kind === 'client' && (
             clientMessages.length ? (
               <div className="pick-list">
-                <p className="pick-lead">Choose messages already shared with this client.</p>
+                <p className="pick-lead">{t('Choose messages already shared with this client.')}</p>
                 {clientMessages.map((m) => (
                   <label key={m.id} className={`pick-row${picked[m.id] ? ' on' : ''}`}>
                     <input type="checkbox" checked={!!picked[m.id]} onChange={(e) => setPicked({ ...picked, [m.id]: e.target.checked })} />
@@ -1015,42 +1065,42 @@ export function Assist() {
                   </label>
                 ))}
               </div>
-            ) : <p className="note">No client conversation to draft from.</p>
+            ) : <p className="note">{t('No client conversation to draft from.')}</p>
           )}
           {kind === 'concept' && !messageId && (
             photos.length ? photos.slice(0, 8).map((m) => (
               <label key={m.id} className="check"><input type="radio" name="concept" checked={!!picked[m.id]} onChange={() => setPicked({ [m.id]: true })} /> {m.threadName}: {(m.text || 'Photo').slice(0, 80)}</label>
-            )) : <p className="note">Send a photo in a project chat first.</p>
+            )) : <p className="note">{t('Send a photo in a project chat first.')}</p>
           )}
           {error ? <p className="warn-text">{error}</p> : null}
-          <button className="primary ask-draft" type="submit">{issueId ? 'Prepare issue brief' : 'Prepare draft'}</button>
+          <button className="primary ask-draft" type="submit">{issueId ? t('Prepare issue brief') : t('Prepare draft')}</button>
         </form>
       )}
       {result && (
         <article className="view-card">
-          <b>AI draft · demo</b>
+          <b>{t('AI draft · demo')}</b>
           <p style={{ whiteSpace: 'pre-wrap' }}>{result.text}</p>
           {result.concepts?.map((c) => (
             <p key={c.name}><b>{c.name}</b> · {c.note}</p>
           ))}
           {result.missing?.length ? <p className="warn-text">{result.missing.join(' ')}</p> : null}
           {['daily', 'client'].includes(kind) && (
-            <button type="button" className="primary" onClick={sendDraft}>Send this draft</button>
+            <button type="button" className="primary" onClick={sendDraft}>{t('Send this draft')}</button>
           )}
           {kind === 'ask' && chats.length > 0 && (
-            <button type="button" className="primary" onClick={sendPrepared}>Send this draft to {audience(chats.find((t) => t.id === chosen))}</button>
+            <button type="button" className="primary" onClick={sendPrepared}>{t('Send this draft to {0}', audience(chats.find((t) => t.id === chosen)))}</button>
           )}
         </article>
       )}
       {result && kind === 'followup' && (
         <form className="stack" onSubmit={saveFollowup}>
-          <label>Who
-            <Select className="field-select" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
+          <label>{t('Who')}
+            <Select className="field-select" value={owner} onChange={(e) => setOwner(e.target.value)} aria-label={t('Owner')}>
               {(result.proposal?.owners || []).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </Select>
           </label>
-          <label>Needed by<input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Needed by" /></label>
-          {saved ? <p className="note">{saved}</p> : <button className="primary" type="submit">Save follow-up</button>}
+          <label>{t('Needed by')}<input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label={t('Needed by')} /></label>
+          {saved ? <p className="note">{saved}</p> : <button className="primary" type="submit">{t('Save follow-up')}</button>}
         </form>
       )}
     </Page>
@@ -1067,33 +1117,33 @@ export function Call() {
   const [error, setError] = useState('');
   const voice = params.get('voice') === '1';
   const thread = svc.thread(threadId);
-  if (!thread) return <Page back="/mobile/chats" title="Call"><div className="empty"><h3>This chat isn’t available</h3></div></Page>;
+  if (!thread) return <Page back="/mobile/chats" title={t('Call')}><div className="empty"><h3>{t('This chat isn’t available')}</h3></div></Page>;
   const chatTo = `/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`;
   if (voice) {
     const members = thread.memberIds.map((id) => user(id)).filter((u) => u?.id && u.id !== state.userId);
     return (
-      <Page sheet stackTitle back={chatTo} backLabel="Chat" title="Call" sub={threadTitle(thread)}>
-        <p className="note">Phone someone in this chat.</p>
+      <Page sheet stackTitle back={chatTo} backLabel={t('Chat')} title={t('Call')} sub={threadTitle(thread)}>
+        <p className="note">{t('Phone someone in this chat.')}</p>
         {members.map((u) => (
           <div className="day-row" key={u.id}>
             <div className="person-line">
               <Avatar person={u} />
               <span className="row-copy"><b>{u.name}</b><span>{u.title} · {phoneOf(u)}</span></span>
             </div>
-            <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>Call</a>
+            <a className="day-acts" href={`tel:${phoneOf(u).replace(/\s/g, '')}`}>{t('Call')}</a>
           </div>
         ))}
       </Page>
     );
   }
   return (
-    <Page back={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`} backLabel="Chat" title="Start video call" sub={threadTitle(thread)}>
-      <Note>Posts a call card into this chat. Meet for the studio.</Note>
+    <Page back={`/mobile/chats/${threadId}${backTo ? `?from=${encodeURIComponent(backTo)}` : ''}`} backLabel={t('Chat')} title={t('Start video call')} sub={threadTitle(thread)}>
+      <Note>{t('Posts a call card into this chat. Meet for the studio.')}</Note>
       {error ? <p className="warn-text">{error}</p> : null}
       <button type="button" className="primary" onClick={() => {
         try { setMade(svc.startCall(threadId)); setError(''); render(); }
-        catch (err) { setError(err.message); }
-      }}>Start Google Meet</button>
+        catch (err) { setError(t(err.message)); }
+      }}>{t('Start Google Meet')}</button>
       {made ? <p className="note"><a href={made.url} target="_blank" rel="noopener noreferrer">{made.url}</a></p> : null}
     </Page>
   );

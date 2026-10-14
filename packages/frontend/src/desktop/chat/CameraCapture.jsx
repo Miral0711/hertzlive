@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Btn } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
+import { t } from '../../shared/i18n';
 
 export default function CameraCapture({ onCancel, onCapture }) {
   const videoRef = useRef(null);
@@ -19,7 +20,7 @@ export default function CameraCapture({ onCancel, onCapture }) {
   useEffect(() => {
     let cancelled = false;
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("This browser can't open the camera here. You can choose a photo instead.");
+      setError(t('This browser can\'t open the camera here. You can choose a photo instead.'));
       return undefined;
     }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
@@ -29,7 +30,7 @@ export default function CameraCapture({ onCancel, onCapture }) {
         if (videoRef.current) videoRef.current.srcObject = stream;
         setReady(true);
       })
-      .catch(() => setError("Couldn't access the camera. You can choose a photo instead."));
+      .catch(() => setError(t('Couldn\'t access the camera. You can choose a photo instead.')));
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -49,11 +50,11 @@ export default function CameraCapture({ onCancel, onCapture }) {
   };
 
   return (
-    <Modal title="Camera" onClose={onCancel}>
+    <Modal title={t('Camera')} onClose={onCancel}>
       {error ? (
         <div className="flex flex-col items-start gap-2.5">
           <p className="text-ink-2">{error}</p>
-          <Btn onClick={() => fileInputRef.current?.click()}>Choose a photo instead</Btn>
+          <Btn onClick={() => fileInputRef.current?.click()}>{t('Choose a photo instead')}</Btn>
           <input
             ref={fileInputRef}
             type="file"
@@ -67,8 +68,8 @@ export default function CameraCapture({ onCancel, onCapture }) {
         <video ref={videoRef} autoPlay playsInline muted className="max-h-[55vh] w-full rounded-r1 bg-black" />
       )}
       <ModalActions>
-        <Btn onClick={onCancel}>Cancel</Btn>
-        {!error && <Btn kind="primary" onClick={capture} disabled={!ready}>Capture</Btn>}
+        <Btn onClick={onCancel}>{t('Cancel')}</Btn>
+        {!error && <Btn kind="primary" onClick={capture} disabled={!ready}>{t('Capture')}</Btn>}
       </ModalActions>
     </Modal>
   );

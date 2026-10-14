@@ -6,6 +6,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { captureRef } from 'react-native-view-shot';
 import Icon from '../ui/Icon';
 import { useTheme } from '../platform/theme';
+import { t } from '../../../frontend/src/shared/i18n';
 
 // Photo editor (crop, rotate, draw, text, shapes, undo/redo). Port of the web PhotoEdit.jsx:
 // markup is kept as vector ops in the photo's natural pixel space and drawn with react-native-svg;
@@ -14,16 +15,16 @@ import { useTheme } from '../platform/theme';
 
 const COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#111827', '#ffffff'];
 const SIZES = [4, 8, 16];
-const LABELS = ['Crack', 'Electrical point', 'Plumbing', 'Dimension', 'Defect', 'Change required', 'Material', 'Site instruction'];
-const TOOLS: [string, string, string][] = [
-  ['crop', 'Crop', 'crop'],
-  ['rotate', 'Rotate', 'rotate'],
-  ['draw', 'Draw', 'edit'],
-  ['text', 'Text', 'typeT'],
-  ['rect', 'Rectangle', 'rectangle'],
-  ['arrow', 'Arrow', 'arrowdiag'],
-  ['circle', 'Circle', 'circleicon'],
-];
+const LABELS = () => ([t('Crack'), t('Electrical point'), t('Plumbing'), t('Dimension'), t('Defect'), t('Change required'), t('Material'), t('Site instruction')]);
+const TOOLS = (): [string, string, string][] => ([
+  ['crop', t('Crop'), 'crop'],
+  ['rotate', t('Rotate'), 'rotate'],
+  ['draw', t('Draw'), 'edit'],
+  ['text', t('Text'), 'typeT'],
+  ['rect', t('Rectangle'), 'rectangle'],
+  ['arrow', t('Arrow'), 'arrowdiag'],
+  ['circle', t('Circle'), 'circleicon'],
+]);
 const MAX_DIM = 1600;
 const BG = '#0b141a';
 const PANEL = '#1f2c34';
@@ -114,7 +115,7 @@ const toJpeg = async (uri: string, actions: any[] = [], base64 = false) => {
   return r;
 };
 
-export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequired = false, initialNote = '', onCancel, onSend }: {
+export default function PhotoEdit({ src, noteLabel = t('Add a caption'), noteRequired = false, initialNote = '', onCancel, onSend }: {
   src: string; noteLabel?: string; noteRequired?: boolean; initialNote?: string; onCancel: () => void; onSend: (dataUrl: string, words: string) => void;
 }) {
   const { c } = useTheme();
@@ -313,7 +314,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
   const cropping = tool === 'crop';
   async function send() {
     const words = note.trim();
-    if (noteRequired && !words) { setNoteError('Write a note before sending.'); return; }
+    if (noteRequired && !words) { setNoteError(t('Write a note before sending.')); return; }
     if (!cur || busy) return;
     setBusy(true);
     try {
@@ -339,18 +340,18 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <View style={[bar, { paddingTop: 6 + insets.top }]}>
-        <Pressable onPress={cropping ? cancelCrop : onCancel} accessibilityRole="button" accessibilityLabel={cropping ? 'Cancel crop' : 'Close'} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={cropping ? cancelCrop : onCancel} accessibilityRole="button" accessibilityLabel={cropping ? t('Cancel crop') : t('Close')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="x" color="#fff" />
         </Pressable>
         {cropping ? (
-          <Pressable onPress={applyCrop} disabled={!crop || busy} accessibilityRole="button" accessibilityLabel="Apply crop"
+          <Pressable onPress={applyCrop} disabled={!crop || busy} accessibilityRole="button" accessibilityLabel={t('Apply crop')}
             style={{ marginLeft: 'auto', width: 36, height: 36, borderRadius: 18, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: crop && !busy ? 1 : 0.35 }}>
             <Icon name="check" color="#fff" size={20} />
           </Pressable>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
-            <View accessibilityRole="toolbar" accessibilityLabel="Photo tools" style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {TOOLS.map(([key, label, icon]) => {
+            <View accessibilityRole="toolbar" accessibilityLabel={t('Photo tools')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {TOOLS().map(([key, label, icon]) => {
                 const on = tool === key;
                 return (
                   <Pressable
@@ -375,7 +376,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
       </View>
       <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8 }}
         onLayout={(e) => setStage({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
-        {!cur || !disp.w ? <Text style={{ color: '#8696a0' }}>Loading photo…</Text> : (
+        {!cur || !disp.w ? <Text style={{ color: '#8696a0' }}>{t('Loading photo…')}</Text> : (
           <View style={{ width: disp.w, height: disp.h }}>
             {/* captured by view-shot / mirrors the canvas: base image + vector markup */}
             <View ref={stageRef} collapsable={false} style={{ width: disp.w, height: disp.h }}>
@@ -399,10 +400,10 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
                 ))}
               </View>
             )}
-            {tool ? <View {...pan.panHandlers} style={{ position: 'absolute', left: 0, top: 0, width: disp.w, height: disp.h }} accessibilityLabel="Photo canvas" /> : null}
+            {tool ? <View {...pan.panHandlers} style={{ position: 'absolute', left: 0, top: 0, width: disp.w, height: disp.h }} accessibilityLabel={t('Photo canvas')} /> : null}
             {textInput && !cropping && (
               <TextInput
-                autoFocus value={textInput.value} placeholder="Add text" accessibilityLabel="Text on the photo"
+                autoFocus value={textInput.value} placeholder={t('Add text')} accessibilityLabel={t('Text on the photo')}
                 onChangeText={(v) => setTextInput({ ...textInput, value: v })}
                 onSubmitEditing={commitPendingText}
                 style={{ position: 'absolute', left: Math.min(textInput.sx, Math.max(0, disp.w - 140)), top: textInput.sy, minWidth: 80, backgroundColor: 'transparent', color, fontSize: 22, fontWeight: '700', paddingVertical: 2, paddingHorizontal: 4 }}
@@ -414,13 +415,13 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
       {showInk && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', flexGrow: 1 }} style={{ flexGrow: 0, marginBottom: 8 }}>
           {COLORS.map((col) => (
-            <Pressable key={col} accessibilityLabel={`Color ${col}`} accessibilityState={{ selected: color === col }} onPress={() => setColor(col)}
+            <Pressable key={col} accessibilityLabel={t('Color {0}', col)} accessibilityState={{ selected: color === col }} onPress={() => setColor(col)}
               style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: color === col ? '#fff' : 'transparent' }}>
               <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: col }} />
             </Pressable>
           ))}
           {SIZES.map((sz) => (
-            <Pressable key={sz} accessibilityLabel={`Size ${sz}`} accessibilityState={{ selected: size === sz }} onPress={() => setSize(sz)}
+            <Pressable key={sz} accessibilityLabel={t('Size {0}', sz)} accessibilityState={{ selected: size === sz }} onPress={() => setSize(sz)}
               style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: size === sz ? '#fff' : 'transparent' }}>
               <View style={{ width: Math.max(6, sz * 0.9), height: Math.max(6, sz * 0.9), borderRadius: 99, backgroundColor: '#fff' }} />
             </Pressable>
@@ -429,7 +430,7 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
       )}
       {tool === 'text' && !cropping && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 12 }} style={{ flexGrow: 0, marginBottom: 8 }}>
-          {LABELS.map((label) => (
+          {LABELS().map((label) => (
             <Pressable key={label} onPress={() => (textInput ? setTextInput({ ...textInput, value: label }) : placeText(label))}
               style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: PANEL }}>
               <Text style={{ color: '#fff', fontSize: 13 }}>{label}</Text>
@@ -440,11 +441,11 @@ export default function PhotoEdit({ src, noteLabel = 'Add a caption', noteRequir
       {!cropping && (
         <View style={[bar, { paddingBottom: 8 + insets.bottom }]}>
           <TextInput
-            value={note} placeholder={noteRequired ? noteLabel : 'Add a caption'} placeholderTextColor="#8696a0" accessibilityLabel={noteLabel}
+            value={note} placeholder={noteRequired ? noteLabel : t('Add a caption')} placeholderTextColor="#8696a0" accessibilityLabel={noteLabel}
             onChangeText={(v) => { setNote(v); setNoteError(''); }} onSubmitEditing={send}
             style={{ flex: 1, minWidth: 0, borderRadius: 22, backgroundColor: PANEL, color: '#fff', fontSize: 15, paddingVertical: 10, paddingHorizontal: 14 }}
           />
-          <Pressable onPress={send} disabled={!cur || busy} accessibilityLabel="Send photo" accessibilityRole="button"
+          <Pressable onPress={send} disabled={!cur || busy} accessibilityLabel={t('Send photo')} accessibilityRole="button"
             style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', opacity: !cur || busy ? 0.45 : 1 }}>
             <Icon name="send" color="#fff" />
           </Pressable>

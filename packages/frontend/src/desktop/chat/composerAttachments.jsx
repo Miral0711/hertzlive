@@ -5,6 +5,7 @@ import { state, svc } from '../../shared/core.js';
 import { Btn, Field, Input } from '../../ui/ui';
 import Modal, { ModalActions } from '../Modal';
 import { name } from '../helpers';
+import { t } from '../../shared/i18n';
 
 export function ContactPicker({ threadId, onCancel, onSend }) {
   const thread = svc.thread(threadId);
@@ -12,7 +13,7 @@ export function ContactPicker({ threadId, onCancel, onSend }) {
   const [manual, setManual] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '' });
   return (
-    <Modal title="Share a contact" onClose={onCancel}>
+    <Modal title={t('Share a contact')} onClose={onCancel}>
       {!manual && members.length > 0 && (
         <div className="mb-3 flex flex-col gap-1.5">
           {members.map((id) => (
@@ -24,19 +25,19 @@ export function ContactPicker({ threadId, onCancel, onSend }) {
               {name(id)}
             </button>
           ))}
-          <Btn sm className="self-start" onClick={() => setManual(true)}>Enter a contact manually</Btn>
+          <Btn sm className="self-start" onClick={() => setManual(true)}>{t('Enter a contact manually')}</Btn>
         </div>
       )}
       {(manual || !members.length) && (
         <>
-          <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+          <Field label={t('Name')}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label={t('Phone')}><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
         </>
       )}
       <ModalActions>
-        <Btn onClick={onCancel}>Cancel</Btn>
+        <Btn onClick={onCancel}>{t('Cancel')}</Btn>
         {(manual || !members.length) && (
-          <Btn kind="primary" disabled={!form.name.trim()} onClick={() => onSend({ name: form.name.trim(), phone: form.phone.trim() })}>Send</Btn>
+          <Btn kind="primary" disabled={!form.name.trim()} onClick={() => onSend({ name: form.name.trim(), phone: form.phone.trim() })}>{t('Send')}</Btn>
         )}
       </ModalActions>
     </Modal>
@@ -52,22 +53,22 @@ export function PollComposer({ onCancel, onSend }) {
   const removeOpt = (i) => options.length > 2 && setOptions((o) => o.filter((_, j) => j !== i));
   const valid = question.trim() && options.filter((o) => o.trim()).length >= 2;
   return (
-    <Modal title="Create a poll" onClose={onCancel}>
-      <Field label="Question"><Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="What should we ask?" /></Field>
+    <Modal title={t('Create a poll')} onClose={onCancel}>
+      <Field label={t('Question')}><Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={t('What should we ask?')} /></Field>
       {options.map((o, i) => (
-        <Field key={i} label={`Option ${i + 1}`}>
+        <Field key={i} label={t('Option {0}', i + 1)}>
           <div className="flex gap-2">
             <Input value={o} onChange={(e) => setOpt(i, e.target.value)} />
-            {options.length > 2 && <Btn sm onClick={() => removeOpt(i)}>Remove</Btn>}
+            {options.length > 2 && <Btn sm onClick={() => removeOpt(i)}>{t('Remove')}</Btn>}
           </div>
         </Field>
       ))}
-      {options.length < 6 && <Btn sm className="mb-2.5" onClick={addOpt}>Add option</Btn>}
+      {options.length < 6 && <Btn sm className="mb-2.5" onClick={addOpt}>{t('Add option')}</Btn>}
       <label className="mb-2.5 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} /> Allow multiple answers
+        <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} />{' '}{t('Allow multiple answers')}
       </label>
       <ModalActions>
-        <Btn onClick={onCancel}>Cancel</Btn>
+        <Btn onClick={onCancel}>{t('Cancel')}</Btn>
         <Btn
           kind="primary" disabled={!valid}
           onClick={() => onSend({
@@ -76,7 +77,7 @@ export function PollComposer({ onCancel, onSend }) {
             options: options.filter((o) => o.trim()).map((text) => ({ text: text.trim(), votes: [] })),
           })}
         >
-          Send
+          {t('Send')}
         </Btn>
       </ModalActions>
     </Modal>

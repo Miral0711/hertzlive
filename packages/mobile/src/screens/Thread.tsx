@@ -31,27 +31,27 @@ const VoicePlay: any = CP.VoicePlay || VoiceFallback;
 const MessageActions: any = CP.MessageActions || ActionsFallback;
 const ForwardPick: any = CP.ForwardPick || ForwardFallback;
 
-const BASICS: any[] = [
-  ['photo', 'Photo', 'photos'],
-  ['camera', 'Camera', 'camera'],
-  ['voice', 'Voice note', 'mic'],
-  ['drawing', 'Drawing', 'drawing'],
-  ['delivery', 'Delivery', 'delivery'],
-  ['sample', 'Sample', 'sample'],
-];
-const MORE: any[] = [
-  ['location', 'Location', 'location'],
-  ['bill', 'Bill / expense', 'bill'],
-  ['material', 'Material request', 'delivery', ['site_manager', 'contractor', 'partner', 'designer']],
-  ['attendance', 'Attendance', 'people', ['site_manager', 'contractor']],
-  ['file', 'File', 'file'],
-  ['checkin', 'Check in', 'today', ['site_manager', 'contractor']],
-  ['daylog', "Today's log", 'today', ['site_manager', 'partner', 'designer']],
-  ['poll', 'Poll', 'checkcheck'],
-  ['contact', 'Contact', 'people'],
-  ['document', 'Document', 'file'],
-  ['audio', 'Audio', 'mic'],
-];
+const BASICS = (): any[] => ([
+  ['photo', t('Photo'), 'photos'],
+  ['camera', t('Camera'), 'camera'],
+  ['voice', t('Voice note'), 'mic'],
+  ['drawing', t('Drawing'), 'drawing'],
+  ['delivery', t('Delivery'), 'delivery'],
+  ['sample', t('Sample'), 'sample'],
+]);
+const MORE = (): any[] => ([
+  ['location', t('Location'), 'location'],
+  ['bill', t('Bill / expense'), 'bill'],
+  ['material', t('Material request'), 'delivery', ['site_manager', 'contractor', 'partner', 'designer']],
+  ['attendance', t('Attendance'), 'people', ['site_manager', 'contractor']],
+  ['file', t('File'), 'file'],
+  ['checkin', t('Check in'), 'today', ['site_manager', 'contractor']],
+  ['daylog', t('Today\'s log'), 'today', ['site_manager', 'partner', 'designer']],
+  ['poll', t('Poll'), 'checkcheck'],
+  ['contact', t('Contact'), 'people'],
+  ['document', t('Document'), 'file'],
+  ['audio', t('Audio'), 'mic'],
+]);
 const clock = (ms: number) => {
   const sec = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
@@ -68,19 +68,38 @@ async function toDataUrl(uri: string) {
     });
   } catch { return uri; }
 }
+// Recording timer with the pulsing red dot (prototype .rec-time).
+function RecTime({ dur }: { dur: string }) {
+  const { c } = useTheme();
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 0.35, duration: 500, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(pulse, { toValue: 1, duration: 500, useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 'auto', marginRight: 8 }}>
+      <Animated.View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#e11d48', opacity: pulse }} />
+      <Text style={{ fontWeight: '700', color: c.ink, fontVariant: ['tabular-nums'] }}>{dur}</Text>
+    </View>
+  );
+}
 function chipOf(m: any) {
   const f = state.filings?.[m.id];
-  if (!f) return { status: '', label: 'File message' };
-  const who = f.by === 'user' ? 'Filed' : f.status === 'filed' ? 'AI filed' : f.status === 'check' ? 'AI check' : 'AI needs context';
-  return { status: f.status === 'check' ? 'check' : f.status === 'ask' ? 'ask' : '', label: `${who} · ${f.status === 'ask' ? 'Which project?' : (filingLabel(f) || 'Note')}` };
+  if (!f) return { status: '', label: t('File message') };
+  const who = f.by === 'user' ? t('Filed') : f.status === 'filed' ? t('AI filed') : f.status === 'check' ? t('AI check') : t('AI needs context');
+  return { status: f.status === 'check' ? 'check' : f.status === 'ask' ? 'ask' : '', label: `${who} · ${f.status === 'ask' ? t('Which project?') : (filingLabel(f) || t('Note'))}` };
 }
 
-const KIND_LABEL: Record<string, string> = {
-  drawing: 'Drawing', delivery: 'Delivery', sample: 'Sample', location: 'Location', bill: 'Bill',
-  material: 'Material', file: 'File', attendance: 'Attendance', checkin: 'Checked in',
-};
+const KIND_LABEL = (): Record<string, string> => ({
+  drawing: t('Drawing'), delivery: t('Delivery'), sample: t('Sample'), location: t('Location'), bill: t('Bill'),
+  material: t('Material'), file: t('File'), attendance: t('Attendance'), checkin: t('Checked in'),
+});
 const allowed = (roles?: string[]) => !roles || roles.includes(state.role);
-const label = (what: string) => (({ photo: 'Add a caption', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a caption' } as any)[what] || 'Note');
+const label = (what: string) => (({ photo: 'Add a caption', sample: 'What is this sample?', delivery: 'What arrived?', bill: 'What was it for?', material: 'What do you need?', file: 'Add a caption' } as any)[what] || t('Note'));
 
 function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }: any) {
   const shift = useRef(new Animated.Value(0)).current;
@@ -125,7 +144,7 @@ function ChatBubble({ mine, same, pinned, deleted, onOpen, onReply, children }: 
           style={[s.bubble, mine ? s.mine : s.theirs, same && s.cont, pinned && { elevation: 1 }]}
         >
           {children}
-          <Pressable style={s.more} onPress={onOpen} accessibilityRole="button" accessibilityLabel="Message options" hitSlop={8}>
+          <Pressable style={s.more} onPress={onOpen} accessibilityRole="button" accessibilityLabel={t('Message options')} hitSlop={8}>
             <View style={{ transform: [{ rotate: '90deg' }] }}><Icon name="chev" size={14} color={undefined} /></View>
           </Pressable>
         </Pressable>
@@ -155,9 +174,35 @@ export default function Thread() {
   const voiceTimer = useRef<any>(null);
   const voiceStarted = useRef(0);
   const holding = useRef(false);
-  const holdX = useRef(0);
   const cancelHold = useRef(false);
   const voiceModeRef = useRef<null | 'hold' | 'locked'>(null);
+  const voiceToken = useRef(0);
+  const [slideCancel, setSlideCancel] = useState(false);
+  // The mic is a PanResponder (not a Pressable) so the touch stays ours when the finger slides off the
+  // button: that is what makes "slide to cancel" work. Handlers are read from a ref so they are never stale.
+  const micApi = useRef<any>({});
+  const micPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => micApi.current.down(),
+    onPanResponderMove: (_e, g) => micApi.current.move(g.dx),
+    onPanResponderRelease: () => micApi.current.up(),
+    onPanResponderTerminate: () => micApi.current.up(),
+  })).current;
+  useEffect(() => {
+    if (!voiceHint) return undefined;
+    const id = setTimeout(() => setVoiceHint(''), 2500);
+    return () => clearTimeout(id);
+  }, [voiceHint]);
+  useEffect(() => () => {
+    voiceToken.current += 1;
+    holding.current = false;
+    clearInterval(voiceTimer.current);
+    if (voiceModeRef.current) {
+      try { recorder.stop().catch(() => {}); } catch { /* recorder already released */ }
+      setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showWork, setShowWork] = useState(false);
   useEffect(() => { setShowWork(false); }, [threadId]);
   const [replyTo, setReplyTo] = useState<any>(null);
@@ -337,10 +382,10 @@ export default function Thread() {
   if (!thread || !onPhone(thread.projectId)) {
     return (
       <Screen>
-        <TopBar><Text style={{ fontSize: 22, fontWeight: '600', color: 'inherit' as any }}>Chat</Text></TopBar>
+        <TopBar><Text style={{ fontSize: 22, fontWeight: '600', color: 'inherit' as any }}>{t('Chat')}</Text></TopBar>
         <View style={s.empty}>
-          <Text style={s.emptyH}>This chat isn’t available</Text>
-          <Link to="/mobile/chats"><Text style={s.emptyLink}>Back to chats</Text></Link>
+          <Text style={s.emptyH}>{t('This chat isn’t available')}</Text>
+          <Link to="/mobile/chats"><Text style={s.emptyLink}>{t('Back to chats')}</Text></Link>
         </View>
       </Screen>
     );
@@ -352,7 +397,7 @@ export default function Thread() {
       <Screen>
         <PhotoEdit
           src={editor.src}
-          noteLabel={ask || 'Add a caption'}
+          noteLabel={ask || t('Add a caption')}
           noteRequired={Boolean(ask)}
           initialNote={editor.note || ''}
           onCancel={() => setEditor(null)}
@@ -397,7 +442,7 @@ export default function Thread() {
       }
       setShot(asset.uri);
     } catch {
-      setError('Could not open your photos.');
+      setError(t('Could not open your photos.'));
     }
   }
 
@@ -411,9 +456,9 @@ export default function Thread() {
       setNote('');
       setFileName(asset.name || '');
       setDocUrl(asset.uri || '');
-      setSheet({ what: kind, label: kind === 'audio' ? 'Audio' : kind === 'document' ? 'Document' : 'File' });
+      setSheet({ what: kind, label: kind === 'audio' ? t('Audio') : kind === 'document' ? t('Document') : t('File') });
     } catch {
-      setError('Could not open files.');
+      setError(t('Could not open files.'));
       setSheet(kind === 'file' ? 'more' : 'more');
     }
   }
@@ -424,19 +469,25 @@ export default function Thread() {
   }
 
   async function beginVoice(mode: 'hold' | 'locked') {
+    // Each start gets a token; a release or a newer press makes an older, still-pending start stale.
+    const token = ++voiceToken.current;
+    const stale = () => token !== voiceToken.current || (mode === 'hold' && !holding.current);
+    const HOLD_HINT = t('Hold to record. Release to send.');
     setVoiceHint('');
+    setSlideCancel(false);
     if (mode === 'locked') setSheet(null);
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) throw new Error('denied');
-      if (mode === 'hold' && !holding.current) {
-        setVoiceHint('Hold to record. Release to send.');
+      if (stale()) {
+        if (mode === 'hold' && token === voiceToken.current) setVoiceHint(HOLD_HINT);
         return;
       }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
-      if (mode === 'hold' && !holding.current) {
-        setVoiceHint('Hold to record. Release to send.');
+      if (stale()) {
+        await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+        if (mode === 'hold' && token === voiceToken.current) setVoiceHint(HOLD_HINT);
         return;
       }
       recorder.record();
@@ -447,20 +498,24 @@ export default function Thread() {
       setMode(mode);
       setSheet(null);
     } catch {
+      if (token !== voiceToken.current) return;
       setMode(null);
-      setVoiceHint('The microphone did not open. Allow the microphone, then try again.');
+      setVoiceHint(t('The microphone did not open. Allow the microphone, then try again.'));
     }
   }
 
   async function finishVoice(shouldSend: boolean) {
+    const mode = voiceModeRef.current;
+    if (!mode) return;
     clearInterval(voiceTimer.current);
     const elapsed = Date.now() - voiceStarted.current;
-    const mode = voiceModeRef.current;
     setMode(null);
+    setSlideCancel(false);
+    setVoiceDur('0:00');
     try { await recorder.stop(); } catch { /* not recording */ }
     await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
     if (!shouldSend || !recorder.uri || (mode === 'hold' && elapsed < 700)) {
-      if (shouldSend) setVoiceHint('Hold to record. Release to send.');
+      if (shouldSend) setVoiceHint(t('Hold to record. Release to send.'));
       return;
     }
     const audio = await toDataUrl(recorder.uri);
@@ -469,12 +524,37 @@ export default function Thread() {
     markRead(thread.id);
   }
 
+  // Mic button gestures (same behaviour as the prototype): press and hold records, release sends,
+  // slide left past 64px and release cancels, a tap shorter than 0.7s only shows the hint.
+  micApi.current = {
+    down() {
+      holding.current = true;
+      cancelHold.current = false;
+      beginVoice('hold');
+    },
+    move(dx: number) {
+      if (!holding.current) return;
+      const cancel = dx < -64;
+      if (cancel !== cancelHold.current) {
+        cancelHold.current = cancel;
+        setSlideCancel(cancel);
+      }
+    },
+    up() {
+      if (!holding.current) return;
+      const cancel = cancelHold.current;
+      holding.current = false;
+      cancelHold.current = false;
+      if (voiceModeRef.current === 'hold') finishVoice(!cancel);
+    },
+  };
+
   async function pickFile() {
     try {
       const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: false });
       setFileName(res.canceled ? '' : res.assets?.[0]?.name || '');
     } catch {
-      setError('Could not open files.');
+      setError(t('Could not open files.'));
     }
   }
 
@@ -497,7 +577,7 @@ export default function Thread() {
 
   function doCheckin() {
     const siteId = thread.siteId || svc.mySiteIds()[0];
-    if (!siteId) { setError('No site to use here.'); return; }
+    if (!siteId) { setError(t('No site to use here.')); return; }
     svc.siteCheckin(siteId);
     const siteThread = svc.threads().find((th: any) => th.kind === 'site' && th.siteId === siteId);
     const dest = siteThread?.id || thread.id;
@@ -509,7 +589,7 @@ export default function Thread() {
 
   function openDayLog() {
     const siteId = thread.siteId || svc.mySiteIds()[0];
-    if (!siteId) { setError('No site to use here.'); return; }
+    if (!siteId) { setError(t('No site to use here.')); return; }
     navigate(`/mobile/projects/${svc.site(siteId)?.projectId || thread.projectId}/assist?kind=daily&site=${siteId}`);
   }
 
@@ -529,36 +609,36 @@ export default function Thread() {
     const words = note.trim();
     const fields: any = { kind: what, text: words };
     if (what === 'photo') {
-      if (!shot) { setError('Choose a photo first.'); return; }
+      if (!shot) { setError(t('Choose a photo first.')); return; }
       fields.text = words || 'Photo';
       fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
     } else if (what === 'sample') {
-      if (!words) { setError('Say what this sample is.'); return; }
+      if (!words) { setError(t('Say what this sample is.')); return; }
       fields.text = `Sample: ${words}`;
       fields.photo = shot ? { dataUrl: shot, hue: 28, seed: 4 } : { hue: 28, seed: 4 };
     } else if (what === 'delivery') {
-      if (!words) { setError('Say what arrived.'); return; }
+      if (!words) { setError(t('Say what arrived.')); return; }
       fields.text = `Delivery: ${words}`;
       if (shot) fields.photo = { dataUrl: shot, hue: 28, seed: 4 };
     } else if (what === 'location') {
       fields.text = words ? `Location: ${placeLine()}. ${words}` : `Location: ${placeLine()}`;
     } else if (what === 'bill') {
       const value = Number(amount);
-      if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount greater than zero.'); return; }
-      if (!words) { setError('Say what the money was for.'); return; }
+      if (!Number.isFinite(value) || value <= 0) { setError(t('Enter an amount greater than zero.')); return; }
+      if (!words) { setError(t('Say what the money was for.')); return; }
       fields.bill = { amount: value, status: 'asked', paidBy: 'cash', projectId: thread.projectId };
       fields.text = `${words} · ₹${value.toLocaleString('en-IN')}`;
     } else if (what === 'material') {
-      if (!words) { setError('Say what you need.'); return; }
+      if (!words) { setError(t('Say what you need.')); return; }
       fields.text = `Material needed: ${words}`;
     } else if (what === 'file') {
-      if (!fileName) { setError('Choose a file first.'); return; }
+      if (!fileName) { setError(t('Choose a file first.')); return; }
       fields.text = words ? `File: ${fileName}. ${words}` : `File: ${fileName}`;
     } else if (what === 'attendance') {
       fields.text = words ? `Attendance recorded for today. ${words}` : 'Attendance recorded for today';
     } else if (what === 'poll') {
       const options = pollOpts.map((o) => o.trim()).filter(Boolean);
-      if (!pollQ.trim() || options.length < 2) { setError('Add a question and at least two options.'); return; }
+      if (!pollQ.trim() || options.length < 2) { setError(t('Add a question and at least two options.')); return; }
       fields.poll = { question: pollQ.trim(), multi: pollMulti, options: options.map((text) => ({ text, votes: [] })) };
       fields.text = pollQ.trim();
     } else if (what === 'contact') {
@@ -569,20 +649,20 @@ export default function Thread() {
       } else if (contactName.trim()) {
         fields.contact = { name: contactName.trim(), phone: contactPhone.trim() };
         fields.text = contactName.trim();
-      } else { setError('Choose a person.'); return; }
+      } else { setError(t('Choose a person.')); return; }
     } else if (what === 'document' || what === 'audio') {
-      if (!fileName) { setError(what === 'audio' ? 'Choose an audio file.' : 'Choose a document.'); return; }
+      if (!fileName) { setError(what === 'audio' ? t('Choose an audio file.') : t('Choose a document.')); return; }
       if (what === 'audio') fields.audio = { dataUrl: docUrl, name: fileName };
       else fields.file = { name: fileName, dataUrl: docUrl };
       fields.text = words ? `${fileName}. ${words}` : fileName;
       delete fields.kind;
-    } else if (!words) { setError('Write a note first.'); return; }
+    } else if (!words) { setError(t('Write a note first.')); return; }
     postMessage(thread.id, fields);
     setSheet(null);
     markRead(thread.id);
   }
 
-  const tiles = sheet === 'plus' ? BASICS : sheet === 'more' ? MORE.filter((item) => allowed(item[3])) : [];
+  const tiles = sheet === 'plus' ? BASICS() : sheet === 'more' ? MORE().filter((item) => allowed(item[3])) : [];
   const drawings: any[] = thread.projectId && can('drawing', 'r') ? (projectOf(thread.projectId)?.drawings || []) : [];
   const last = [...msgs].reverse().find((m) => !m.deleted);
   const showQuick = can('thread', 'w') && last && last.by !== state.userId && /\?/.test(last.text || '');
@@ -599,7 +679,7 @@ export default function Thread() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ThreadHeader thread={thread} backTo={backTo} />
         {(related.length > 0 || inProject) && (
-          <View style={s.switcher} accessibilityRole="tablist" accessibilityLabel="Conversations in this project">
+          <View style={s.switcher} accessibilityRole="tablist" accessibilityLabel={t('Conversations in this project')}>
             {related.map((th) => (
               th.id === thread.id ? (
                 <Pressable key={th.id} accessibilityRole="tab" accessibilityState={{ selected: !showWork }} onPress={() => setShowWork(false)} style={[s.sw, !showWork && s.swOn]}>
@@ -613,7 +693,7 @@ export default function Thread() {
             ))}
             {inProject && (
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: showWork }} onPress={() => setShowWork(true)} style={[s.sw, showWork && s.swOn]}>
-                <Text style={[s.swText, showWork && s.swTextOn]}>Work groups</Text>
+                <Text style={[s.swText, showWork && s.swTextOn]}>{t('Work groups')}</Text>
               </Pressable>
             )}
           </View>
@@ -623,13 +703,13 @@ export default function Thread() {
             {workGroups.map((group: any) => (
               <Link key={group.id} to={`/mobile/chats/${group.id}`} style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.line }}>
                 <Text style={{ color: c.ink, fontSize: 16, fontWeight: '600' }}>{group.name}</Text>
-                <Text style={{ color: c.ink3, fontSize: 13 }}>Work group</Text>
+                <Text style={{ color: c.ink3, fontSize: 13 }}>{t('Work group')}</Text>
               </Link>
             ))}
             {!workGroups.length && (
               <View style={s.empty}>
-                <Text style={s.emptyH}>No work groups yet</Text>
-                <Text style={s.emptyP}>Work groups for this project open from here.</Text>
+                <Text style={s.emptyH}>{t('No work groups yet')}</Text>
+                <Text style={s.emptyP}>{t('Work groups for this project open from here.')}</Text>
               </View>
             )}
           </ScrollView>
@@ -641,10 +721,10 @@ export default function Thread() {
             {pinned.map((m, i) => (
               <View style={[s.pin, i === 0 && s.pinFirst]} key={m.id}>
                 <Pressable style={s.jump} onPress={() => jumpTo(m.id, true)}>
-                  <Text style={s.kicker}>Pinned</Text>
-                  <Text style={s.pinTitle} numberOfLines={1}>{m.text || 'Decision'}</Text>
+                  <Text style={s.kicker}>{t('Pinned')}</Text>
+                  <Text style={s.pinTitle} numberOfLines={1}>{m.text || t('Decision')}</Text>
                 </Pressable>
-                {canPin && <Pressable style={s.unpin} onPress={() => toggleDecision(m)}><Text style={s.unpinText}>Unpin</Text></Pressable>}
+                {canPin && <Pressable style={s.unpin} onPress={() => toggleDecision(m)}><Text style={s.unpinText}>{t('Unpin')}</Text></Pressable>}
               </View>
             ))}
           </View>
@@ -674,10 +754,10 @@ export default function Thread() {
                 >
                   <ChatBubble mine={mine} same={same} pinned={m.decision} deleted={m.deleted} onOpen={() => setMenu(m)} onReply={() => setReplyTo(m)}>
                     {!mine && !same && <Text style={s.who}>{user(m.by).name || firstName(m.by)}</Text>}
-                    {m.decision && !m.deleted && <Text style={[s.tag, mine && s.onAccent]}>Decision</Text>}
-                    {m.deleted ? <Text style={[s.gone, mine && s.onAccentMute]}>This message was deleted</Text> : (
+                    {m.decision && !m.deleted && <Text style={[s.tag, mine && s.onAccent]}>{t('Decision')}</Text>}
+                    {m.deleted ? <Text style={[s.gone, mine && s.onAccentMute]}>{t('This message was deleted')}</Text> : (
                       <>
-                        {m.forwarded && <Text style={[s.fwd, mine && s.onAccentMute]}>Forwarded</Text>}
+                        {m.forwarded && <Text style={[s.fwd, mine && s.onAccentMute]}>{t('Forwarded')}</Text>}
                         {m.replyTo && (
                           <View style={[s.quote, mine && s.quoteMine]}>
                             <View style={[s.quoteBar, mine && { backgroundColor: c.accentInk }]} />
@@ -686,9 +766,9 @@ export default function Thread() {
                           </View>
                         )}
                         {m.voice && <VoicePlay src={typeof m.voice === 'object' ? m.voice.audio : ''} dur={typeof m.voice === 'string' ? m.voice : (m.voice.dur || '')} />}
-                        {m.photo?.dataUrl && <Image style={s.shot} source={{ uri: m.photo.dataUrl }} resizeMode="cover" accessibilityLabel="Photo" />}
+                        {m.photo?.dataUrl && <Image style={s.shot} source={{ uri: m.photo.dataUrl }} resizeMode="cover" accessibilityLabel={t('Photo')} />}
                         {m.photo && !m.photo.dataUrl && <View style={s.swatch}><Photo hue={m.photo.hue} seed={m.photo.seed} ar={240 / 140} /></View>}
-                        {(m.kind && !m.photo) && !m.voice && <Text style={s.tag}>{KIND_LABEL[m.kind] || m.kind}</Text>}
+                        {(m.kind && !m.photo) && !m.voice && <Text style={s.tag}>{KIND_LABEL()[m.kind] || m.kind}</Text>}
                         {m.contact && <Text style={s.say}>{m.contact.name}{m.contact.phone ? `\n${m.contact.phone}` : ''}</Text>}
                         {m.poll && (
                           <View>
@@ -699,30 +779,30 @@ export default function Thread() {
                           </View>
                         )}
                         {m.link && <Text style={s.say}>{m.link.title}{'\n'}{m.link.src}</Text>}
-                        {m.call && <Text style={s.say}>Video call · {m.call.provider}{'\n'}{m.call.url}</Text>}
-                        {m.imported && <Text style={s.fwd}>imported from WhatsApp</Text>}
+                        {m.call && <Text style={s.say}>{t('Video call · {0}{1}{2}', m.call.provider, '\n', m.call.url)}</Text>}
+                        {m.imported && <Text style={s.fwd}>{t('imported from WhatsApp')}</Text>}
                         {m.options?.length > 0 && m.options.map((o: string) => (
                           <Pressable key={o} onPress={() => svc.recordChatDecision(m, o)}><Text style={s.quickText}>{o}</Text></Pressable>
                         ))}
-                        {m.approval && (m.approval.done ? <Text style={s.tag}>approved</Text> : state.role === 'client' ? (
+                        {m.approval && (m.approval.done ? <Text style={s.tag}>{t('approved')}</Text> : state.role === 'client' ? (
                           <Pressable onPress={() => svc.approveChatMessage(m)}><Text style={s.quickText}>{m.approval.label}</Text></Pressable>
-                        ) : <Text style={s.tag}>{m.approval.label} · waiting</Text>)}
+                        ) : <Text style={s.tag}>{t('{0} · waiting', m.approval.label)}</Text>)}
                         {m.bill && state.role === 'partner' && m.bill.status === 'asked' && m.by !== state.userId && (
                           <View style={s.quick}>
-                            <Pressable onPress={() => svc.decideBill(m, true)}><Text style={s.quickText}>Approve</Text></Pressable>
-                            <Pressable onPress={() => svc.decideBill(m, false)}><Text style={s.quickText}>Ask for bill</Text></Pressable>
+                            <Pressable onPress={() => svc.decideBill(m, true)}><Text style={s.quickText}>{t('Approve')}</Text></Pressable>
+                            <Pressable onPress={() => svc.decideBill(m, false)}><Text style={s.quickText}>{t('Ask for bill')}</Text></Pressable>
                           </View>
                         )}
-                        {!m.deleted && m.issueId && <Link to={`/mobile/issues/${m.issueId}`}><Text style={s.unpinText}>Open linked issue</Text></Link>}
+                        {!m.deleted && m.issueId && <Link to={`/mobile/issues/${m.issueId}`}><Text style={s.unpinText}>{t('Open linked issue')}</Text></Link>}
                         {!m.deleted && siteHasSuggestion(svc.siteUpdateReview(m.id)) && (
-                          <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={s.unpinText}>Review site update</Text></Link>
+                          <Link to={`/mobile/chats/${thread.id}/messages/${m.id}`}><Text style={s.unpinText}>{t('Review site update')}</Text></Link>
                         )}
                         {m.text && !m.voice ? <Text style={[s.say, mine && s.onAccent]}>{m.text}</Text> : null}
                         {staff() && !m.deleted && (m.text || m.transcript) && thread.projectId && svc.assistKinds().includes('followup') && (
-                          <Link to={`/mobile/assist?kind=followup&message=${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>Suggest follow-up</Text></Link>
+                          <Link to={`/mobile/assist?kind=followup&message=${m.id}`}><Text style={[s.chipText, mine && s.onAccent]}>{t('Suggest follow-up')}</Text></Link>
                         )}
                         {staff() && !m.deleted && m.photo && svc.assistKinds().includes('concept') && (
-                          <Link to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}><Text style={[s.chipText, mine && s.onAccent]}>Explore finishes</Text></Link>
+                          <Link to={`/mobile/assist?kind=concept&message=${m.id}&project=${thread.projectId || ''}`}><Text style={[s.chipText, mine && s.onAccent]}>{t('Explore finishes')}</Text></Link>
                         )}
                         <View style={s.meta}>
                           {staff() && !m.deleted && (() => {
@@ -733,8 +813,8 @@ export default function Thread() {
                               </Link>
                             );
                           })()}
-                          <View style={s.timeRow} accessibilityLabel={receipt === 'seen' ? 'Seen' : receipt === 'delivered' ? 'Delivered' : receipt === 'sent' ? 'Sent' : undefined}>
-                            <Text style={[s.time, mine && s.onAccentMute]}>{m.edited ? 'Edited · ' : ''}{fmtT(m.at)}</Text>
+                          <View style={s.timeRow} accessibilityLabel={receipt === 'seen' ? t('Seen') : receipt === 'delivered' ? t('Delivered') : receipt === 'sent' ? t('Sent') : undefined}>
+                            <Text style={[s.time, mine && s.onAccentMute]}>{m.edited ? t('Edited · ') : ''}{fmtT(m.at)}</Text>
                             {receipt && (
                               <View style={{ marginLeft: 2 }}>
                                 <Icon name={receipt === 'sent' ? 'check' : 'checkcheck'} size={16} color={mine ? c.accentInk : (receipt === 'seen' ? c.accentText : c.ink3)} />
@@ -748,7 +828,7 @@ export default function Thread() {
                     {reacts.length > 0 && (
                       <View style={s.reacts}>
                         {reacts.map(([emoji, ids]) => (
-                          <Pressable key={emoji} style={[s.react, ids.includes(state.userId) && s.reactOn]} onPress={() => toggleReaction(m, emoji)} accessibilityRole="button" accessibilityLabel={`React ${emoji}`}>
+                          <Pressable key={emoji} style={[s.react, ids.includes(state.userId) && s.reactOn]} onPress={() => toggleReaction(m, emoji)} accessibilityRole="button" accessibilityLabel={t('React {0}', emoji)}>
                             <Text style={s.reactText}>{emoji} {ids.length}</Text>
                           </Pressable>
                         ))}
@@ -761,8 +841,8 @@ export default function Thread() {
           })}
           {!msgs.length && (
             <View style={s.empty}>
-              <Text style={s.emptyH}>Say hello</Text>
-              <Text style={s.emptyP}>Photos and voice notes stay with this project.</Text>
+              <Text style={s.emptyH}>{t('Say hello')}</Text>
+              <Text style={s.emptyP}>{t('Photos and voice notes stay with this project.')}</Text>
             </View>
           )}
         </ScrollView>
@@ -773,17 +853,17 @@ export default function Thread() {
             ))}
             {staff() && can('thread', 'w') && last && last.by !== state.userId && (
               <Pressable style={{ marginLeft: showQuick ? 'auto' : 0 }} onPress={async () => {
-                if ((drafts[thread.id] || '').trim()) { toast('Your draft was kept. Clear it before requesting an AI suggestion.'); return; }
+                if ((drafts[thread.id] || '').trim()) { toast(t('Your draft was kept. Clear it before requesting an AI suggestion.')); return; }
                 try { setDraft(thread.id, await AIProvider.draftReply(thread, last)); }
-                catch { toast('AI reply unavailable. Your conversation and draft are unchanged.'); }
-              }}><Text style={s.suggest}>Suggest reply</Text></Pressable>
+                catch { toast(t('AI reply unavailable. Your conversation and draft are unchanged.')); }
+              }}><Text style={s.suggest}>{t('Suggest reply')}</Text></Pressable>
             )}
           </View>
         )}
         {replyTo && (
           <View style={s.replybar}>
             <Text style={s.replyText} numberOfLines={2}><Text style={s.replyB}>{firstName(replyTo.by)}{'\n'}</Text>{preview(replyTo)}</Text>
-            <Pressable accessibilityLabel="Cancel reply" accessibilityRole="button" onPress={() => setReplyTo(null)}><Icon name="x" size={20} /></Pressable>
+            <Pressable accessibilityLabel={t('Cancel reply')} accessibilityRole="button" onPress={() => setReplyTo(null)}><Icon name="x" size={20} /></Pressable>
           </View>
         )}
         {voiceHint ? <Text style={{ textAlign: 'center', color: c.ink2, fontSize: 13, fontWeight: '600', paddingTop: 6, paddingHorizontal: 16 }}>{voiceHint}</Text> : null}
@@ -791,38 +871,38 @@ export default function Thread() {
           <View style={[s.composer, { paddingBottom: 8 + insets.bottom }]}>
             {voiceMode === 'locked' ? (
               <View style={[s.pill, { alignItems: 'center', paddingLeft: 4 }]}>
-                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Delete voice note" onPress={() => finishVoice(false)}>
-                  <Icon name="trash" />
+                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel={t('Delete voice note')} onPress={() => finishVoice(false)}>
+                  <Icon name="trash" color={c.ink2} />
                 </Pressable>
-                <Text style={{ marginLeft: 'auto', marginRight: 12, fontWeight: '700', color: c.ink }}>{voiceDur}</Text>
+                <RecTime dur={voiceDur} />
               </View>
             ) : voiceMode === 'hold' ? (
               <View style={[s.pill, { alignItems: 'center', paddingHorizontal: 14 }]}>
-                <Text style={{ color: cancelHold.current ? c.crit : c.ink2, fontWeight: '600' }}>{cancelHold.current ? 'Release to cancel' : 'Slide to cancel'}</Text>
-                <Text style={{ marginLeft: 'auto', fontWeight: '700', color: c.ink }}>{voiceDur}</Text>
+                <Text style={{ color: slideCancel ? c.crit : c.ink2, fontWeight: '600' }}>{slideCancel ? t('Release to cancel') : t('Slide to cancel')}</Text>
+                <RecTime dur={voiceDur} />
               </View>
             ) : (
               <View style={s.pill}>
-                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Add to this chat" onPress={() => { setError(''); setSheet('plus'); }}>
-                  <Icon name="plus" />
+                <Pressable style={s.round} accessibilityRole="button" accessibilityLabel={t('Add to this chat')} onPress={() => { setError(''); setSheet('plus'); }}>
+                  <Icon name="plus" color={c.ink2} />
                 </Pressable>
                 <TextInput
                   style={s.input} multiline placeholder={t('message')} placeholderTextColor={c.ink3}
-                  accessibilityLabel={`Message to ${audience(thread)}`}
+                  accessibilityLabel={t('Message to {0}', audience(thread))}
                   value={text} onChangeText={(v) => setDraft(thread.id, v)}
                   onKeyPress={(e: any) => {
                     if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) { e.preventDefault?.(); send(); }
                   }}
                 />
                 {!text.trim() && (
-                  <Pressable style={s.round} accessibilityRole="button" accessibilityLabel="Camera" onPress={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
-                    <Icon name="camera" />
+                  <Pressable style={s.round} accessibilityRole="button" accessibilityLabel={t('Camera')} onPress={() => navigate(`/mobile/camera?thread=${thread.id}`)}>
+                    <Icon name="camera" color={c.ink2} />
                   </Pressable>
                 )}
               </View>
             )}
             {voiceMode === 'locked' ? (
-              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel="Send voice note" onPress={() => finishVoice(true)}>
+              <Pressable style={[s.round, s.roundAccent]} accessibilityRole="button" accessibilityLabel={t('Send voice note')} onPress={() => finishVoice(true)}>
                 <Icon name="send" color={c.accentInk} />
               </Pressable>
             ) : text.trim() && !voiceMode ? (
@@ -830,21 +910,16 @@ export default function Thread() {
                 <Icon name="send" color={c.accentInk} />
               </Pressable>
             ) : (
-              <Pressable
-                style={[s.round, s.roundAccent]}
+              <View
+                {...micPan.panHandlers}
+                style={[s.round, s.roundAccent, Platform.OS === 'web' ? ({ userSelect: 'none', touchAction: 'none', cursor: 'pointer' } as any) : null]}
+                accessible
+                focusable={false}
                 accessibilityRole="button"
-                accessibilityLabel="Hold to record a voice note"
-                onPressIn={(e) => { holding.current = true; cancelHold.current = false; holdX.current = e.nativeEvent.pageX; beginVoice('hold'); }}
-                onTouchMove={(e) => { cancelHold.current = e.nativeEvent.pageX - holdX.current < -64; }}
-                onPressOut={() => {
-                  const cancel = cancelHold.current;
-                  holding.current = false;
-                  cancelHold.current = false;
-                  if (voiceModeRef.current === 'hold') finishVoice(!cancel);
-                }}
+                accessibilityLabel={t('Hold to record a voice note')}
               >
                 <Icon name="mic" color={c.accentInk} />
-              </Pressable>
+              </View>
             )}
           </View>
         )}
@@ -852,18 +927,18 @@ export default function Thread() {
         )}
         {sheet && (
           <Pressable style={s.back} onPress={() => setSheet(null)} accessibilityRole="none">
-            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel="Add to chat">
+            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel={t('Add to chat')}>
               <View style={s.grab} />
               <ScrollView keyboardShouldPersistTaps="handled">
                 {sheet === 'plus' || sheet === 'more' ? (
                   <View>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       {sheet === 'more' ? (
-                        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => setSheet('plus')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                        <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={() => setSheet('plus')} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
                           <View style={{ transform: [{ rotate: '180deg' }] }}><Icon name="chev" /></View>
                         </Pressable>
                       ) : <View style={{ width: 44 }} />}
-                      <Text style={[s.h2, { flex: 1, marginBottom: 0 }]}>{sheet === 'plus' ? 'Add to this chat' : 'More'}</Text>
+                      <Text style={[s.h2, { flex: 1, marginBottom: 0 }]}>{sheet === 'plus' ? t('Add to this chat') : t('More')}</Text>
                       <View style={{ width: 44 }} />
                     </View>
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
@@ -886,13 +961,13 @@ export default function Thread() {
                   <View style={s.stack}>
                     {['location', 'poll', 'contact'].includes(sheet.what) ? (
                       <View style={s.waBar}>
-                        <Pressable accessibilityLabel="Close" style={s.round} onPress={() => setSheet(MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
+                        <Pressable accessibilityLabel={t('Close')} style={s.round} onPress={() => setSheet(MORE().some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>
                           <Icon name="x" />
                         </Pressable>
-                        <Text style={s.waTitle}>{sheet.what === 'contact' ? 'Send contact' : sheet.label}</Text>
+                        <Text style={s.waTitle}>{sheet.what === 'contact' ? t('Send contact') : sheet.label}</Text>
                         {sheet.what === 'location' ? <View style={s.round} /> : (
                           <Pressable
-                            accessibilityLabel="Send"
+                            accessibilityLabel={t('Send')}
                             disabled={sheet.what === 'poll'
                               ? (!pollQ.trim() || pollOpts.filter((o: string) => o.trim()).length < 2)
                               : (!pickedId && !contactName.trim())}
@@ -910,12 +985,12 @@ export default function Thread() {
                     ) : <Text style={s.h2}>{sheet.label}</Text>}
                     {(sheet.what === 'sample' || sheet.what === 'delivery') && (
                       <>
-                        {sheet.what === 'delivery' && <Field lbl="What arrived?" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What arrived?" />}
-                        <Btn style={sheet.what === 'sample' ? s.primary : s.ghost} textStyle={sheet.what === 'sample' ? s.primaryText : s.ghostText} onPress={() => pickPhoto(sheet.what)}>{sheet.what === 'delivery' ? 'Add a photo' : 'Choose a photo'}</Btn>
+                        {sheet.what === 'delivery' && <Field lbl={t('What arrived?')} multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel={t('What arrived?')} />}
+                        <Btn style={sheet.what === 'sample' ? s.primary : s.ghost} textStyle={sheet.what === 'sample' ? s.primaryText : s.ghostText} onPress={() => pickPhoto(sheet.what)}>{sheet.what === 'delivery' ? t('Add a photo') : t('Choose a photo')}</Btn>
                         {sheet.what === 'sample' && (
-                          <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { setEditor({ what: 'sample', src: (Image as any).resolveAssetSource(photoSource(28, 1)).uri }); setSheet(null); }}>Use a sample picture</Btn>
+                          <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => { setEditor({ what: 'sample', src: (Image as any).resolveAssetSource(photoSource(28, 1)).uri }); setSheet(null); }}>{t('Use a sample picture')}</Btn>
                         )}
-                        {sheet.what === 'sample' && <Field lbl="Or name it without a photo" multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel="What is this sample?" placeholder="What is this sample?" />}
+                        {sheet.what === 'sample' && <Field lbl={t('Or name it without a photo')} multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} accessibilityLabel={t('What is this sample?')} placeholder={t('What is this sample?')} />}
                       </>
                     )}
                     {sheet.what === 'drawing' && (
@@ -923,7 +998,7 @@ export default function Thread() {
                         <Pressable key={d.no} style={s.drow} onPress={() => { postMessage(thread.id, { kind: 'drawing', text: `${d.name} · ${d.no} ${d.rev}` }); setSheet(null); markRead(thread.id); }} accessibilityRole="button">
                           <View style={s.dcopy}><Text style={s.dB}>{d.name}</Text><Text style={s.dS}>{d.no} · {d.rev}</Text></View>
                         </Pressable>
-                      )) : <Text style={s.note}>{can('drawing', 'r') ? 'No drawings on this project yet.' : 'Drawings aren’t available for this login.'}</Text>
+                      )) : <Text style={s.note}>{can('drawing', 'r') ? t('No drawings on this project yet.') : t('Drawings aren’t available for this login.')}</Text>
                     )}
                     {sheet.what === 'location' && (
                       <>
@@ -935,7 +1010,7 @@ export default function Thread() {
                         }}>
                           <View style={s.locPin}><Icon name="location" /></View>
                           <View style={s.dcopy}>
-                            <Text style={s.dB}>Send your current location</Text>
+                            <Text style={s.dB}>{t('Send your current location')}</Text>
                             <Text style={s.dS}>{placeLine()}</Text>
                           </View>
                         </Pressable>
@@ -943,28 +1018,28 @@ export default function Thread() {
                           style={s.plain}
                           value={note}
                           onChangeText={setNote}
-                          accessibilityLabel="Add a message"
-                          placeholder="Add a message"
+                          accessibilityLabel={t('Add a message')}
+                          placeholder={t('Add a message')}
                           placeholderTextColor={c.ink3}
                         />
                       </>
                     )}
                     {sheet.what === 'file' && (
                       <>
-                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={pickFile}>{fileName || 'Choose a file'}</Btn>
-                        {fileName ? <Text style={s.note}>Only the name is sent. The file stays on this phone.</Text> : null}
+                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={pickFile}>{fileName || t('Choose a file')}</Btn>
+                        {fileName ? <Text style={s.note}>{t('Only the name is sent. The file stays on this phone.')}</Text> : null}
                       </>
                     )}
                     {(sheet.what === 'document' || sheet.what === 'audio') && (
                       <>
                         <Text style={s.voiceLine}>{fileName}</Text>
-                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={() => pickDoc(sheet.what)}>Choose a different file</Btn>
-                        <Field lbl="Add a caption" multiline value={note} onChangeText={setNote} accessibilityLabel="Add a caption" placeholder="Add a caption" />
+                        <Btn style={s.ghost} textStyle={s.ghostText} onPress={() => pickDoc(sheet.what)}>{t('Choose a different file')}</Btn>
+                        <Field lbl={t('Add a caption')} multiline value={note} onChangeText={setNote} accessibilityLabel={t('Add a caption')} placeholder={t('Add a caption')} />
                       </>
                     )}
                     {sheet.what === 'poll' && (
                       <>
-                        <TextInput style={s.plain} value={pollQ} onChangeText={setPollQ} accessibilityLabel="Question" placeholder="Ask a question" placeholderTextColor={c.ink3} />
+                        <TextInput style={s.plain} value={pollQ} onChangeText={setPollQ} accessibilityLabel={t('Question')} placeholder={t('Ask a question')} placeholderTextColor={c.ink3} />
                         {pollOpts.map((o, i) => (
                           <View key={i} style={s.optRow}>
                             <View style={s.radio} />
@@ -972,19 +1047,19 @@ export default function Thread() {
                               style={[s.plain, { flex: 1 }]}
                               value={o}
                               onChangeText={(v: string) => setPollOpts((list) => list.map((x, j) => (j === i ? v : x)))}
-                              accessibilityLabel={`Option ${i + 1}`}
-                              placeholder="Add"
+                              accessibilityLabel={t('Option {0}', i + 1)}
+                              placeholder={t('Add')}
                               placeholderTextColor={c.ink3}
                             />
                           </View>
                         ))}
                         {pollOpts.length < 6 && (
                           <Pressable style={s.add} onPress={() => setPollOpts((list) => [...list, ''])}>
-                            <Text style={s.addText}>Add option</Text>
+                            <Text style={s.addText}>{t('Add option')}</Text>
                           </Pressable>
                         )}
                         <Pressable style={s.switchRow} accessibilityRole="switch" accessibilityState={{ checked: pollMulti }} onPress={() => setPollMulti((v) => !v)}>
-                          <Text style={s.switchText}>Allow multiple answers</Text>
+                          <Text style={s.switchText}>{t('Allow multiple answers')}</Text>
                           <View style={[s.track, pollMulti && s.trackOn, { alignItems: pollMulti ? 'flex-end' : 'flex-start' }]}>
                             <View style={s.knob} />
                           </View>
@@ -993,7 +1068,7 @@ export default function Thread() {
                     )}
                     {sheet.what === 'contact' && (
                       <>
-                        <TextInput style={s.plain} value={contactQuery} onChangeText={setContactQuery} accessibilityLabel="Search contacts" placeholder="Search name or number" placeholderTextColor={c.ink3} />
+                        <TextInput style={s.plain} value={contactQuery} onChangeText={setContactQuery} accessibilityLabel={t('Search contacts')} placeholder={t('Search name or number')} placeholderTextColor={c.ink3} />
                         {(thread.memberIds || []).filter((id: string) => id !== state.userId).filter((id: string) => {
                           const person = user(id);
                           const q = contactQuery.trim().toLowerCase();
@@ -1013,22 +1088,22 @@ export default function Thread() {
                           );
                         })}
                         <Pressable style={s.add} onPress={() => { setNewContact((v) => !v); setPickedId(''); }}>
-                          <Text style={s.addText}>{newContact ? 'Choose someone in this chat' : 'New contact'}</Text>
+                          <Text style={s.addText}>{newContact ? t('Choose someone in this chat') : t('New contact')}</Text>
                         </Pressable>
                         {newContact && (
                           <>
-                            <TextInput style={s.plain} value={contactName} onChangeText={(v) => { setContactName(v); setPickedId(''); }} accessibilityLabel="Name" placeholder="Name" placeholderTextColor={c.ink3} />
-                            <TextInput style={s.plain} value={contactPhone} onChangeText={setContactPhone} accessibilityLabel="Phone" placeholder="Phone" keyboardType="phone-pad" placeholderTextColor={c.ink3} />
+                            <TextInput style={s.plain} value={contactName} onChangeText={(v) => { setContactName(v); setPickedId(''); }} accessibilityLabel={t('Name')} placeholder={t('Name')} placeholderTextColor={c.ink3} />
+                            <TextInput style={s.plain} value={contactPhone} onChangeText={setContactPhone} accessibilityLabel={t('Phone')} placeholder={t('Phone')} keyboardType="phone-pad" placeholderTextColor={c.ink3} />
                           </>
                         )}
                       </>
                     )}
-                    {sheet.what === 'bill' && <Field lbl="Amount in ₹" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} accessibilityLabel="Amount" placeholder="0" />}
+                    {sheet.what === 'bill' && <Field lbl={t('Amount in ₹')} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} accessibilityLabel={t('Amount')} placeholder="0" />}
                     {!['checkin', 'daylog', 'drawing', 'location', 'poll', 'contact', 'document', 'audio', 'sample', 'delivery', 'photo'].includes(sheet.what) && (
                       <Field
                         lbl={label(sheet.what)} multiline numberOfLines={2} style={[s.field, { minHeight: 64, textAlignVertical: 'top' }]}
                         value={note} onChangeText={setNote} accessibilityLabel={label(sheet.what)}
-                        placeholder={['photo', 'file', 'attendance'].includes(sheet.what) ? 'Optional' : ''}
+                        placeholder={['photo', 'file', 'attendance'].includes(sheet.what) ? t('Optional') : ''}
                       />
                     )}
                     {error ? <Text style={s.warnText}>{error}</Text> : null}
@@ -1044,10 +1119,10 @@ export default function Thread() {
                           || (sheet.what === 'bill' && (!note.trim() || !(Number(amount) > 0)))
                         }
                         onPress={sendAttach}
-                      >Send</Btn>
+                      >{t('Send')}</Btn>
                     )}
                     {!['location', 'poll', 'contact'].includes(sheet.what) && (
-                      <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE.some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>Back</Btn>
+                      <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setSheet(sheet.what && MORE().some((item) => item[0] === sheet.what) ? 'more' : 'plus')}>{t('Back')}</Btn>
                     )}
                   </View>
                 )}
@@ -1057,7 +1132,7 @@ export default function Thread() {
         )}
         {menu && (
           <Pressable style={s.back} onPress={() => setMenu(null)} accessibilityRole="none">
-            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel="More options">
+            <Pressable style={[s.sheet, { paddingBottom: 12 + insets.bottom }]} onPress={() => {}} accessibilityLabel={t('More options')}>
               <View style={s.grab} />
               <ScrollView keyboardShouldPersistTaps="handled">
                 <Text style={s.note}>{preview(menu)}</Text>
@@ -1067,7 +1142,7 @@ export default function Thread() {
                   onDeleted={() => setMenu(null)}
                   onForward={() => { setForwardMsg(menu); setMenu(null); }}
                 />
-                <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setMenu(null)}>Close</Btn>
+                <Btn style={s.textBtn} textStyle={s.textBtnText} onPress={() => setMenu(null)}>{t('Close')}</Btn>
               </ScrollView>
             </Pressable>
           </Pressable>

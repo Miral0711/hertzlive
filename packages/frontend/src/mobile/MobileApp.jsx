@@ -5,7 +5,7 @@ import { applyAgencyTheme } from '../shared/core';
 import { useStore } from '../shared/store';
 import { FieldProvider, useField } from './FieldContext';
 import { state, todayCount, myThreads, unreadCount } from './model';
-import { t } from './copy';
+import { t, useLang } from './copy';
 import Icon from './Icon';
 import './mobile.css';
 
@@ -24,7 +24,7 @@ function Tabs() {
   const due = todayCount();
   const unread = myThreads().reduce((n, { t: thread }) => n + unreadCount(thread.id, read[thread.id]), 0);
   return (
-    <nav className="tabbar" aria-label="Main">
+    <nav className="tabbar" aria-label={t('Main')}>
       {TABS.map(([id, icon]) => (
         <NavLink key={id} to={`/mobile/${id}`} end={id !== 'projects'} className={({ isActive }) => `tab${isActive ? ' on' : ''}`}>
           <Icon name={icon} />
@@ -51,6 +51,7 @@ const WITH_TABS = new Set([
 
 export default function MobileApp() {
   useStore();
+  const lang = useLang();
   const { pathname } = useLocation();
   const showTabs = WITH_TABS.has(pathname);
   const theme = state.theme === 'system' ? undefined : state.theme;
@@ -65,7 +66,7 @@ export default function MobileApp() {
   return (
     <FieldProvider>
       <div className="field-stage">
-        <div className="field" data-theme={theme}>
+        <div className="field" data-theme={theme} key={lang}>
           <div className="field-main">
             <Outlet />
           </div>

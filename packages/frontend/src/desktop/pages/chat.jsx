@@ -21,11 +21,12 @@ import { conversationThreads, markChatRead, pendingFocus } from '../chat/store';
 import { ChatInfoDialog, ChatStartDialog, ForwardDialog, MessageActionsDialog, VoiceCallDialog, WorkGroupDialog } from '../chat/messenger';
 import { usePhone } from '../phone';
 import { Stat } from '../studio/common';
+import { t } from '../../shared/i18n';
 
 const Unavailable = ({ title, children }) => (
   <Modal title={title}>
     {children}
-    <ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions>
+    <ModalActions><Btn onClick={closeDialog}>{t('Close')}</Btn></ModalActions>
   </Modal>
 );
 
@@ -75,14 +76,14 @@ function ChatDesk({ rows, check, rules, dms }) {
     <>
       <section>
         <div className="mb-gap grid grid-cols-2 gap-gap lg:grid-cols-4">
-          <Stat label="Messages" value={rows.length} sub="looked at" />
-          <Stat label="Filed by AI" value={rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} sub="no action needed" tone="text-ok" />
-          <Stat label="Need a check" value={check.length} sub={check.length ? 'review below' : 'all clear'} tone={check.length ? 'text-warn' : 'text-ok'} />
-          <Stat label="Corrected" value={rows.filter((x) => x.f.by === 'user').length} sub="by people" />
+          <Stat label={t('Messages')} value={rows.length} sub={t('looked at')} />
+          <Stat label={t('Filed by AI')} value={rows.filter((x) => x.f.by === 'ai' && x.f.status === 'filed').length} sub={t('no action needed')} tone="text-ok" />
+          <Stat label={t('Need a check')} value={check.length} sub={check.length ? t('review below') : t('all clear')} tone={check.length ? 'text-warn' : 'text-ok'} />
+          <Stat label={t('Corrected')} value={rows.filter((x) => x.f.by === 'user').length} sub={t('by people')} />
         </div>
         {check.length > 0 && (
-          <Card title={`Please check these · ${check.length}`}>
-            <p className="mb-2 mt-0 text-[13px] text-ink-3">The AI was not sure. Click the chip to file it in the right place.</p>
+          <Card title={t('Please check these · {0}', check.length)}>
+            <p className="mb-2 mt-0 text-[13px] text-ink-3">{t('The AI was not sure. Click the chip to file it in the right place.')}</p>
             <div className="flex flex-col">{check.map((x) => <FiledRow key={x.m.id} m={x.m} />)}</div>
           </Card>
         )}
@@ -90,8 +91,8 @@ function ChatDesk({ rows, check, rules, dms }) {
 
       <div className="mt-gap grid items-start gap-gap xl:grid-cols-2 [&>*]:min-w-0">
         <div className="flex flex-col gap-gap">
-        <Card title="Direct messages and groups">
-          <List empty="No direct messages for this role.">
+        <Card title={t('Direct messages and groups')}>
+          <List empty={t('No direct messages for this role.')}>
             {dms.map((t) => (
               <Item key={t.id} onClick={() => go(`#/chats?thread=${encodeURIComponent(t.id)}`)}>
                 <span className="min-w-0 flex-1 truncate text-[13px]"><b>{t.name}</b> <small className="text-ink-3">{t.memberIds.map(first).join(', ')}</small></span>
@@ -100,31 +101,31 @@ function ChatDesk({ rows, check, rules, dms }) {
             ))}
           </List>
         </Card>
-        <Card title="Rules the AI learned">
+        <Card title={t('Rules the AI learned')}>
           {rules.length ? (
             <div className="flex flex-col">
               {rules.map(([k, p]) => (
                 <div key={k} className="flex min-h-9 items-center gap-3 border-t border-line py-2 first:border-t-0 text-[13px]">
-                  <span className="min-w-0 flex-1 truncate">{first(k.split('|')[0])} in {state.db.THREADS.find((t) => t.id === k.split('|')[1])?.name || k}</span>
-                  <small className="flex-none text-ink-3">files to {P(p)?.name || p}</small>
+                  <span className="min-w-0 flex-1 truncate">{t('{0} in {1}', first(k.split('|')[0]), state.db.THREADS.find((t) => t.id === k.split('|')[1])?.name || k)}</span>
+                  <small className="flex-none text-ink-3">{t('files to {0}', P(p)?.name || p)}</small>
                 </div>
               ))}
             </div>
-          ) : <Empty>Correct a filing and the AI remembers it for that sender and thread.</Empty>}
+          ) : <Empty>{t('Correct a filing and the AI remembers it for that sender and thread.')}</Empty>}
         </Card>
         </div>
         <div className="flex flex-col gap-gap">
-        <Card title="Announcements">
+        <Card title={t('Announcements')}>
           <div className="flex flex-col">
             {ANNOUNCEMENTS.length ? ANNOUNCEMENTS.map((a, i) => (
               <div key={i} className="flex min-h-9 items-center gap-3 border-t border-line py-2 first:border-t-0">
                 <span className="min-w-0 flex-1 truncate text-[13px]">{a.text}</span>
                 <small className="flex-none text-ink-3">{first(a.by)} · {fmtD(a.at)}</small>
               </div>
-            )) : <Empty>No announcements.</Empty>}
+            )) : <Empty>{t('No announcements.')}</Empty>}
           </div>
         </Card>
-        <Card title="Recently filed">
+        <Card title={t('Recently filed')}>
           <div className="flex flex-col">
             {rows.filter((x) => x.f.status === 'filed').slice(-5).reverse().map((x) => <FiledRow key={x.m.id} m={x.m} compact />)}
           </div>
@@ -138,7 +139,7 @@ function ChatDesk({ rows, check, rules, dms }) {
 function ChatsPage({ parts, q }) {
   const phone = usePhone();
   const [add, setAdd] = useState(false);
-  const start = svc.chatCreatable() ? <Btn sm icon="plus" onClick={() => setAdd(true)}>New</Btn> : null;
+  const start = svc.chatCreatable() ? <Btn sm icon="plus" onClick={() => setAdd(true)}>{t('New')}</Btn> : null;
   const starter = add && (
     <ChatStartDialog
       onClose={() => setAdd(false)}
@@ -149,7 +150,7 @@ function ChatsPage({ parts, q }) {
   const wanted = q.thread || parts[0] || '';
   useEffect(() => {
     if (!wanted) return;
-    if (!svc.thread(wanted)) { toast('That conversation is not available for your role.'); return; }
+    if (!svc.thread(wanted)) { toast(t('That conversation is not available for your role.')); return; }
     Object.assign(state.desk, { thread: wanted, chatList: false, chatHidden: false, hi: null });
     render();
   }, [wanted]);
@@ -186,11 +187,11 @@ function ChatsPage({ parts, q }) {
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title="Chats">{start}</PageHeader>
+      <PageHeader title={t('Chats')}>{start}</PageHeader>
       {starter}
       {desk.readStorageError && <p role="status" className="mb-3 rounded-r1 bg-warn-soft px-3.5 py-2.5 font-medium text-warn">{desk.readStorageError}</p>}
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(260px,34%)_minmax(0,1fr)] overflow-hidden rounded-r2 border border-line bg-surface max-[980px]:grid-cols-1">
-        <section aria-label="Conversation list" className={`flex min-h-0 min-w-0 flex-col ${hasConversation ? 'max-[980px]:hidden' : ''}`}>
+        <section aria-label={t('Conversation list')} className={`flex min-h-0 min-w-0 flex-col ${hasConversation ? 'max-[980px]:hidden' : ''}`}>
           <ConversationList threads={conversationThreads()} filterable />
         </section>
         <ChatView workspace />
@@ -203,13 +204,13 @@ function FilingPage() {
   const { rows, check, rules, dms } = filingRows();
   return (
     <>
-      <PageHeader title="AI filing review" sub="How the AI filed chat messages, and what still needs a person to check." />
+      <PageHeader title={t('AI filing review')} sub={t('How the AI filed chat messages, and what still needs a person to check.')} />
       <ChatDesk rows={rows} check={check} rules={rules} dms={dms} />
     </>
   );
 }
 function openThreadFromList(id) {
-  if (!svc.thread(id)) { toast('That conversation is not available for your role.'); return; }
+  if (!svc.thread(id)) { toast(t('That conversation is not available for your role.')); return; }
   Object.assign(state.desk, { thread: id, chatList: false, chatHidden: false, hi: null });
   render();
 }
@@ -218,13 +219,13 @@ function openThreadFromList(id) {
 function AttachmentDialog({ d }) {
   const m = accessibleMessage(d.msgId);
   const a = m && messageAttachment(m);
-  if (!a) return <Unavailable title="Attachment unavailable"><p>This attachment is no longer available for your role.</p></Unavailable>;
+  if (!a) return <Unavailable title={t('Attachment unavailable')}><p>{t('This attachment is no longer available for your role.')}</p></Unavailable>;
   return (
     <Modal title={a.title} wide>
       <p>{a.detail || ''}</p>
       <AttachmentPreview m={m} />
-      {a.newerId && <Btn onClick={() => openAttachment(a.newerId)}>Open newer copy</Btn>}
-      <ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions>
+      {a.newerId && <Btn onClick={() => openAttachment(a.newerId)}>{t('Open newer copy')}</Btn>}
+      <ModalActions><Btn onClick={closeDialog}>{t('Close')}</Btn></ModalActions>
     </Modal>
   );
 }
@@ -241,37 +242,37 @@ function FileDialog({ d }) {
     if (!saved) {
       state.desk.dialog.patch = p;
       render();
-      toast(state.storageError || 'Filing was not saved. Your choices are kept; try again.');
+      toast(state.storageError || t('Filing was not saved. Your choices are kept; try again.'));
       return;
     }
     state.desk.dialog = null;
     render();
-    toast('Filing saved. You can change it again from the message.');
+    toast(t('Filing saved. You can change it again from the message.'));
   };
   return (
-    <Modal title="Where should this go?">
+    <Modal title={t('Where should this go?')}>
       <form onSubmit={save}>
         <p className="mb-3 text-ink-3">{(m?.text || m?.link?.title || '').slice(0, 120)}</p>
-        <Field label="Project">
+        <Field label={t('Project')}>
           <Select name="projectId" defaultValue={f.projectId}>
             {state.db.PROJECTS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </Field>
-        <Field label="Room or area">
+        <Field label={t('Room or area')}>
           <Select name="room" defaultValue={f.room || ''}>
-            <option value="">Not room specific</option>
+            <option value="">{t('Not room specific')}</option>
             {ROOM_WORDS.map(([, r]) => <option key={r}>{r}</option>)}
           </Select>
         </Field>
-        <Field label="What is it">
+        <Field label={t('What is it')}>
           <Select name="kind" defaultValue={f.kind}>
             {Object.entries(FILE_KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </Select>
         </Field>
-        <Field label="Drawing number"><Input name="drawing" defaultValue={f.drawing || ''} placeholder="HA-2401-A-101" /></Field>
+        <Field label={t('Drawing number')}><Input name="drawing" defaultValue={f.drawing || ''} placeholder="HA-2401-A-101" /></Field>
         <ModalActions>
-          <Btn onClick={closeDialog}>Cancel</Btn>
-          <Btn kind="primary" type="submit">Save</Btn>
+          <Btn onClick={closeDialog}>{t('Cancel')}</Btn>
+          <Btn kind="primary" type="submit">{t('Save')}</Btn>
         </ModalActions>
       </form>
     </Modal>
@@ -283,16 +284,16 @@ function VideoCallDialog({ d }) {
     e.preventDefault();
     svc.startCall(d.threadId);
     state.desk.dialog = null;
-    toast('Call started.');
+    toast(t('Call started.'));
     render();
   };
   return (
-    <Modal title="Start video call">
+    <Modal title={t('Start video call')}>
       <form onSubmit={start}>
-        <p className="text-ink-3">Posts a Google Meet card into this chat.</p>
+        <p className="text-ink-3">{t('Posts a Google Meet card into this chat.')}</p>
         <ModalActions>
-          <Btn onClick={closeDialog}>Cancel</Btn>
-          <Btn kind="primary" type="submit">Start call</Btn>
+          <Btn onClick={closeDialog}>{t('Cancel')}</Btn>
+          <Btn kind="primary" type="submit">{t('Start call')}</Btn>
         </ModalActions>
       </form>
     </Modal>
@@ -305,14 +306,14 @@ function MediaDialog({ d }) {
   const data = svc.media(d.threadId)[tab] || {};
   const entries = Object.entries(data);
   return (
-    <Modal title="Media" wide>
+    <Modal title={t('Media')} wide>
       <div className="mb-3 flex flex-wrap gap-2">
         {MEDIA_KINDS.map((k) => (
           <ToggleChip
             key={k} on={k === tab}
             onClick={() => { if (state.desk.dialog?.kind === 'media') { state.desk.dialog.tab = k; render(); } }}
           >
-            {k}
+            {t(k)}
           </ToggleChip>
         ))}
       </div>
@@ -322,13 +323,13 @@ function MediaDialog({ d }) {
           <div className="flex flex-col gap-1.5">
             {msgs.map((m) => (
               <div key={m.id} className="min-h-11 rounded-r2 border border-line bg-surface px-3.5 py-2.5">
-                {m.text || m.file?.name || m.link?.title || (m.voice ? 'Voice note' : '')}
+                {m.text || m.file?.name || m.link?.title || (m.voice ? t('Voice note') : '')}
               </div>
             ))}
           </div>
         </div>
-      )) : <Empty>Nothing here yet.</Empty>}
-      <ModalActions><Btn onClick={closeDialog}>Close</Btn></ModalActions>
+      )) : <Empty>{t('Nothing here yet.')}</Empty>}
+      <ModalActions><Btn onClick={closeDialog}>{t('Close')}</Btn></ModalActions>
     </Modal>
   );
 }

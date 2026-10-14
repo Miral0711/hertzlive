@@ -55,8 +55,8 @@ export default function Projects() {
   return (
     <div className="screen">
       <header className="top">
-        <h1>{t('projects')}<span>Drawings, people and site work</span></h1>
-        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fprojects" aria-label="Profile">
+        <h1>{t('projects')}<span>{t('Drawings, people and site work')}</span></h1>
+        <Link className="icon-btn" to="/mobile/profile?from=%2Fmobile%2Fprojects" aria-label={t('Profile')}>
           <Avatar person={person} size="sm" />
         </Link>
       </header>
@@ -64,7 +64,7 @@ export default function Projects() {
         {list.length > 1 && (
           <label className="search project-search">
             <Icon name="search" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search projects" aria-label="Search projects" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('Search projects')} aria-label={t('Search projects')} />
           </label>
         )}
         {shown.map((p) => {
@@ -79,9 +79,9 @@ export default function Projects() {
                 <span className="project-line">{p.code}{p.city ? ` · ${p.city}` : ''}</span>
                 <span className="project-pills">
                   <span className="pill kind">{site ? site.stage : p.kind}</span>
-                  {can('drawing', 'r') && drawings.length ? <span className="pill">{drawings.length === 1 ? '1 drawing' : `${drawings.length} drawings`}</span> : null}
+                  {can('drawing', 'r') && drawings.length ? <span className="pill">{drawings.length === 1 ? t('1 drawing') : t('{0} drawings', drawings.length)}</span> : null}
                   {can('issue', 'r') ? (
-                    <span className={`pill${issues.length ? ' open' : ' ok'}`}>{issues.length ? `${issues.length} open` : 'Clear'}</span>
+                    <span className={`pill${issues.length ? ' open' : ' ok'}`}>{issues.length ? t('{0} open', issues.length) : t('Clear')}</span>
                   ) : null}
                 </span>
               </span>
@@ -89,11 +89,11 @@ export default function Projects() {
             </Link>
           );
         })}
-        {list.length > 0 && !shown.length && <div className="empty"><h3>No project matches</h3></div>}
-        {!list.length && <div className="empty"><h3>No projects for this login</h3><p>Your role only sees the work assigned to you.</p></div>}
+        {list.length > 0 && !shown.length && <div className="empty"><h3>{t('No project matches')}</h3></div>}
+        {!list.length && <div className="empty"><h3>{t('No projects for this login')}</h3><p>{t('Your role only sees the work assigned to you.')}</p></div>}
         <div className="proj-card">
-          <MenuLink to="/mobile/photos" icon="photos" title="All project photos" meta="Browse across your projects" />
-          {state.role === 'client' ? <MenuLink to="/mobile/portfolio" icon="photos" title="Studio portfolio" meta="Completed work" /> : null}
+          <MenuLink to="/mobile/photos" icon="photos" title={t('All project photos')} meta={t('Browse across your projects')} />
+          {state.role === 'client' ? <MenuLink to="/mobile/portfolio" icon="photos" title={t('Studio portfolio')} meta={t('Completed work')} /> : null}
         </div>
       </div>
     </div>
@@ -110,8 +110,8 @@ export function Project() {
   if (!project || !onPhone(project.id)) {
     return (
       <div className="screen">
-        <header className="top"><Link className="icon-btn" to="/mobile/projects"><Icon name="back" /><span>Projects</span></Link><h1>Project</h1></header>
-        <div className="empty"><h3>This project isn’t available</h3></div>
+        <header className="top"><Link className="icon-btn" to="/mobile/projects"><Icon name="back" /><span>{t('Projects')}</span></Link><h1>{t('Project')}</h1></header>
+        <div className="empty"><h3>{t('This project isn’t available')}</h3></div>
       </div>
     );
   }
@@ -135,33 +135,33 @@ export function Project() {
   const chatTo = (id) => `/mobile/chats/${id}?from=${encodeURIComponent(here)}`;
   const groups = [
     {
-      title: 'Work',
+      title: t('Work'),
       items: [
-        { to: `/mobile/photos?project=${project.id}`, icon: 'photos', title: 'Photos', meta: 'Filed site updates' },
-        can('drawing', 'r') && { to: `${here}/drawings`, icon: 'drawing', title: 'Drawings', meta: `${drawings.length} shared` },
-        can('material', 'r') && { to: `${here}/materials`, icon: 'sample', title: 'Materials', meta: waitingMats ? `${waitingMats} waiting on the client` : `${materials.length} shared`, tone: waitingMats ? 'wait' : '' },
-        { to: `${here}/changes`, icon: 'change', title: 'Changes', meta: changes.length ? `${changes.length} recorded` : 'Recorded' },
-        { to: `${here}/attention`, icon: 'warn', title: 'Needs you', meta: work.length ? `${work.length} open` : 'Nothing waiting', tone: work.length ? 'hot' : '' },
-        { to: `${here}/people`, icon: 'people', title: 'People', meta: 'Contacts' },
+        { to: `/mobile/photos?project=${project.id}`, icon: 'photos', title: t('Photos'), meta: t('Filed site updates') },
+        can('drawing', 'r') && { to: `${here}/drawings`, icon: 'drawing', title: t('Drawings'), meta: t('{0} shared', drawings.length) },
+        can('material', 'r') && { to: `${here}/materials`, icon: 'sample', title: t('Materials'), meta: waitingMats ? t('{0} waiting on the client', waitingMats) : t('{0} shared', materials.length), tone: waitingMats ? 'wait' : '' },
+        { to: `${here}/changes`, icon: 'change', title: t('Changes'), meta: changes.length ? t('{0} recorded', changes.length) : t('Recorded') },
+        { to: `${here}/attention`, icon: 'warn', title: t('Needs you'), meta: work.length ? t('{0} open', work.length) : t('Nothing waiting'), tone: work.length ? 'hot' : '' },
+        { to: `${here}/people`, icon: 'people', title: t('People'), meta: t('Contacts') },
       ].filter(Boolean),
     },
     {
-      title: 'Records',
+      title: t('Records'),
       items: [
-        can('drawing', 'r') && { to: `${here}/index`, icon: 'drawing', title: 'Drawing index', meta: `${indexCount} sheets` },
-        can('ref', 'r') && { to: `${here}/refs`, icon: 'star', title: 'References', meta: `${svc.clientRefs(project.id).length} saved` },
-        can('intake', 'r') && { to: `${here}/intake`, icon: 'check', title: 'Client data checklist', meta: `${svc.intake(project.id).length} items` },
-        can('share', 'r') && { to: `${here}/share`, icon: 'clip', title: 'Share a link', meta: 'Expiring web link' },
+        can('drawing', 'r') && { to: `${here}/index`, icon: 'drawing', title: t('Drawing index'), meta: t('{0} sheets', indexCount) },
+        can('ref', 'r') && { to: `${here}/refs`, icon: 'star', title: t('References'), meta: t('{0} saved', svc.clientRefs(project.id).length) },
+        can('intake', 'r') && { to: `${here}/intake`, icon: 'check', title: t('Client data checklist'), meta: t('{0} items', svc.intake(project.id).length) },
+        can('share', 'r') && { to: `${here}/share`, icon: 'clip', title: t('Share a link'), meta: t('Expiring web link') },
       ].filter(Boolean),
     },
     {
-      title: 'Studio',
+      title: t('Studio'),
       items: [
-        studio && { to: chatTo(studio.id), icon: 'chat', title: 'Studio chat', meta: 'The client never sees it' },
-        office && project.driveFolder && svc.connection('google') && { href: project.driveFolder, icon: 'folder', title: 'Drive archive', meta: 'Older folders' },
-        office && project.canvaDeck && svc.connection('canva') && { href: project.canvaDeck, icon: 'samples', title: 'Concept deck', meta: 'Opens in Canva' },
-        svc.assistKinds().includes('client') && threads.some((item) => item.kind === 'client') && { to: `${here}/assist?kind=client`, icon: 'send', title: 'Client update', meta: 'From this chat' },
-        svc.assistKinds().includes('concept') && { to: `${here}/assist?kind=concept`, icon: 'ai', title: 'Finish ideas', meta: 'From a photo' },
+        studio && { to: chatTo(studio.id), icon: 'chat', title: t('Studio chat'), meta: t('The client never sees it') },
+        office && project.driveFolder && svc.connection('google') && { href: project.driveFolder, icon: 'folder', title: t('Drive archive'), meta: t('Older folders') },
+        office && project.canvaDeck && svc.connection('canva') && { href: project.canvaDeck, icon: 'samples', title: t('Concept deck'), meta: t('Opens in Canva') },
+        svc.assistKinds().includes('client') && threads.some((item) => item.kind === 'client') && { to: `${here}/assist?kind=client`, icon: 'send', title: t('Client update'), meta: t('From this chat') },
+        svc.assistKinds().includes('concept') && { to: `${here}/assist?kind=concept`, icon: 'ai', title: t('Finish ideas'), meta: t('From a photo') },
       ].filter(Boolean),
     },
   ].filter((group) => group.items.length);
@@ -169,7 +169,7 @@ export function Project() {
   return (
     <div className="screen">
       <header className="top thread-top proj-top">
-        <Link className="icon-btn" to={backTo} aria-label={`Back to ${from ? backName(backTo) : 'projects'}`}>
+        <Link className="icon-btn" to={backTo} aria-label={t('Back to {0}', from ? backName(backTo) : t('projects'))}>
           <Icon name="back" />
         </Link>
         <div className="thread-heading">
@@ -184,15 +184,15 @@ export function Project() {
         </div>
         <div className="proj-stats">
           {can('drawing', 'r') && (
-            <div className="proj-stat"><b>{drawings.length}</b><span>{drawings.length === 1 ? 'Drawing' : 'Drawings'}</span></div>
+            <div className="proj-stat"><b>{drawings.length}</b><span>{drawings.length === 1 ? t('Drawing') : t('Drawings')}</span></div>
           )}
           {issueCount != null && (
-            <div className={`proj-stat${issueCount ? ' open' : ' ok'}`}><b>{issueCount || 'None'}</b><span>{issueCount ? 'Open issues' : 'Issues clear'}</span></div>
+            <div className={`proj-stat${issueCount ? ' open' : ' ok'}`}><b>{issueCount || t('None')}</b><span>{issueCount ? t('Open issues') : t('Issues clear')}</span></div>
           )}
           {due && (
             <div className={`proj-stat${late ? ' late' : ''}`}>
               <b>{fmtD(due.date)}</b>
-              <span>{late ? 'Overdue' : 'Next due'}</span>
+              <span>{late ? t('Overdue') : t('Next due')}</span>
             </div>
           )}
         </div>
@@ -200,8 +200,8 @@ export function Project() {
         {work.length > 0 && (
           <section className="proj-attention">
             <div className="section-head">
-              <h2>Needs you here</h2>
-              {work.length > 3 && <Link to={`/mobile/projects/${project.id}/attention`}>View all {work.length}</Link>}
+              <h2>{t('Needs you here')}</h2>
+              {work.length > 3 && <Link to={`/mobile/projects/${project.id}/attention`}>{t('View all {0}', work.length)}</Link>}
             </div>
             <div className="proj-card warm">
               {work.slice(0, 3).map((item) => <WorkRow key={item.key} item={item} onDone={finishTask} />)}
@@ -211,7 +211,7 @@ export function Project() {
         {postThread && can('thread', 'w') && (
           <Link className="proj-post" to={`/mobile/camera?thread=${postThread.id}&from=${encodeURIComponent(`/mobile/projects/${project.id}`)}`}>
             <span className="ic-well on-accent"><Icon name="camera" /></span>
-            <span><b>Post a site update</b><span>Photo, voice, delivery or attendance</span></span>
+            <span><b>{t('Post a site update')}</b><span>{t('Photo, voice, delivery or attendance')}</span></span>
           </Link>
         )}
         {groups.map((group) => (
@@ -231,8 +231,8 @@ export function Project() {
         {changes.length > 0 && (
           <section>
             <div className="section-head">
-              <h2>Recent changes</h2>
-              {changes.length > 2 && <Link to={`/mobile/projects/${project.id}/changes`}>View all {changes.length}</Link>}
+              <h2>{t('Recent changes')}</h2>
+              {changes.length > 2 && <Link to={`/mobile/projects/${project.id}/changes`}>{t('View all {0}', changes.length)}</Link>}
             </div>
             <div className="proj-card">
               {changes.slice(0, 2).map((u) => {
@@ -253,7 +253,7 @@ export function Project() {
           </section>
         )}
         <section id="conversations">
-          <h2>Conversations</h2>
+          <h2>{t('Conversations')}</h2>
           {threads.length ? (
             <div className="proj-card">
               {threads.map((thread) => (
@@ -264,20 +264,20 @@ export function Project() {
                 </Link>
               ))}
             </div>
-          ) : <p className="note">No conversations for you on this project.</p>}
+          ) : <p className="note">{t('No conversations for you on this project.')}</p>}
         </section>
         {site && can('site', 'r') && (
           <section>
-            <h2>Site</h2>
+            <h2>{t('Site')}</h2>
             <div className="proj-card">
               {siteChat ? (
                 <Link className="day-row" to={chatTo(siteChat.id)}>
                   <div>
                     <b>{site.name}</b>
                     <span>{site.stage}{site.address || site.location ? ` · ${site.address || site.location}` : ''}</span>
-                    {issueCount != null && <span>{issueCount ? `${issueCount} open` : 'No open issues'}</span>}
-                    {lastFeed && <span>Last update {fmtD(lastFeed.at)} · {firstName(lastFeed.by)}</span>}
-                    {site.managerId && <span>Site manager {firstName(site.managerId)}</span>}
+                    {issueCount != null && <span>{issueCount ? t('{0} open', issueCount) : t('No open issues')}</span>}
+                    {lastFeed && <span>{t('Last update {0} · {1}', fmtD(lastFeed.at), firstName(lastFeed.by))}</span>}
+                    {site.managerId && <span>{t('Site manager {0}', firstName(site.managerId))}</span>}
                   </div>
                 </Link>
               ) : (
@@ -285,8 +285,8 @@ export function Project() {
                   <div>
                     <b>{site.name}</b>
                     <span>{site.stage}</span>
-                    {issueCount != null && <span>{issueCount ? `${issueCount} open` : 'No open issues'}</span>}
-                    {lastFeed && <span>Last update {fmtD(lastFeed.at)} · {firstName(lastFeed.by)}</span>}
+                    {issueCount != null && <span>{issueCount ? t('{0} open', issueCount) : t('No open issues')}</span>}
+                    {lastFeed && <span>{t('Last update {0} · {1}', fmtD(lastFeed.at), firstName(lastFeed.by))}</span>}
                   </div>
                 </div>
               )}
@@ -296,7 +296,7 @@ export function Project() {
         {svc.assistKinds().includes('ask') && (
           <Link className="proj-ask" to={`/mobile/projects/${project.id}/assist?kind=ask`}>
             <span className="ic-well"><Icon name="ai" /></span>
-            <span className="proj-row-copy"><b>Ask about this project</b><span>Answers from shared records</span></span>
+            <span className="proj-row-copy"><b>{t('Ask about this project')}</b><span>{t('Answers from shared records')}</span></span>
           </Link>
         )}
       </div>
@@ -313,48 +313,48 @@ export function Drawings() {
   return (
     <div className="screen">
       <header className="top thread-top proj-top">
-        <Link className="icon-btn" to={`/mobile/projects/${projectId}`} aria-label="Back to project">
+        <Link className="icon-btn" to={`/mobile/projects/${projectId}`} aria-label={t('Back to project')}>
           <Icon name="back" />
         </Link>
         <div className="thread-heading">
-          <h1>Drawings</h1>
+          <h1>{t('Drawings')}</h1>
           <span>{project?.name}</span>
         </div>
       </header>
       <div className="body canvas proj proj-board">
-        {!allowed && <div className="empty"><h3>Drawings aren’t available for this login</h3></div>}
-        {allowed && <p className="note">Check the revision and purpose before anyone builds from it.</p>}
+        {!allowed && <div className="empty"><h3>{t('Drawings aren’t available for this login')}</h3></div>}
+        {allowed && <p className="note">{t('Check the revision and purpose before anyone builds from it.')}</p>}
         {allowed && ['saved', 'recent'].map((kind) => {
           const quick = phoneDrawings(projectId, kind).slice(0, kind === 'saved' ? 100 : 3);
           if (!quick.length) return null;
           return (
             <section key={kind}>
-              <h2>{kind === 'saved' ? 'Saved by you' : 'Recently opened'}</h2>
+              <h2>{kind === 'saved' ? t('Saved by you') : t('Recently opened')}</h2>
               {quick.map((x) => (
                 <Link key={x.no} className="drawing" to={`/mobile/projects/${projectId}/drawings/${encodeURIComponent(x.no)}`}>
                   <span className="rev">{x.d.rev}</span>
                   <div>
                     <b>{x.d.name}</b>
                     <span>{x.d.rev} · {x.d.status}</span>
-                    {x.rev !== x.d.rev && <em className="revision-change">Register changed since {x.rev}. Review before use.</em>}
+                    {x.rev !== x.d.rev && <em className="revision-change">{t('Register changed since {0}. Review before use.', x.rev)}</em>}
                   </div>
                 </Link>
               ))}
             </section>
           );
         })}
-        {allowed && drawings.length > 0 && <h2>All drawings</h2>}
+        {allowed && drawings.length > 0 && <h2>{t('All drawings')}</h2>}
         {drawings.map((d) => (
           <Link key={d.no} className="drawing" to={`/mobile/projects/${projectId}/drawings/${encodeURIComponent(d.no)}`}>
             <span className="rev">{d.rev}</span>
             <div>
               <b>{d.name}</b>
               <span>{d.no}</span>
-              <em className={d.status === 'Issued for construction' ? 'issued' : ''}>{d.status || 'Purpose not recorded'}</em>
+              <em className={d.status === 'Issued for construction' ? 'issued' : ''}>{d.status || t('Purpose not recorded')}</em>
             </div>
           </Link>
         ))}
-        {allowed && !drawings.length && <div className="empty"><h3>No drawings shared</h3></div>}
+        {allowed && !drawings.length && <div className="empty"><h3>{t('No drawings shared')}</h3></div>}
       </div>
     </div>
   );

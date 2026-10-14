@@ -1,5 +1,6 @@
 import { Photo } from '../../ui/Ph.jsx';
 import { messageAttachment } from '../../shared/core.js';
+import { t } from '../../shared/i18n';
 
 // Photo slot for chat media (real bundled photo, canvas fallback).
 export function Ph({ hue, seed, ar = 1.333, className = '' }) {
@@ -16,12 +17,12 @@ export function AttachmentPreview({ m }) {
   if (!a) return null;
   if (m.file) {
     if (!m.file.dataUrl) {
-      return <p className="my-2 rounded-r1 bg-surface-2 p-3 text-ink-2">File preview unavailable in this prototype. The original file is not attached.</p>;
+      return <p className="my-2 rounded-r1 bg-surface-2 p-3 text-ink-2">{t('File preview unavailable in this prototype. The original file is not attached.')}</p>;
     }
     return (
       <div className="my-2 flex flex-col gap-2 rounded-r1 bg-surface-2 p-3">
         {m.file.mime?.startsWith('image/') && <img src={m.file.dataUrl} alt="" className="max-h-72 rounded-r1 object-contain" />}
-        <a href={m.file.dataUrl} download={m.file.name} className="text-accent-text underline">Download {m.file.name}</a>
+        <a href={m.file.dataUrl} download={m.file.name} className="text-accent-text underline">{t('Download {0}', m.file.name)}</a>
       </div>
     );
   }
@@ -35,7 +36,7 @@ export function AttachmentPreview({ m }) {
         ))}
       </div>
       <p className="text-ink-3">
-        Demo image{m.album ? 's' : ''}{m.album && m.album.n > 4 ? ' · first 4 shown' : ''}; original media is not attached.
+        {(m.album ? t('Demo images') : t('Demo image')) + (m.album && m.album.n > 4 ? ` · ${t('first 4 shown')}` : '')}; {t('original media is not attached.')}
       </p>
     </>
   );

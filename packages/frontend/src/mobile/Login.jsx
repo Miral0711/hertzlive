@@ -7,6 +7,7 @@ import { applyAgencyTheme } from '../shared/core';
 import { Select } from '../ui/ui';
 import { state } from './model';
 import './mobile.css';
+import { t } from '../shared/i18n';
 
 function nextPath(from) {
   const path = from?.pathname || '';
@@ -52,7 +53,7 @@ export default function MobileLogin() {
       hydrateSessionIntoState(session);
       navigate(next, { replace: true });
     } catch (err) {
-      setError(err.message || 'Unable to sign in.');
+      setError(t(err.message) || t('Unable to sign in.'));
     } finally {
       setPending(false);
     }
@@ -73,13 +74,13 @@ export default function MobileLogin() {
         <div className="login-scroll relative flex min-h-0 flex-1 flex-col justify-center overflow-y-auto px-5 py-8">
           <div className="mb-6">
             <b className="block font-serif text-[22px] font-semibold uppercase leading-none tracking-[0.16em]">Hertz</b>
-            <span className="mt-1.5 block text-[11px] uppercase tracking-[0.14em] opacity-70">Studio</span>
-            <p className="m-0 mt-5 max-w-[15rem] font-serif text-[26px] font-medium leading-[1.15]">Design, site and studio in one place.</p>
+            <span className="mt-1.5 block text-[11px] uppercase tracking-[0.14em] opacity-70">{t('Studio')}</span>
+            <p className="m-0 mt-5 max-w-[15rem] font-serif text-[26px] font-medium leading-[1.15]">{t('Design, site and studio in one place.')}</p>
           </div>
 
           <form onSubmit={onSubmit} className="rounded-r3 bg-surface px-5 pb-5 pt-6 text-ink shadow-s2">
-            <h2 className="m-0 mb-1 text-[26px] leading-tight">Welcome back</h2>
-            <p className="m-0 mb-5 text-sm text-ink-3">Sign in to continue to Hertz Studio.</p>
+            <h2 className="m-0 mb-1 text-[26px] leading-tight">{t('Welcome back')}</h2>
+            <p className="m-0 mb-5 text-sm text-ink-3">{t('Sign in to continue to Hertz Studio.')}</p>
 
             {error && (
               <div role="alert" className="mb-4 rounded-r1 bg-warn-soft px-3.5 py-2.5 text-sm font-medium text-warn">
@@ -88,7 +89,7 @@ export default function MobileLogin() {
             )}
 
             <label htmlFor="mobile-login-account" className="mb-4 block text-[13px] font-semibold text-ink-2">
-              Account
+              {t('Account')}
               <Select id="mobile-login-account" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 w-full font-normal">
                 {DEMO_ACCOUNTS.map((a) => (
                   <option key={a.personaId} value={a.email}>{a.label}</option>
@@ -97,7 +98,7 @@ export default function MobileLogin() {
             </label>
 
             <label htmlFor="mobile-login-password" className="mb-5 block text-[13px] font-semibold text-ink-2">
-              Password
+              {t('Password')}
               <input
                 id="mobile-login-password"
                 type="password"
@@ -114,11 +115,11 @@ export default function MobileLogin() {
               disabled={pending}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-r2 bg-accent px-3.5 font-semibold text-accent-ink hover:opacity-90 disabled:opacity-60"
             >
-              {pending ? 'Signing in…' : 'Sign in'}
+              {pending ? t('Signing in…') : t('Sign in')}
             </button>
 
             <p className="mb-0 mt-4 text-center text-xs text-ink-3">
-              Prototype login · demo accounts, password &quot;password&quot;
+              {t('Prototype login · demo accounts, password "password"')}
             </p>
           </form>
         </div>

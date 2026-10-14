@@ -1,6 +1,7 @@
 import { useStore } from '../shared/store';
 import { photoUrl } from '../ui/Ph';
 import { projectOf, state, user } from './model';
+import { t } from '../shared/i18n';
 
 const LOOKS = [
   { bg: '#d5e4ee', skin: '#f3c7a6', hair: '#2b2118', shirt: '#16587b', cut: 'short' },
@@ -96,13 +97,13 @@ export function GroupPhotoInput({ onPick, onError, children, className = '' }) {
         hidden
         type="file"
         accept="image/*"
-        aria-label="Work group photo"
+        aria-label={t('Work group photo')}
         onChange={async (e) => {
           const file = e.target.files?.[0];
           e.target.value = '';
           if (!file) return;
           try { onPick(await readGroupPhoto(file)); }
-          catch (err) { onError?.(err.message || 'Could not read that photo.'); }
+          catch (err) { onError?.(t(err.message || t('Could not read that photo.'))); }
         }}
       />
       {children}

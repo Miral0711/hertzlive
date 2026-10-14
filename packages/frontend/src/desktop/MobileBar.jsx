@@ -1,3 +1,4 @@
+import { t } from '../shared/i18n';
 import Icon from '../ui/Icon';
 import { DLink } from './nav';
 import { NAV, navFor, role } from './helpers';
@@ -40,7 +41,7 @@ export default function MobileBar({ page, moreOpen, onMore }) {
                 </span>
               )}
             </span>
-            <span className="max-w-full truncate">{label[k]}</span>
+            <span className="max-w-full truncate">{t(label[k])}</span>
           </DLink>
         ))}
         <button type="button" aria-expanded={moreOpen} aria-controls="module-nav" onClick={onMore} className={`${tabCls(moreOpen)} border-0 bg-transparent`}>
